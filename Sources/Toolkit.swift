@@ -68,7 +68,7 @@ enum ToolKind: String, CaseIterable, Identifiable {
         autoHide = store.bool(forKey: "autoHide"); showRunning = store.object(forKey: "showRunning") as? Bool ?? true
         edge = store.string(forKey: "edge") ?? "Bottom"; screenIndex = store.integer(forKey: "screenIndex")
         sampleSystem()
-        tick = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in Task { @MainActor in self?.tickNow() } }
+        tick = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in Task { @MainActor [weak self] in self?.tickNow() } }
     }
     deinit { tick?.invalidate() }
     private static func decode<T: Decodable>(_ type: T.Type, store: UserDefaults, key: String) -> T? {

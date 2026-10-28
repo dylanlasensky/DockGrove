@@ -52,11 +52,11 @@ struct DockApp: Identifiable, Equatable {
         }
         for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification] {
             observations.append(NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                Task { @MainActor in self?.objectWillChange.send() }
+                Task { @MainActor [weak self] in self?.objectWillChange.send() }
             })
         }
         timer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
-            Task { @MainActor in if self?.usageEnabled == true { self?.refreshUsage() } }
+            Task { @MainActor [weak self] in if self?.usageEnabled == true { self?.refreshUsage() } }
         }
         if usageEnabled { refreshUsage() }
     }
@@ -140,7 +140,7 @@ struct DockApp: Identifiable, Equatable {
         let custom = customCLI
         DispatchQueue.global(qos: .utility).async { [weak self] in
             let result = Result { try UsageClient.fetch(custom: custom) }
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 self.fetching = false
                 switch result {
