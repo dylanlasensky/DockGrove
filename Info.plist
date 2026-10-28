@@ -7,11 +7,13 @@
 <key>CFBundleName</key><string>WaveDock</string>
 <key>CFBundleDisplayName</key><string>WaveDock</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.2.0</string>
-<key>CFBundleVersion</key><string>2</string>
+<key>CFBundleShortVersionString</key><string>0.5.0</string>
+<key>CFBundleVersion</key><string>5</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>
 <key>NSCalendarsFullAccessUsageDescription</key><string>Show your upcoming calendar events in the WaveDock calendar widget.</string>
 <key>NSAppleEventsUsageDescription</key><string>Control playback and show the current track from your chosen music player.</string>
+<key>NSRemindersFullAccessUsageDescription</key><string>View and complete reminders you choose in WaveDock.</string>
+<key>NSMicrophoneUsageDescription</key><string>Record voice memos only when you press Record. Audio stays on this Mac.</string>
 </dict></plist>

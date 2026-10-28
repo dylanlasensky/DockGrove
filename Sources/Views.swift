@@ -10,40 +10,61 @@ final class TileInteraction: ObservableObject {
 
 struct DockView: View {
     @ObservedObject var model: DockModel
+    @State private var page = 0
+    var entries: [DockEntry] {
+        model.apps.map(DockEntry.app) + model.runningApps.map(DockEntry.app) + [.add, .usage] +
+        model.toolkit.enabled.compactMap(ToolKind.init(rawValue:)).map(DockEntry.tool) + (model.showClock ? [.clock] : [])
+    }
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 15) {
-            HStack(spacing: 9) {
-                ForEach(model.apps) { app in AppTile(app: app, model: model) }
-                ForEach(model.runningApps) { app in AppTile(app: app, model: model) }
-                Button(action: model.addApps) {
-                    Image(systemName: "plus").font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.55)).frame(width: 28, height: model.iconSize)
-                }.buttonStyle(.plain).help("Pin an app")
-            }.frame(height: model.iconSize + 14)
-            Rectangle().fill(.white.opacity(0.13)).frame(width: 1, height: 42)
-            UsageTile(model: model)
-            ForEach(model.toolkit.enabled.compactMap(ToolKind.init(rawValue:))) { kind in ToolTile(kind: kind, model: model, kit: model.toolkit) }
-            if model.showClock {
-                Rectangle().fill(.white.opacity(0.13)).frame(width: 1, height: 42)
-                TimelineView(.periodic(from: .now, by: 30)) { context in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(context.date, format: .dateTime.hour().minute()).font(.system(size: 22, weight: .medium, design: .rounded)).monospacedDigit()
-                        Text(context.date, format: .dateTime.weekday(.abbreviated).month(.abbreviated).day()).font(.system(size: 10)).foregroundStyle(.white.opacity(0.5))
-                    }.frame(minWidth: 77, alignment: .leading)
+        let screen = NSScreen.screens.isEmpty ? nil : NSScreen.screens[min(max(0, model.toolkit.screenIndex), NSScreen.screens.count - 1)]
+        let widths = entries.map { $0.width(iconSize: model.iconSize, rich: model.toolkit.richWidgets) }
+        let natural = widths.reduce(0, +) + Double(max(0, widths.count - 1)) * DockPageLayout.gap
+        let width = DockPageLayout.bodyWidth(screenWidth: screen?.frame.width ?? 1440, naturalWidth: natural)
+        let pages = DockPageLayout.pages(widths: widths, available: width - DockPageLayout.chrome)
+        let current = min(page, pages.count - 1)
+        HStack(spacing: 8) {
+            Button { page = max(0, current - 1) } label: { Image(systemName: "chevron.left").frame(width: 24, height: 46) }
+                .disabled(current == 0).help("Previous Dock page").accessibilityLabel("Previous Dock page")
+            HStack(spacing: DockPageLayout.gap) {
+                ForEach(pages[current], id: \.self) { i in
+                    entry(entries[i]).frame(width: widths[i], height: max(64, model.iconSize + 20))
                 }
+                Spacer(minLength: 0)
+            }.frame(width: max(1, width - DockPageLayout.chrome), height: max(64, model.iconSize + 20)).clipped()
+            VStack(spacing: 3) {
+                Button { page = min(pages.count - 1, current + 1) } label: { Image(systemName: "chevron.right").frame(width: 24, height: 26) }
+                    .disabled(current == pages.count - 1).help("Next Dock page").accessibilityLabel("Next Dock page")
+                Text("\(current + 1)/\(pages.count)").font(.system(size: 9)).monospacedDigit().foregroundStyle(.secondary)
+            }.frame(width: 32)
+            Button { model.settingsAction?() } label: { Image(systemName: "slider.horizontal.3").frame(width: 26, height: 46) }
+                .help("WaveDock settings").accessibilityLabel("WaveDock settings")
+        }
+        .buttonStyle(.plain).padding(.horizontal, 16).padding(.vertical, 10)
+        .frame(width: width, height: max(64, model.iconSize + 20) + 24)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 27, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 27).stroke(.white.opacity(0.2), lineWidth: 0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 27))
+        .padding(.horizontal, 12).padding(.top, 16).padding(.bottom, 4)
+        .foregroundStyle(.white).preferredColorScheme(.dark)
+        .onChange(of: entries.map(\.id)) { page = min(page, pages.count - 1) }
+    }
+    @ViewBuilder private func entry(_ item: DockEntry) -> some View {
+        switch item {
+        case .app(let app): AppTile(app: app, model: model)
+        case .add: Button(action: model.addApps) { Image(systemName: "plus").frame(width: 28, height: model.iconSize) }.help("Pin an app")
+        case .usage: UsageTile(model: model)
+        case .tool(let kind):
+            if kind == .spacer { Color.clear }
+            else if kind == .separator { Divider().frame(height: 40) }
+            else { ToolTile(kind: kind, model: model, kit: model.toolkit) }
+        case .clock:
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(context.date, format: .dateTime.hour().minute()).font(.system(size: 20, weight: .medium, design: .rounded)).monospacedDigit()
+                    Text(context.date, format: .dateTime.weekday(.abbreviated).month(.abbreviated).day()).font(.system(size: 10)).foregroundStyle(.secondary)
+                }.padding(.horizontal, 14).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading).modifier(WidgetSurface()).lineLimit(1).minimumScaleFactor(0.75)
             }
-            Button { model.settingsAction?() } label: {
-                Image(systemName: "slider.horizontal.3").font(.system(size: 15)).foregroundStyle(.white.opacity(0.6)).frame(width: 24, height: 36)
-            }.buttonStyle(.plain).help("WaveDock settings")
-        }.padding(.horizontal, 20).padding(.vertical, 13) }
-        .frame(width: min((NSScreen.screens.indices.contains(model.toolkit.screenIndex) ? NSScreen.screens[model.toolkit.screenIndex].frame.width : (NSScreen.main?.frame.width ?? 1440)) - 48, 450 + Double(model.apps.count + model.runningApps.count) * (model.iconSize + 9) + Double(model.toolkit.enabled.count) * 87), height: model.iconSize + 52)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 25, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 25, style: .continuous).stroke(.white.opacity(0.20), lineWidth: 0.7))
-        .shadow(color: .black.opacity(0.3), radius: 18, y: 7)
-        .padding(24)
-        .foregroundStyle(.white)
-        .preferredColorScheme(.dark)
-        .fixedSize()
+        }
     }
 }
 
@@ -74,6 +95,9 @@ struct AppTile: View {
             Divider()
             if model.apps.contains(app) { Button("Unpin") { model.remove(app) } }
             else { Button("Pin to Dock") { model.pin(app) } }
+            if let running = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL == app.url }) {
+                Button(running.isHidden ? "Show app" : "Hide app") { if running.isHidden { running.unhide() } else { running.hide() } }
+            }
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([app.url]) }
             Button("Quit app") { NSWorkspace.shared.runningApplications.first { $0.bundleURL == app.url }?.terminate() }.disabled(!app.isRunning)
         }
@@ -104,7 +128,7 @@ struct UsageTile: View {
                         Image(systemName: "arrow.up.right").font(.system(size: 10))
                     }.foregroundStyle(.white.opacity(0.65))
                 }
-            }.frame(width: 177, height: max(48, model.iconSize), alignment: .center)
+            }.padding(.horizontal, model.toolkit.richWidgets ? 12 : 0).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center).modifier(WidgetSurface())
         }.buttonStyle(.plain)
         .popover(isPresented: $interaction.expanded, arrowEdge: model.toolkit.edge == "Top" ? .bottom : .top) { UsageDetails(model: model).padding(22).frame(width: 335).preferredColorScheme(.dark) }
     }
@@ -178,15 +202,14 @@ struct SettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 HStack(spacing: 13) {
-                    Image(systemName: "water.waves").font(.system(size: 30, weight: .medium)).foregroundStyle(model.color)
-                        .frame(width: 58, height: 58).background(model.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 17))
+                    BrandIcon().frame(width: 58, height: 58)
                     VStack(alignment: .leading, spacing: 3) {
                         Text("WaveDock").font(.system(size: 27, weight: .bold, design: .rounded))
-                        Text("Your apps. Your usage. Your Dock.").font(.callout).foregroundStyle(.secondary)
+                        Text("A calmer space for everything you do.").font(.callout).foregroundStyle(.secondary)
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 8) {
-                        Text("EARLY ACCESS 0.2").font(.system(size: 9, weight: .bold)).tracking(1).foregroundStyle(.secondary)
+                        Text("VERSION 0.5 · PREVIEW").font(.system(size: 9, weight: .bold)).tracking(1).foregroundStyle(.secondary)
                         Button("Done") { model.closeSettingsAction?() }
                     }
                 }
@@ -196,7 +219,20 @@ struct SettingsView: View {
                         Slider(value: $model.iconSize, in: 32...64, step: 2).frame(width: 210)
                         Text("\(Int(model.iconSize))").monospacedDigit().foregroundStyle(.secondary)
                     }
-                    Picker("Accent", selection: $model.accent) { ForEach(["Mint", "Blue", "Lilac", "Coral"], id: \.self) { Text($0) } }.pickerStyle(.segmented)
+                    HStack {
+                        Text("Accent")
+                        Spacer()
+                        ForEach(AccentPalette.names, id: \.self) { name in
+                            Button { model.accent = name } label: {
+                                Circle().fill(AccentPalette.color(name)).frame(width: 22, height: 22)
+                                    .overlay { if name == "None" { Image(systemName: "slash.circle").foregroundStyle(.black) } }
+                                    .padding(3).overlay(Circle().stroke(model.accent == name ? Color.primary : .clear, lineWidth: 1.5))
+                            }.buttonStyle(.plain).help(name).accessibilityLabel(name + " accent")
+                        }
+                        ColorPicker("Custom", selection: Binding(get: { model.color }, set: { model.accent = AccentPalette.hex($0) }), supportsOpacity: false).labelsHidden().help("Choose any accent color")
+                    }
+                    Text(model.accent == "None" ? "Neutral controls with no colored accent." : "Accent: " + model.accent).font(.caption).foregroundStyle(.secondary)
+                    Toggle("Rich widget cards", isOn: Binding(get: { model.toolkit.richWidgets }, set: { model.toolkit.richWidgets = $0 }))
                     Toggle("Show clock and date", isOn: $model.showClock)
                     HStack {
                         Button("Pin apps…", action: model.addApps)
@@ -206,7 +242,7 @@ struct SettingsView: View {
                 WorkspaceSettings(model: model, kit: model.toolkit)
                 card("Your Mac Dock", icon: "dock.rectangle") {
                     Toggle("Use WaveDock as my Dock", isOn: Binding(get: { model.replacingDock }, set: { model.changeDockAction?($0) }))
-                    Text("Turns on auto-hide for Apple's Dock while WaveDock runs. Your original setting returns when you quit. Apple's Dock remains reachable at the screen edge.")
+                    Text("Replaces Apple’s Dock at the bottom edge while WaveDock runs. Hides during full screen and restores your original Dock preferences when you quit.")
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     if let error = model.systemError { Text(error).font(.caption).foregroundStyle(.orange) }
                     HStack {
@@ -231,7 +267,7 @@ struct SettingsView: View {
                     if let error = model.usageError { Text(error).font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true) }
                 }
                 HStack {
-                    Text("Made for Dylan · Free, local, and yours to edit.").font(.caption).foregroundStyle(.secondary)
+                    Text("WaveDock · Thoughtfully at hand.").font(.caption).foregroundStyle(.secondary)
                     Spacer()
                     Button("Quit WaveDock") { NSApp.terminate(nil) }
                 }

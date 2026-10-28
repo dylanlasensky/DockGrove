@@ -37,9 +37,9 @@ struct DockApp: Identifiable, Equatable {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         toolkit = Toolkit(store: defaults)
-        defaults.register(defaults: ["iconSize": 48.0, "accent": "Mint", "showClock": true, "usageEnabled": false])
+        defaults.register(defaults: ["iconSize": 48.0, "accent": "White", "showClock": true, "usageEnabled": false])
         iconSize = defaults.double(forKey: "iconSize")
-        accent = defaults.string(forKey: "accent") ?? "Mint"
+        accent = defaults.string(forKey: "accent") ?? "White"
         showClock = defaults.bool(forKey: "showClock")
         usageEnabled = defaults.bool(forKey: "usageEnabled")
         customCLI = defaults.string(forKey: "customCLI") ?? ""
@@ -66,12 +66,8 @@ struct DockApp: Identifiable, Equatable {
         for observation in observations { NSWorkspace.shared.notificationCenter.removeObserver(observation) }
     }
 
-    var color: Color {
-        switch accent { case "Blue": return Color(red: 0.35, green: 0.65, blue: 1)
-        case "Lilac": return Color(red: 0.75, green: 0.60, blue: 1)
-        case "Coral": return Color(red: 1, green: 0.57, blue: 0.47)
-        default: return Color(red: 0.39, green: 0.91, blue: 0.74) }
-    }
+    var dockHeight: Double { max(64, iconSize + 20) + 44 }
+    var color: Color { AccentPalette.color(accent) }
     var activeBucket: LimitBucket? { usage?.buckets.first { $0.0 == selectedBucket }?.1 ?? usage?.buckets.first?.1 }
     func persistApps() { defaults.set(apps.map(\.id), forKey: "apps") }
     func open(_ app: DockApp) {
@@ -108,9 +104,10 @@ struct DockApp: Identifiable, Equatable {
     func saveProfile() {
         let name = toolkit.profileName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
-        toolkit.profiles.append(DockProfile(name: name, apps: apps.map(\.id), widgets: toolkit.enabled, accent: accent, size: iconSize)); toolkit.profileName = ""
+        toolkit.profiles.append(DockProfile(name: name, apps: apps.map(\.id), widgets: toolkit.enabled, accent: accent, size: iconSize, richWidgets: toolkit.richWidgets)); toolkit.profileName = ""
     }
     func applyProfile(_ profile: DockProfile) {
+        if let rich = profile.richWidgets { toolkit.richWidgets = rich }
         var seen = Set<String>()
         apps = profile.apps.filter { seen.insert($0).inserted && FileManager.default.fileExists(atPath: $0) && $0.hasSuffix(".app") }.map { DockApp(url: URL(fileURLWithPath: $0)) }
         seen.removeAll()
@@ -149,42 +146,5 @@ struct DockApp: Identifiable, Equatable {
                 }
             }
         }
-    }
-}
-
-// Recovery data is committed before a Dock change. Relaunch repairs an interrupted session.
-enum SystemDock {
-    private static let backupKey = "originalDockAutohide"
-    static func read() -> Bool? {
-        guard let (code, output) = try? run("/usr/bin/defaults", ["read", "com.apple.dock", "autohide"]), code == 0 else { return nil }
-        return output.trimmingCharacters(in: .whitespacesAndNewlines) == "1"
-    }
-    static func hide() throws {
-        let defaults = UserDefaults.standard
-        if defaults.object(forKey: backupKey) == nil {
-            defaults.set(read().map { $0 ? "true" : "false" } ?? "missing", forKey: backupKey)
-            defaults.synchronize()
-        }
-        guard try run("/usr/bin/defaults", ["write", "com.apple.dock", "autohide", "-bool", "true"]).0 == 0 else { throw UsageError.service }
-        _ = try run("/usr/bin/killall", ["Dock"])
-    }
-    static func restore() throws {
-        let defaults = UserDefaults.standard
-        guard let original = defaults.string(forKey: backupKey) else { return }
-        let args = original == "missing" ? ["delete", "com.apple.dock", "autohide"] : ["write", "com.apple.dock", "autohide", "-bool", original]
-        let result = try run("/usr/bin/defaults", args)
-        guard result.0 == 0 || (original == "missing" && read() == nil) else { throw UsageError.service }
-        _ = try run("/usr/bin/killall", ["Dock"])
-        defaults.removeObject(forKey: backupKey)
-        defaults.synchronize()
-    }
-    @discardableResult private static func run(_ path: String, _ args: [String]) throws -> (Int32, String) {
-        let process = Process(), pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: path)
-        process.arguments = args; process.standardOutput = pipe; process.standardError = FileHandle.nullDevice
-        try process.run()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        process.waitUntilExit()
-        return (process.terminationStatus, String(data: data, encoding: .utf8) ?? "")
     }
 }

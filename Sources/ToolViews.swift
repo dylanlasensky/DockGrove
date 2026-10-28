@@ -9,8 +9,11 @@ struct ToolTile: View {
     @StateObject private var interaction = TileInteraction()
     var caption: String {
         switch kind {
+        case .github: return kit.github.snapshot?.run?.displayStatus ?? "GitHub"
+        case .water: return kit.utilities.waterDue ? "Water break" : "\(kit.utilities.water)/\(kit.utilities.waterGoal) glasses"
+        case .habits: return "\(kit.utilities.habits.filter { $0.completedDays.contains(Habit.day(Date())) }.count) done today"
         case .weather: return kit.weatherText
-        case .music: return kit.musicConnected ? kit.musicTitle : "Music"
+        case .music: return "Music"
         case .focus: return kit.focusFinished ? "Complete" : kit.timerText
         case .tasks: return "\(kit.tasks.filter { !$0.done }.count) to do"
         case .files: return "\(kit.files.count) items"
@@ -19,22 +22,50 @@ struct ToolTile: View {
         }
     }
     var body: some View {
-        Button { interaction.expanded.toggle(); if kind == .search { kit.scanApplications() } } label: {
-            VStack(spacing: 5) {
-                Image(systemName: kind.icon).font(.system(size: 20, weight: .medium)).foregroundStyle(model.color)
-                Text(caption).font(.system(size: 10, weight: .medium)).lineLimit(1).monospacedDigit()
-            }.frame(width: 72, height: max(48, model.iconSize))
-                .background(model.color.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
-        }.buttonStyle(.plain).help(kind.title)
+        Group {
+            if kit.richWidgets {
+                RichWidgetCard(kind: kind, model: model, kit: kit) { interaction.expanded.toggle(); if kind == .search { kit.scanApplications() } }
+            } else {
+                Button { interaction.expanded.toggle(); if kind == .search { kit.scanApplications() } } label: {
+                    VStack(spacing: 5) {
+                        Image(systemName: kind.icon).font(.system(size: 20, weight: .medium)).foregroundStyle(model.color)
+                        Text(caption).font(.system(size: 10, weight: .medium)).lineLimit(1).monospacedDigit()
+                    }.frame(width: 72, height: max(48, model.iconSize)).modifier(WidgetSurface(radius: 12))
+                }.buttonStyle(.plain).help(kind.title)
+            }
+        }
+        .contextMenu {
+            Button("Move earlier") { kit.moveWidget(kind, by: -1) }
+            Button("Move later") { kit.moveWidget(kind, by: 1) }
+            Divider()
+            Button("Remove widget") { kit.toggle(kind, false) }
+        }
         .popover(isPresented: $interaction.expanded, arrowEdge: kit.edge == "Top" ? .bottom : .top) {
             VStack(alignment: .leading, spacing: 15) {
-                Label(kind.title, systemImage: kind.icon).font(.title3.bold()).foregroundStyle(model.color)
+                HStack { Label(kind.title, systemImage: kind.icon).font(.headline); Spacer(); WaveMark().stroke(model.color.opacity(0.6), style: StrokeStyle(lineWidth: 1.8, lineCap: .round)).frame(width: 23, height: 23) }
+                Divider()
                 contents
             }.padding(22).frame(width: 350).preferredColorScheme(.dark)
         }
     }
     @ViewBuilder var contents: some View {
         switch kind {
+        case .calculator: CalculatorView()
+        case .currency: CurrencyView(widget: kit.currency)
+        case .voiceMemo: VoiceMemoView(memo: kit.voiceMemo)
+        case .audio: AudioControlView(audio: kit.audio)
+        case .appGroups: AppGroupsView(groups: kit.groups, model: model)
+        case .webSearch: WebSearchView()
+        case .windows: WindowManagerView(manager: kit.windows, model: model)
+        case .googleCalendar: CalendarAgendaView(calendar: kit.googleCalendar)
+        case .spotify: MusicPlayerView(player: kit.spotify)
+        case .appleMusic: MusicPlayerView(player: kit.appleMusic)
+        case .openaiUsage: AIUsageView(widget: kit.openaiUsage)
+        case .anthropicUsage: AIUsageView(widget: kit.anthropicUsage)
+        case .cursorUsage: AIUsageView(widget: kit.cursorUsage)
+        case .github: GitHubView(github: kit.github)
+        case .bookmarks, .folders, .stopwatch, .water, .habits, .progress, .clocks, .converter, .capture, .colors, .controls, .reminders, .spacer, .separator:
+            UtilityView(kind: kind, utility: kit.utilities)
         case .weather:
             Text(kit.weatherText).font(.system(size: 40, weight: .light, design: .rounded))
             Text(kit.weatherDetail).font(.callout).foregroundStyle(.secondary)
@@ -43,20 +74,9 @@ struct ToolTile: View {
             Text("City search is sent to Open-Meteo when you refresh. No location permission needed.").font(.caption).foregroundStyle(.secondary)
             Link("Weather data by Open-Meteo", destination: URL(string: "https://open-meteo.com/")!).font(.caption)
         case .music:
-            Picker("Player", selection: $kit.musicSource) { Text("Spotify").tag("Spotify"); Text("Apple Music").tag("Music") }.pickerStyle(.segmented)
-                .onChange(of: kit.musicSource) { kit.musicConnected = false; kit.musicTitle = "Connect a player"; kit.musicArtist = "" }
-            Text(kit.musicTitle).font(.headline)
-            Text(kit.musicArtist).foregroundStyle(.secondary)
-            if kit.musicConnected {
-                HStack(spacing: 30) {
-                    Button { kit.readMusic(command: "previous track") } label: { Image(systemName: "backward.fill") }.help("Previous track")
-                    Button { kit.readMusic(command: "playpause") } label: { Image(systemName: "playpause.fill") }.help("Play or pause")
-                    Button { kit.readMusic(command: "next track") } label: { Image(systemName: "forward.fill") }.help("Next track")
-                }.buttonStyle(.bordered)
-                Button("Disconnect") { kit.musicConnected = false }
-            } else { Button("Connect player") { kit.readMusic() } }
-            if let error = kit.musicError { Text(error).font(.caption).foregroundStyle(.orange) }
-            Text("Connection asks macOS for permission to control the selected player.").font(.caption).foregroundStyle(.secondary)
+            MusicPlayerView(player: kit.spotify)
+            Divider()
+            MusicPlayerView(player: kit.appleMusic)
         case .search:
             TextField("Find an app…", text: $kit.query).textFieldStyle(.roundedBorder)
             ScrollView { LazyVStack(spacing: 4) {
@@ -109,22 +129,8 @@ struct ToolTile: View {
             } }}.frame(maxHeight: 230)
             HStack { Button("Add files…", action: kit.addFiles); Button("Downloads") { NSWorkspace.shared.open(FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")) } }
             Text("Removing a shortcut leaves the original file in place.").font(.caption).foregroundStyle(.secondary)
-        case .system:
-            Label(kit.battery, systemImage: "battery.100percent")
-            Label(kit.memory, systemImage: "memorychip")
-            Label(kit.storage, systemImage: "internaldrive")
-            Label("\(ProcessInfo.processInfo.activeProcessorCount) CPU cores", systemImage: "cpu")
-            Button("Open Activity Monitor") { NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app")) }
-            Text("Battery and free space refresh every 15 seconds.").font(.caption).foregroundStyle(.secondary)
-        case .calendar:
-            Text(kit.calendarStatus).font(.caption).foregroundStyle(.secondary)
-            ScrollView { VStack(alignment: .leading, spacing: 14) { ForEach(Array(kit.events.enumerated()), id: \.offset) { _, event in
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(event.title ?? "Untitled event").font(.headline)
-                    Text(event.isAllDay ? event.startDate.formatted(date: .abbreviated, time: .omitted) + " · All day" : event.startDate.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
-                }
-            } }}.frame(maxHeight: 260)
-            Button("Connect / refresh calendar", action: kit.loadCalendar)
+        case .system: SystemDetailView(monitor: kit.monitor, kit: kit)
+        case .calendar: CalendarAgendaView(calendar: kit.calendar)
         case .clipboard:
             Toggle("Capture copied text", isOn: $kit.clipboardEnabled)
             Text("Opt-in, memory only, up to 20 entries. Marked password-manager copies are skipped. Turn off capture for other sensitive text.").font(.caption).foregroundStyle(.secondary)
@@ -137,14 +143,16 @@ struct ToolTile: View {
 }
 
 struct WorkspaceSettings: View {
+    @State private var widgetSearch = ""
     @ObservedObject var model: DockModel
     @ObservedObject var kit: Toolkit
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Label("Layout & profiles", systemImage: "rectangle.3.group").font(.headline)
-            Picker("Position", selection: $kit.edge) { Text("Bottom").tag("Bottom"); Text("Top").tag("Top") }.pickerStyle(.segmented)
+            Picker("Position", selection: $kit.edge) { Text("Bottom").tag("Bottom"); Text("Top").tag("Top") }.pickerStyle(.segmented).disabled(model.replacingDock)
             Picker("Display", selection: $kit.screenIndex) { ForEach(Array(NSScreen.screens.enumerated()), id: \.offset) { index, screen in Text(screen.localizedName).tag(index) } }
             Toggle("Automatically hide WaveDock", isOn: $kit.autoHide)
+            Toggle("Hide when windows overlap", isOn: $kit.hideOnOverlap)
             Toggle("Include unpinned running apps", isOn: $kit.showRunning)
             HStack { TextField("Name this layout…", text: $kit.profileName); Button("Save layout") { model.saveProfile() }.disabled(kit.profileName.trimmingCharacters(in: .whitespaces).isEmpty) }
             ForEach(kit.profiles) { profile in
@@ -152,11 +160,27 @@ struct WorkspaceSettings: View {
             }
             HStack { Button("Export layouts…", action: model.exportProfiles); Button("Import layouts…", action: model.importProfiles) }
             Divider()
+            LoginSettings(utility: kit.utilities)
             Label("Widget library", systemImage: "square.grid.2x2").font(.headline)
-            Text("Enable the tools you want in your Dock. Scroll across the Dock when it fills up.").font(.caption).foregroundStyle(.secondary)
-            ForEach(ToolKind.allCases) { kind in
-                Toggle(isOn: Binding(get: { kit.enabled.contains(kind.rawValue) }, set: { kit.toggle(kind, $0) })) { Label(kind.title, systemImage: kind.icon) }
+            Text("Enable the tools you want in your Dock. Use the page arrows when the Dock fills up. Settings stays visible on every page.").font(.caption).foregroundStyle(.secondary)
+            TextField("Find a widget…", text: $widgetSearch)
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                ForEach(ToolKind.allCases.filter { widgetSearch.isEmpty || $0.title.localizedCaseInsensitiveContains(widgetSearch) }) { kind in
+                    Toggle(isOn: Binding(get: { kit.enabled.contains(kind.rawValue) }, set: { kit.toggle(kind, $0) })) {
+                        HStack(spacing: 8) { Image(systemName: kind.icon).foregroundStyle(model.color).frame(width: 22); Text(kind.title).font(.system(size: 11, weight: .medium)).lineLimit(1) }
+                    }.toggleStyle(.switch).controlSize(.mini).padding(10).modifier(WidgetSurface(radius: 10)).help(kind.title)
+                }
             }
         }.padding(18).background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+struct LoginSettings: View {
+    @ObservedObject var utility: Utilities
+    var body: some View {
+        VStack(alignment: .leading) {
+            Toggle("Open WaveDock at login", isOn: Binding(get: { utility.loginEnabled }, set: { utility.setLogin($0) }))
+            if let message = utility.status { Text(message).font(.caption).foregroundStyle(.secondary) }
+        }
     }
 }

@@ -1,25 +1,27 @@
 # WaveDock
 
+![WaveDock — Thoughtfully at hand.](Assets/Brand/WaveDock.svg)
+
 **Your apps, useful widgets, and AI usage in one native Mac Dock.**
 
 WaveDock is a free, open-source Mac app created by Dylan Lasensky. It gives you a customizable glass Dock with app launchers, a widget library, saved layouts, and a tile for the usage limits returned by your ChatGPT account's Codex service.
 
 Built with Swift, SwiftUI, and AppKit. No Electron, web wrapper, subscription, account with WaveDock, or third-party package dependencies.
 
-> **Early access, v0.2.0.** WaveDock is inspired by the usefulness of widget docks. It is an independent project, not affiliated with CoolDock or OpenAI. It does not yet match CoolDock's full catalog or production maturity. See the feature matrix and limitations below.
+> **Early access, v0.5.0.** WaveDock is inspired by the usefulness of widget docks. It is an independent project, not affiliated with CoolDock or OpenAI. It does not yet match CoolDock's full catalog or production maturity. See the feature matrix and limitations below.
 
 ## Requirements
 
 - macOS 14 Sonoma or newer.
 - Apple Silicon or Intel Mac. The build produces a universal app.
 - Xcode Command Line Tools to build from source (`xcode-select --install`).
-- A compatible Codex CLI signed in with ChatGPT for AI usage tracking. Other widgets work without it.
+- A compatible Codex CLI signed in with ChatGPT for Codex allowances. API/team usage widgets require their own provider admin keys; other widgets work without these connections.
 
 ## Install
 
 ### Download a build
 
-Open [Actions](https://github.com/dylanlasensky/WaveDock/actions), choose a **successful** "Build and test macOS app" run, and download **WaveDock-macOS-universal** under Artifacts. GitHub may require you to sign in. Extract the artifact, then extract the enclosed `WaveDock.zip`. Drag `WaveDock.app` into Applications and open it.
+Open [Actions](https://github.com/dylanlasensky/WaveDock/actions), choose a **successful** "Build and test macOS app" run, and download **WaveDock-macOS-universal-pass-1** (or pass-2) under Artifacts. GitHub may require you to sign in. Extract the artifact, then extract the enclosed `WaveDock.zip`. Drag `WaveDock.app` into Applications and open it.
 
 Builds are ad-hoc signed for local testing, **not Developer ID signed or notarized by Apple**. If macOS blocks a build you trust, use its **System Settings → Privacy & Security → Open Anyway** flow. Do not disable Gatekeeper globally.
 
@@ -32,16 +34,16 @@ zsh build.sh
 open dist/WaveDock.app
 ```
 
-The build uses the installed Apple toolchain and creates `dist/WaveDock.app`. It generates the app icon from the included drawing script. Build outputs are excluded from version control.
+The build uses the installed Apple toolchain and creates `dist/WaveDock.app`. It generates the app icon from the included drawing script. Build outputs are excluded from version control. Ad-hoc rebuilds may require you to re-enable macOS privacy permissions; stable distribution requires a consistent Developer ID signature.
 
 ## First setup
 
 1. Open Settings from the wave icon in your menu bar or the sliders button in WaveDock.
-2. Choose icon size and an accent: Mint, Blue, Lilac, or Coral.
+2. Choose icon size and an accent: White, None (neutral), Mint, Blue, Lilac, Coral, Rose, Gold, or any custom color. Rich widget cards show live details directly on the Dock; turn them off for compact tiles.
 3. Pin apps with **Pin apps…** or the search widget. Drag pinned icons over another pinned icon to reorder them. Right-click for pin, unpin, move, reveal, and quit actions.
-4. Choose a display and top or bottom placement. Enable automatic hiding if you prefer a quieter desktop. Move the pointer into the Dock area to reveal it.
-5. Enable your widgets in **Widget library**. A full Dock scrolls horizontally.
-6. Optionally enable **Use WaveDock as my Dock**. This temporarily enables Apple's Dock auto-hide; WaveDock restores the original preference when you disable replacement mode or quit.
+4. Choose a display. Replacement mode stays at the bottom. Enable automatic hiding or hide-on-overlap if you prefer; hold the pointer at the physical bottom edge for a quarter second to reveal it.
+5. Enable your widgets in **Widget library**. A full Dock uses whole-card pages; navigation and Settings remain visible.
+6. **Use WaveDock as my Dock** is enabled by default for the new replacement workflow. Apple’s Dock is hidden and its edge reveal is delayed while WaveDock runs. Disable replacement to use a separate top or bottom bar. Your original Apple Dock preferences return when you disable replacement or quit.
 7. Save a named layout to switch between app collections, widgets, icon sizes, and accent colors. Export/import layout JSON to move those layouts to another Mac. App paths must exist on the destination Mac.
 
 The menu-bar wave always gives access to Settings, show/hide, usage refresh, Apple Dock restoration, and Quit. **Done** closes Settings. ⌘W closes Settings and ⌘Q quits while WaveDock is active.
@@ -50,7 +52,7 @@ The menu-bar wave always gives access to Settings, show/hide, usage refresh, App
 
 | Feature | Available now |
 | --- | --- |
-| Native glass Dock | Top or bottom, selectable display, icon sizes, four accents, clock/date, horizontal overflow |
+| Native glass Dock | Bottom replacement; top/bottom companion mode; selected display; full-screen/session/sleep suppression; true auto-hide; optional hide-on-overlap; icon sizes, accents, whole-card pages |
 | App management | Pinned apps, optional unpinned running apps, running indicators, hover animation, drag reorder, contextual actions |
 | App search | Searches installed apps in Applications and System Applications; open or pin from results |
 | Saved layouts | Save/apply/remove layouts; JSON export and import |
@@ -59,13 +61,51 @@ The menu-bar wave always gives access to Settings, show/hide, usage refresh, App
 | Quick note | Editable note saved automatically on this Mac |
 | Tasks | Local tasks, completion toggles, individual removal, clear completed |
 | File shelf | Add files and folders, drop file shortcuts, drag out, open, reveal, and open Downloads |
-| System information | Battery/charging state, installed RAM, available disk space, CPU core count, Activity Monitor shortcut |
+| System information | Live CPU sparkline, active/wired/compressed memory use, network throughput, battery/charging state, installed RAM and available disk space |
 | Calendar | Opt-in access to the next seven days of Mac calendar events; manual refresh |
 | Clipboard | Opt-in text history, up to 20 entries in memory, click to copy, clear history |
 | Weather | Manual city lookup and refresh, current and feels-like temperature in Fahrenheit, Open-Meteo attribution |
+| GitHub | Public repositories or existing `gh` sign-in; stars/forks, open issues and PRs, latest Actions run, optional five-minute refresh, stale/error states |
+| Bookmarks | Local named HTTP/HTTPS links; add, open, remove |
+| Folders & Downloads | Choose a folder, navigate up/into subfolders, search, sort by name or newest, open, reveal, drag files out |
+| Stopwatch | Start, pause/resume, laps, reset |
+| Drink water | Personal daily goal, count, midnight reset, optional hourly sound while running |
+| Habits | Daily completion toggles and up to 366 recorded completion dates per habit |
+| Time progress | Day, month and year progress in your local calendar |
+| World clocks | Add/remove IANA time zones, including daylight-saving handling |
+| Converter | Offline length, mass, temperature, decimal/binary data conversions |
+| Screenshot | Interactive region capture to clipboard; macOS screenshot/recording toolbar |
+| Color picker | Native screen sampler; copy hex color |
+| Quick controls | Mission Control, Emoji & Symbols, Trash, sound/display/network settings shortcuts |
+| Apple Reminders | Explicit opt-in connection, read incomplete reminders, mark selected reminders complete |
+| Widget organization | Search library, move widgets earlier/later, remove by right-click, space and separator entries |
+| Login startup | Native macOS login item registration; approval status shown |
 | Music | Opt-in Spotify or Apple Music connection, track/artist, previous/play-pause/next, ten-second polling while connected |
 
-## Connect AI usage
+## New in 0.5
+
+- **A coherent identity:** an original monochrome WaveDock mark, a redesigned app icon, quiet typography, translucent surfaces, rounded widget cards and consistent spacing. Native SF Symbols remain familiar; WaveDock does not use Apple's logo or imply Apple affiliation.
+- **Useful at a glance:** timers, task lists, calendar agendas, music, system graphs, water progress and AI reports now show their actual content directly on the Dock. Focus, stopwatch, water and connected music have inline controls. Compact tiles remain available.
+- **Any accent:** choose White or None for a neutral workspace, a curated color, or the macOS color picker for a custom RGB color. Custom colors persist and travel with layout exports.
+- **Window resizing:** waits for asynchronous app layout, retries size/position changes, and temporarily restores standard resize behavior for apps with enhanced accessibility UI. The operation runs off the UI thread. Success means the actual frame matched; genuine minimum-size restrictions still produce an explanation and preserve Undo.
+- **Calculator:** offline arithmetic with parentheses, powers, percentages and explicit invalid-expression/division-by-zero errors.
+- **Currency:** daily reference rates for 15 currencies, swap direction, editable amount and rate date. Refresh sends only the selected currency pair to [Frankfurter](https://frankfurter.dev/); amounts remain local. These are reference rates, not transaction quotes.
+- **Voice memos:** explicit microphone permission, record, pause/resume, stop/save, playback inside WaveDock, export and Finder reveal. Audio stays in `~/Library/Application Support/WaveDock/Voice Memos`; quitting stops recording. Nothing is uploaded.
+- **Audio:** select an output device and adjust system output volume where the device supports it. External devices with fixed volume expose a clear explanation.
+- **App groups:** create named collections of pinned apps, launch from a compact grid, and remove groups without touching installed apps.
+- **Web search:** query DuckDuckGo, Google or Bing in your browser.
+
+## Connected widgets and Dock behavior
+
+- Whole-tile Dock pages prevent right-edge overflow. Previous/next controls, page count and Settings stay visible, including with all widgets enabled.
+- **Windows**: move a selected window to halves, quarters, maximize or center, choose a display, focus, minimize and undo. Allow WaveDock in Privacy & Security → Accessibility, then Refresh windows. Native full-screen windows must leave full screen first. Apps may enforce their own minimum sizes; WaveDock reports constraints and preserves Undo. This does not implement drag-to-edge snapping or thumbnails.
+- **Google Calendar**: add Google in macOS Internet Accounts, enable Calendars, then connect the widget and select calendars belonging to that account. WaveDock reads the next seven days through EventKit; macOS owns Google sign-in and synchronization. The general Calendar widget can include iCloud, Google and other configured calendars. Both refresh while connected and support Disconnect. No custom Google OAuth client is needed.
+- **Spotify and Apple Music**: separate widgets can be enabled together. Open the installed player, then Connect / refresh and allow Automation. Track, artist, playback state and transport controls refresh every ten seconds while connected. Reads run off the UI thread with a timeout; an exited player or failed read clears stale track data. The original Music widget remains as a combined panel.
+- **OpenAI API, Claude API and Cursor team usage**: enable each from the widget library, enter that provider's organization/team admin API key in its secure field, and press Save & connect. Keys are stored in macOS Keychain. Refresh is explicit, with optional hourly polling for the current session. Disconnect & forget removes the saved key. Reports cover the last seven days; API widgets show tokens and Cursor shows separate activity counts. These require admin access and do not show ChatGPT Plus, Claude Pro/Max or personal Cursor subscription allowances. No API inference is performed.
+
+API references: [OpenAI organization usage](https://developers.openai.com/api/reference/resources/admin/subresources/organization/subresources/usage/methods/completions), [Claude usage reports](https://platform.claude.com/docs/en/manage-claude/usage-cost-api), [Cursor team analytics](https://cursor.com/docs/account/teams/admin-api). Calendar setup: [Apple's calendar account guide](https://support.apple.com/guide/calendar/add-calendars-and-calendar-accounts-icl4308d6701/mac).
+
+## Connect Codex allowance usage
 
 1. Sign in with **ChatGPT** in Codex.
 2. In WaveDock Settings, choose **Connect & refresh**.
@@ -78,8 +118,22 @@ WaveDock calls the documented local `account/rateLimits/read` app-server method.
 
 Protocol reference: [OpenAI Codex App Server](https://developers.openai.com/codex/app-server/).
 
+## GitHub widget
+
+Enable **GitHub** in the widget library. Enter `owner/repository` or a GitHub repository URL, then press **Refresh GitHub**. Public access uses GitHub’s public REST API and needs no sign-in. For private repositories, install GitHub CLI, sign in yourself using `gh auth login`, and select **Use existing GitHub CLI sign-in**. WaveDock only runs `gh api --hostname github.com --method GET`; it does not request tokens or edit repositories. CLI errors are shown without printing potentially sensitive stderr.
+
+Latest build status distinguishes queued/running/completed states. A failed refresh keeps a visibly marked previous reading. Switching repositories or access modes clears the previous repository and ignores responses from old requests. Actions or issues that are unavailable do not erase otherwise available repository metadata. This widget supports github.com, not GitHub Enterprise hosts yet.
+
 ## Permissions and data
 
+- **Microphone:** requested only from Record new memo. Recordings remain local until you explicitly export them.
+- **Currency:** sends only a currency pair to Frankfurter when refreshed.
+- **Web search:** sends the typed query to the chosen search engine when you press Search.
+- **Reminders:** requested only from Connect / refresh Reminders. Completing a reminder writes that selected change to Apple Reminders.
+- **Screen capture / color:** invoked only by their buttons; macOS handles any required permission. Screenshot capture goes to the clipboard; the toolbar can choose a save location.
+- **GitHub:** sends the repository name to GitHub when refreshed. Optional CLI mode uses the account already signed in to `gh`. No WaveDock credential store.
+- **Window management:** opt-in Accessibility access permits reading window titles and moving/resizing selected windows. Titles remain in memory.
+- **AI API widgets:** explicitly saved admin keys reside in Keychain and are sent only to the provider API. Reports stay in memory. Credentials are never exported with profiles.
 - **Calendar:** requested only when you press Connect / refresh calendar. Events are read into memory; WaveDock does not edit them.
 - **Music:** macOS asks for Automation permission for your chosen player. Open Spotify or Music and play a track before connecting. Disconnect stops polling.
 - **Clipboard:** disabled on every launch until explicitly enabled. Text history stays in memory and clears when you quit. Copies marked concealed, transient, or automatically generated are skipped. Apps do not all mark sensitive text, so disable capture when copying sensitive information.
@@ -90,9 +144,17 @@ Protocol reference: [OpenAI Codex App Server](https://developers.openai.com/code
 
 ## Apple Dock restoration
 
-Replacement mode records the original `com.apple.dock autohide` preference before changing it. Apple's Dock is restarted to apply the setting. It remains available at the screen edge; WaveDock does not patch macOS or delete your existing Dock icons.
+Replacement mode journals the original `autohide` and `autohide-delay` preferences before making changes, including whether each key was absent. It sets auto-hide and a long reveal delay so Apple’s Dock does not compete with WaveDock at the bottom edge. It does not patch macOS or remove Dock icons. A brief desktop flash occurs when the native Dock restarts.
 
-Disabling replacement mode or quitting restores the saved preference. After a crash, the next WaveDock launch attempts recovery. Restoration is not immediate while WaveDock is closed. You can always change auto-hide yourself in **System Settings → Desktop & Dock**.
+Quitting or choosing Restore Apple Dock restores the exact journaled values. Relaunch recovers an interrupted session before reapplying the saved replacement choice. If WaveDock crashes, preferences remain changed until recovery; the menu-bar Restore action and this command are available:
+
+```sh
+/path/to/WaveDock.app/Contents/MacOS/WaveDock --restore-dock
+```
+
+Quit a running WaveDock before using command-line recovery. If necessary, change auto-hide directly in System Settings → Desktop & Dock. Restoration failures retain the journal for retry. A second normal WaveDock instance cannot take ownership of the first instance’s Dock settings.
+
+WaveDock excludes native full-screen Spaces and suppresses its panel when the active regular app covers the selected display, during session inactivity, and while displays sleep. Hidden means no visible panel and no interception of clicks. A quarter-second edge dwell reveals an auto-hidden Dock; it hides 0.7 seconds after leaving. Full-screen suppression takes precedence over popovers. Background utilities’ transparent overlays are excluded from full-screen detection. Window-bounds detection is conservative; unusual games/video players and more display configurations still need hardware validation.
 
 ## Tests
 
@@ -103,29 +165,38 @@ dist/WaveDock.app/Contents/MacOS/WaveDock --self-test --fixture-cli "$PWD/Tests/
 codesign --verify --strict dist/WaveDock.app
 ```
 
-The fixture runs locally without credentials or network calls. It checks the actual subprocess handshake, notification handling, and split response framing. Decoder tests cover multiple usage buckets, legacy fallback, missing windows, percentage bounds, and persistence formats for layouts and tasks. GitHub Actions builds the universal app and runs these checks on pushes and pull requests.
+For two complete build/test passes, run `zsh Tests/validate.sh`. Logs and local widget render captures are written under `.build/validation/`. On a logged-in desktop, pass `--native` to include native view and window-state checks; pass `--live` to also check public GitHub and the existing Codex sign-in. Live service checks are explicitly separate from offline regression tests.
+
+The fixture runs locally without credentials or network calls. It checks the actual subprocess handshake, notification handling, and split response framing. Decoder tests cover multiple usage buckets, legacy fallback, missing windows, percentage bounds, and persistence formats for layouts and tasks. Regression tests also cover Dock visibility timing, negative display coordinates, durable preference restoration and failure retries, local utility persistence, stopwatch timing, folder search, bookmark validation, unit conversions, and GitHub response states. GitHub Actions runs two independent universal builds and offline test jobs on pushes and pull requests. See [validation details](docs/VALIDATION.md).
 
 ## Current limitations and roadmap
 
 This is a substantial early-access app, not a complete CoolDock clone. In particular:
 
 - One Dock on one selected display at a time. No per-display simultaneous docks, left/right layout, or automatic profile switching yet.
-- Calendar and weather refresh manually. Weather currently uses the first matching city and Fahrenheit.
-- Tasks are WaveDock-local, not synced with Apple Reminders. Focus sessions do not survive quitting the app.
-- System information does not yet include CPU/RAM utilization charts or network speed history.
+- Connected calendars refresh every minute and on Calendar changes. Weather refreshes manually and currently uses the first matching city and Fahrenheit.
+- Tasks are WaveDock-local; Apple Reminders is a separate opt-in widget. Focus sessions and stopwatch laps do not survive quitting the app.
+- System monitoring samples while enabled; CPU history is limited to the current session. Hardware temperature and peripheral battery telemetry are not implemented.
 - No window thumbnails, minimized-window tiles, custom app-icon packs, folder groups, or full native Dock drag/drop semantics.
-- No launch-at-login UI, automatic update service, Apple notarization, or App Store distribution yet.
-- No Shopify, Stripe, GitHub, Linear, Supabase, mail, or other business-service widgets.
-- No screenshots widget, voice recorder, currency converter, color picker, or wallpaper marketplace yet.
+- No automatic update service, Apple notarization, or App Store distribution yet. Login startup needs an installed app and may require macOS approval.
+- Codex allowances, GitHub, OpenAI API token usage, Claude API token usage, and Cursor team analytics are supported. OpenAI/Claude consumer-plan allowances and commerce/mail integrations remain unimplemented. API metrics do not represent consumer-plan limits.
+- Screenshots, unit/currency conversion, color picking, voice memos and app groups are supported. Wallpaper services, per-app audio mixing and window thumbnails remain unimplemented.
 - Music and calendar need end-to-end validation across OS versions and real permission states. Multi-display placement needs testing on more hardware.
 
-Priorities: strengthen recovery and accessibility; improve multi-display behavior and keyboard shortcuts; add notification support and calendar updates; then add integrations with clear authentication and data handling. Production readiness requires broader testing and a signed/notarized release process.
+See [CoolDock comparison](docs/COOLDOCK-COMPARISON.md) for the sourced gap audit. Next priorities are window previews, additional supported providers, and multi-display hardware coverage. Production readiness requires broader testing and a signed/notarized release process.
 
 ## Project structure
 
 ```text
 Sources/App.swift        App lifecycle, windows, placement, auto-hide, menu
-Sources/Model.swift      Apps, layouts, settings, Dock restoration
+Sources/DockBehavior.swift Visibility policy and transactional Apple Dock recovery
+Sources/Utilities.swift   Local utility models and native system integrations
+Sources/UtilityViews.swift Local utility popovers
+Sources/GitHubWidget.swift Read-only GitHub REST and CLI client
+Sources/GitHubView.swift  GitHub connection and activity UI
+Sources/BehaviorTests.swift Regression checks
+Sources/NativeTests.swift Opt-in native rendering/window checks
+Sources/Model.swift      Apps, layouts and settings
 Sources/Usage.swift      Read-only Codex usage client and data models
 Sources/Views.swift      Main Dock, app tiles, usage details, settings
 Sources/Toolkit.swift    Widget state, persistence, timers, integrations
