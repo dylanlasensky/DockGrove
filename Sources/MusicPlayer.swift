@@ -55,7 +55,7 @@ enum MusicCommand: String, CaseIterable { case previous = "previous track", togg
               \(command?.rawValue ?? "")
               set playback to player state as text
               if playback is "stopped" then return "stopped" & (ASCII character 30) & "Nothing playing" & (ASCII character 30) & " "
-              if not (exists current track) then return "stopped" & (ASCII character 30) & "Nothing playing" & (ASCII character 30) & " "
+              \(bundle == "com.apple.Music" ? "if not (exists current track) then return \"stopped\" & (ASCII character 30) & \"Nothing playing\" & (ASCII character 30) & \" \"" : "")
               return playback & (ASCII character 30) & (name of current track) & (ASCII character 30) & (artist of current track)
             end tell
           end timeout
