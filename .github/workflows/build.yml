@@ -1,0 +1,29 @@
+name: Build and test macOS app
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build universal app
+        run: zsh build.sh
+      - name: Test usage protocol and persistence formats
+        run: |
+          chmod +x Tests/fixture_codex.py
+          dist/WaveDock.app/Contents/MacOS/WaveDock --self-test --fixture-cli "$PWD/Tests/fixture_codex.py"
+          codesign --verify --strict dist/WaveDock.app
+          plutil -lint dist/WaveDock.app/Contents/Info.plist
+      - name: Package
+        run: ditto -c -k --sequesterRsrc --keepParent dist/WaveDock.app dist/WaveDock.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WaveDock-macOS-universal
+          path: dist/WaveDock.zip
+          retention-days: 30
