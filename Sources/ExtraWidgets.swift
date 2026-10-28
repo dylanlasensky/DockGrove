@@ -117,18 +117,33 @@ struct CurrencyView: View {
     }
 }
 
-@MainActor final class VoiceMemo: NSObject, ObservableObject, AVAudioRecorderDelegate {
+@MainActor final class VoiceMemo: NSObject, ObservableObject, AVAudioRecorderDelegate, AVAudioPlayerDelegate {
     @Published var recording = false
     @Published var requesting = false
+    @Published var playing = false
+    @Published var recordings: [URL] = []
     @Published var paused = false
     @Published var elapsed = 0.0
     @Published var level: Float = 0
     @Published var file: URL?
     @Published var status = "Record a memo locally on this Mac."
     private var recorder: AVAudioRecorder?
+    private var player: AVAudioPlayer?
     private var timer: Timer?
+    override init() { super.init(); loadLibrary(); file = recordings.first }
+    private var library: URL { FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("WaveDock/Voice Memos") }
+    func loadLibrary() {
+        recordings = ((try? FileManager.default.contentsOfDirectory(at: library, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles])) ?? [])
+            .filter { $0.pathExtension == "m4a" && $0.lastPathComponent.hasPrefix("Memo-") }
+            .sorted { ((try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast) > ((try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast) }
+    }
+    func selectMemo(_ url: URL) { guard !recording, recordings.contains(url) else { return }; player?.stop(); player = nil; playing = false; file = url; status = "Ready for local playback." }
+    static func label(_ url: URL) -> String {
+        guard let date = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate else { return "Saved memo" }
+        return date.formatted(.dateTime.month(.abbreviated).day().hour().minute().second())
+    }
     func start() {
-        guard !recording, !requesting else { return }; requesting = true
+        guard !recording, !requesting else { return }; player?.stop(); player = nil; playing = false; requesting = true
         Task { [self] in
             defer { requesting = false }
             let allowed = await AVCaptureDevice.requestAccess(for: .audio)
@@ -149,8 +164,20 @@ struct CurrencyView: View {
         }
     }
     func togglePause() { guard let recorder, recording else { return }; if paused { if recorder.record() { paused = false; status = "Recording · saved locally" } } else { recorder.pause(); paused = true; status = "Paused" } }
-    func stop() { recorder?.stop(); recorder = nil; timer?.invalidate(); timer = nil; recording = false; paused = false; level = 0; status = "Memo saved on this Mac." }
+    func stop() { recorder?.stop(); recorder = nil; timer?.invalidate(); timer = nil; recording = false; paused = false; level = 0; loadLibrary(); status = "Memo saved on this Mac." }
     nonisolated func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: Error?) { Task { @MainActor in self.stop(); self.status = "Recording stopped because the audio encoder failed. Check the saved file." } }
+    func play() {
+        guard !recording, let file else { return }
+        if playing { player?.stop(); player = nil; playing = false; status = "Playback stopped."; return }
+        do {
+            let audio = try AVAudioPlayer(contentsOf: file); audio.delegate = self
+            guard audio.play() else { throw UsageError.service }
+            player = audio; playing = true; status = "Playing locally in WaveDock."
+        } catch { status = "Could not play this recording."; playing = false }
+    }
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor in self.playing = false; self.player = nil; self.status = flag ? "Playback complete." : "Playback could not finish." }
+    }
     func openLibrary() {
         let folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("WaveDock/Voice Memos")
         do { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true); NSWorkspace.shared.open(folder) } catch { status = "Could not open the memo folder." }
@@ -162,18 +189,21 @@ struct CurrencyView: View {
             do { try Data(contentsOf: file).write(to: url, options: .atomic); status = "Exported memo." } catch { status = "Could not export the memo." }
         }
     }
-    deinit { timer?.invalidate(); recorder?.stop() }
+    deinit { timer?.invalidate(); recorder?.stop(); player?.stop() }
 }
 struct VoiceMemoView: View {
     @ObservedObject var memo: VoiceMemo
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            if !memo.recording, !memo.recordings.isEmpty {
+                Picker("Saved recording", selection: Binding(get: { memo.file }, set: { if let url = $0 { memo.selectMemo(url) } })) { ForEach(memo.recordings, id: \.self) { url in Text(VoiceMemo.label(url)).tag(Optional(url)) } }
+            }
             Text(String(format: "%02d:%02d", Int(memo.elapsed) / 60, Int(memo.elapsed) % 60)).font(.system(size: 42, weight: .light)).monospacedDigit()
             ProgressView(value: Double(memo.level)).tint(.red)
             Text(memo.status).font(.caption).foregroundStyle(.secondary)
             if memo.recording { HStack { Button(memo.paused ? "Resume" : "Pause", action: memo.togglePause); Button("Stop & save", action: memo.stop) } }
             else { Button(memo.requesting ? "Requesting microphone…" : "Record new memo", action: memo.start).tint(.red).disabled(memo.requesting) }
-            if let file = memo.file, !memo.recording { HStack { Button("Play") { NSWorkspace.shared.open(file) }; Button("Export…", action: memo.export); Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([file]) } } }
+            if let file = memo.file, !memo.recording { HStack { Button(memo.playing ? "Stop playback" : "Play", action: memo.play); Button("Export…", action: memo.export); Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([file]) } } }
             Button("All recordings in Finder", action: memo.openLibrary)
             Text("Recording begins only when you press Record. No audio is uploaded. Memos remain in Application Support/WaveDock/Voice Memos.").font(.caption).foregroundStyle(.secondary)
         }

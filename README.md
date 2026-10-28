@@ -90,7 +90,7 @@ The menu-bar wave always gives access to Settings, show/hide, usage refresh, App
 - **Window resizing:** waits for asynchronous app layout, retries size/position changes, and temporarily restores standard resize behavior for apps with enhanced accessibility UI. The operation runs off the UI thread. Success means the actual frame matched; genuine minimum-size restrictions still produce an explanation and preserve Undo.
 - **Calculator:** offline arithmetic with parentheses, powers, percentages and explicit invalid-expression/division-by-zero errors.
 - **Currency:** daily reference rates for 15 currencies, swap direction, editable amount and rate date. Refresh sends only the selected currency pair to [Frankfurter](https://frankfurter.dev/); amounts remain local. These are reference rates, not transaction quotes.
-- **Voice memos:** explicit microphone permission, record, pause/resume, stop/save, playback, export and Finder reveal. Audio stays in `~/Library/Application Support/WaveDock/Voice Memos`; quitting stops recording. Nothing is uploaded.
+- **Voice memos:** explicit microphone permission, record, pause/resume, stop/save, playback inside WaveDock, export and Finder reveal. Audio stays in `~/Library/Application Support/WaveDock/Voice Memos`; quitting stops recording. Nothing is uploaded.
 - **Audio:** select an output device and adjust system output volume where the device supports it. External devices with fixed volume expose a clear explanation.
 - **App groups:** create named collections of pinned apps, launch from a compact grid, and remove groups without touching installed apps.
 - **Web search:** query DuckDuckGo, Google or Bing in your browser.
