@@ -12,7 +12,7 @@ This performs two complete universal builds with offline regression tests, signa
 
 Both full passes of `zsh Tests/validate.sh --native --live` passed for 0.4. Each built arm64 and x86_64, ran all offline regressions, checked signature/plist/architectures, rendered all 30 functional widgets, checked native window states, and successfully read live public GitHub and Codex allowances.
 
-The prior CI run 40750383530 was cancelled before either job ran: GitHub reported that no hosted runner acquired the jobs and cited macOS ARM capacity constraints. The workflow now uses the documented `macos-15-intel` standard runner, still builds both architectures, and runs two independent test jobs. Final remote CI results must be checked on the published commit.
+The prior CI run 40750383530 was cancelled before either job ran: GitHub reported that no hosted runner acquired the jobs and cited macOS ARM capacity constraints. The workflow now uses the documented `macos-15-intel` standard runner, still builds both architectures, and runs two independent test jobs. The first Intel run built the app and passed every regression, then exposed an Xcode 16 `lipo` argument-order incompatibility. Both CI and the local validation script now place the input binary before `-verify_arch`. Final remote CI results must be checked on the published commit.
 
 ## Automated coverage
 

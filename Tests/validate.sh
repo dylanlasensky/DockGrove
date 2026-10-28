@@ -8,8 +8,8 @@ for pass in 1 2; do
   dist/WaveDock.app/Contents/MacOS/WaveDock --self-test --fixture-cli "$PWD/Tests/fixture_codex.py" 2>&1 | tee ".build/validation/tests-$pass.log"
   codesign --verify --strict dist/WaveDock.app
   plutil -lint dist/WaveDock.app/Contents/Info.plist
-  lipo -verify_arch arm64 dist/WaveDock.app/Contents/MacOS/WaveDock
-  lipo -verify_arch x86_64 dist/WaveDock.app/Contents/MacOS/WaveDock
+  lipo dist/WaveDock.app/Contents/MacOS/WaveDock -verify_arch arm64
+  lipo dist/WaveDock.app/Contents/MacOS/WaveDock -verify_arch x86_64
   if (( ${@[(Ie)--native]} )); then
     dist/WaveDock.app/Contents/MacOS/WaveDock --native-test "$PWD/.build/validation/native-$pass" 2>&1 | tee ".build/validation/native-$pass.log"
   fi
