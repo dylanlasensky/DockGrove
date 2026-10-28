@@ -6,14 +6,16 @@ import IOKit.ps
 
 struct TaskItem: Codable, Identifiable { var id = UUID(); var title: String; var done = false }
 struct DockProfile: Codable, Identifiable {
-    var id = UUID(); var name: String; var apps: [String]; var widgets: [String]; var accent: String; var size: Double
+    var id = UUID(); var name: String; var apps: [String]; var widgets: [String]; var accent: String; var size: Double; var richWidgets: Bool? = nil
 }
 enum ToolKind: String, CaseIterable, Identifiable {
+    case calculator, currency, voiceMemo, audio, appGroups, webSearch
     case search, focus, notes, tasks, files, system, calendar, clipboard, weather, music
     case bookmarks, folders, stopwatch, water, habits, progress, clocks, converter, capture, colors, controls, reminders, spacer, separator, github
     case windows, googleCalendar, spotify, appleMusic, openaiUsage, anthropicUsage, cursorUsage
     var id: String { rawValue }
     var title: String { switch self {
+    case .calculator: return "Calculator"; case .currency: return "Currency"; case .voiceMemo: return "Voice memo"; case .audio: return "Audio"; case .appGroups: return "App groups"; case .webSearch: return "Web search"
     case .windows: return "Windows"; case .googleCalendar: return "Google Calendar"; case .spotify: return "Spotify"; case .appleMusic: return "Apple Music"; case .openaiUsage: return "OpenAI API usage"; case .anthropicUsage: return "Claude API usage"; case .cursorUsage: return "Cursor team usage"
     case .github: return "GitHub"; case .bookmarks: return "Bookmarks"; case .folders: return "Folders & Downloads"; case .stopwatch: return "Stopwatch"
     case .water: return "Drink water"; case .habits: return "Habits"; case .progress: return "Time progress"; case .clocks: return "World clocks"
@@ -23,6 +25,7 @@ enum ToolKind: String, CaseIterable, Identifiable {
     case .files: return "File shelf"; case .system: return "System"; case .calendar: return "Calendar"; case .clipboard: return "Clipboard"
     } }
     var icon: String { switch self {
+    case .calculator: return "equal"; case .currency: return "dollarsign.arrow.circlepath"; case .voiceMemo: return "waveform"; case .audio: return "speaker.wave.2"; case .appGroups: return "square.grid.2x2"; case .webSearch: return "globe"
     case .windows: return "rectangle.split.2x2"; case .googleCalendar: return "calendar.badge.clock"; case .spotify: return "music.note.list"; case .appleMusic: return "music.note"; case .openaiUsage, .anthropicUsage, .cursorUsage: return "chart.bar"
     case .github: return "chevron.left.forwardslash.chevron.right"; case .bookmarks: return "bookmark"; case .folders: return "folder"; case .stopwatch: return "stopwatch"
     case .water: return "drop"; case .habits: return "checkmark.seal"; case .progress: return "chart.pie"; case .clocks: return "globe"
@@ -36,8 +39,9 @@ enum ToolKind: String, CaseIterable, Identifiable {
     @Published var note: String { didSet { store.set(note, forKey: "quickNote") } }
     @Published var tasks: [TaskItem] { didSet { save(tasks, "tasks") } }
     @Published var files: [String] { didSet { store.set(files, forKey: "shelfFiles") } }
-    @Published var enabled: [String] { didSet { store.set(enabled, forKey: "widgets") } }
+    @Published var enabled: [String] { didSet { store.set(enabled, forKey: "widgets"); if !enabled.contains("system") { monitor.stop() } } }
     @Published var profiles: [DockProfile] { didSet { save(profiles, "profiles") } }
+    @Published var richWidgets: Bool { didSet { store.set(richWidgets, forKey: "richWidgets") } }
     @Published var autoHide: Bool { didSet { store.set(autoHide, forKey: "autoHide") } }
     @Published var hideOnOverlap: Bool { didSet { store.set(hideOnOverlap, forKey: "hideOnOverlap") } }
     @Published var showRunning: Bool { didSet { store.set(showRunning, forKey: "showRunning") } }
@@ -59,6 +63,12 @@ enum ToolKind: String, CaseIterable, Identifiable {
     @Published var battery = "Desktop"
     @Published var memory = ""
     @Published var storage = ""
+    let monitor = SystemMonitor()
+    let audio = AudioControl()
+    let currency = CurrencyWidget()
+    let voiceMemo = VoiceMemo()
+    let groups: AppGroups
+    private var observers = Set<AnyCancellable>()
     let calendar: CalendarWidget
     let googleCalendar: CalendarWidget
     let spotify = MusicPlayer(name: "Spotify", bundleID: "com.spotify.client")
@@ -75,6 +85,8 @@ enum ToolKind: String, CaseIterable, Identifiable {
     private var ticks = 0
     init(store: UserDefaults = .standard) {
         self.store = store
+        groups = AppGroups(defaults: store)
+        richWidgets = store.object(forKey: "richWidgets") as? Bool ?? true
         calendar = CalendarWidget(store: store)
         googleCalendar = CalendarWidget(store: store, google: true)
         utilities = Utilities(store: store)
@@ -87,6 +99,9 @@ enum ToolKind: String, CaseIterable, Identifiable {
         hideOnOverlap = store.bool(forKey: "hideOnOverlap")
         autoHide = store.bool(forKey: "autoHide"); showRunning = store.object(forKey: "showRunning") as? Bool ?? true
         edge = store.string(forKey: "edge") ?? "Bottom"; screenIndex = store.integer(forKey: "screenIndex")
+        for publisher in [monitor.objectWillChange, audio.objectWillChange, currency.objectWillChange, voiceMemo.objectWillChange, groups.objectWillChange, calendar.objectWillChange, googleCalendar.objectWillChange, spotify.objectWillChange, appleMusic.objectWillChange, openaiUsage.objectWillChange, anthropicUsage.objectWillChange, cursorUsage.objectWillChange] {
+            publisher.receive(on: RunLoop.main).sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &observers)
+        }
         sampleSystem()
         tick = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in Task { @MainActor [weak self] in self?.tickNow() } }
     }

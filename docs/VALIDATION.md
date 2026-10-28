@@ -1,4 +1,12 @@
-# WaveDock 0.4 validation
+# WaveDock validation
+
+## 0.5 verification
+
+The redesigned app adds 36 functional widget views, rich cards, custom accents, live system graphs, audio output control, calculator, currency, local voice memos and app groups. Two full local passes succeeded on the initial 0.5 implementation. Final verification also asserts that window placement reserves the exact rendered Dock height and reads live currency/system/audio data. See PR #1 for exact-commit CI and live resize results.
+
+Regression coverage includes delayed Accessibility layout acknowledgement, bounded retries, true minimum-size constraints, refused writes, arithmetic precedence and invalid input, currency response validation, network counter resets, custom accent persistence and app-group persistence. The design-preview capture uses explicitly labeled synthetic data. Microphone recording and arbitrary third-party account access require separate live permission/account checks.
+
+## Earlier 0.4 evidence
 
 ## Reproduce
 

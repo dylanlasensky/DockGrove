@@ -1,12 +1,14 @@
 # WaveDock
 
+![WaveDock — Thoughtfully at hand.](Assets/Brand/WaveDock.svg)
+
 **Your apps, useful widgets, and AI usage in one native Mac Dock.**
 
 WaveDock is a free, open-source Mac app created by Dylan Lasensky. It gives you a customizable glass Dock with app launchers, a widget library, saved layouts, and a tile for the usage limits returned by your ChatGPT account's Codex service.
 
 Built with Swift, SwiftUI, and AppKit. No Electron, web wrapper, subscription, account with WaveDock, or third-party package dependencies.
 
-> **Early access, v0.4.0.** WaveDock is inspired by the usefulness of widget docks. It is an independent project, not affiliated with CoolDock or OpenAI. It does not yet match CoolDock's full catalog or production maturity. See the feature matrix and limitations below.
+> **Early access, v0.5.0.** WaveDock is inspired by the usefulness of widget docks. It is an independent project, not affiliated with CoolDock or OpenAI. It does not yet match CoolDock's full catalog or production maturity. See the feature matrix and limitations below.
 
 ## Requirements
 
@@ -37,10 +39,10 @@ The build uses the installed Apple toolchain and creates `dist/WaveDock.app`. It
 ## First setup
 
 1. Open Settings from the wave icon in your menu bar or the sliders button in WaveDock.
-2. Choose icon size and an accent: Mint, Blue, Lilac, or Coral.
+2. Choose icon size and an accent: White, None (neutral), Mint, Blue, Lilac, Coral, Rose, Gold, or any custom color. Rich widget cards show live details directly on the Dock; turn them off for compact tiles.
 3. Pin apps with **Pin apps…** or the search widget. Drag pinned icons over another pinned icon to reorder them. Right-click for pin, unpin, move, reveal, and quit actions.
 4. Choose a display. Replacement mode stays at the bottom. Enable automatic hiding or hide-on-overlap if you prefer; hold the pointer at the physical bottom edge for a quarter second to reveal it.
-5. Enable your widgets in **Widget library**. A full Dock scrolls horizontally.
+5. Enable your widgets in **Widget library**. A full Dock uses whole-card pages; navigation and Settings remain visible.
 6. **Use WaveDock as my Dock** is enabled by default for the new replacement workflow. Apple’s Dock is hidden and its edge reveal is delayed while WaveDock runs. Disable replacement to use a separate top or bottom bar. Your original Apple Dock preferences return when you disable replacement or quit.
 7. Save a named layout to switch between app collections, widgets, icon sizes, and accent colors. Export/import layout JSON to move those layouts to another Mac. App paths must exist on the destination Mac.
 
@@ -50,7 +52,7 @@ The menu-bar wave always gives access to Settings, show/hide, usage refresh, App
 
 | Feature | Available now |
 | --- | --- |
-| Native glass Dock | Bottom replacement; top/bottom companion mode; selected display; full-screen/session/sleep suppression; true auto-hide; optional hide-on-overlap; icon sizes, accents, horizontal overflow |
+| Native glass Dock | Bottom replacement; top/bottom companion mode; selected display; full-screen/session/sleep suppression; true auto-hide; optional hide-on-overlap; icon sizes, accents, whole-card pages |
 | App management | Pinned apps, optional unpinned running apps, running indicators, hover animation, drag reorder, contextual actions |
 | App search | Searches installed apps in Applications and System Applications; open or pin from results |
 | Saved layouts | Save/apply/remove layouts; JSON export and import |
@@ -59,7 +61,7 @@ The menu-bar wave always gives access to Settings, show/hide, usage refresh, App
 | Quick note | Editable note saved automatically on this Mac |
 | Tasks | Local tasks, completion toggles, individual removal, clear completed |
 | File shelf | Add files and folders, drop file shortcuts, drag out, open, reveal, and open Downloads |
-| System information | Battery/charging state, installed RAM, available disk space, CPU core count, Activity Monitor shortcut |
+| System information | Live CPU sparkline, active/wired/compressed memory use, network throughput, battery/charging state, installed RAM and available disk space |
 | Calendar | Opt-in access to the next seven days of Mac calendar events; manual refresh |
 | Clipboard | Opt-in text history, up to 20 entries in memory, click to copy, clear history |
 | Weather | Manual city lookup and refresh, current and feels-like temperature in Fahrenheit, Open-Meteo attribution |
@@ -80,7 +82,20 @@ The menu-bar wave always gives access to Settings, show/hide, usage refresh, App
 | Login startup | Native macOS login item registration; approval status shown |
 | Music | Opt-in Spotify or Apple Music connection, track/artist, previous/play-pause/next, ten-second polling while connected |
 
-## New in 0.4
+## New in 0.5
+
+- **A coherent identity:** an original monochrome WaveDock mark, a redesigned app icon, quiet typography, translucent surfaces, rounded widget cards and consistent spacing. Native SF Symbols remain familiar; WaveDock does not use Apple's logo or imply Apple affiliation.
+- **Useful at a glance:** timers, task lists, calendar agendas, music, system graphs, water progress and AI reports now show their actual content directly on the Dock. Focus, stopwatch, water and connected music have inline controls. Compact tiles remain available.
+- **Any accent:** choose White or None for a neutral workspace, a curated color, or the macOS color picker for a custom RGB color. Custom colors persist and travel with layout exports.
+- **Window resizing:** waits for asynchronous app layout, retries size/position changes, and temporarily restores standard resize behavior for apps with enhanced accessibility UI. The operation runs off the UI thread. Success means the actual frame matched; genuine minimum-size restrictions still produce an explanation and preserve Undo.
+- **Calculator:** offline arithmetic with parentheses, powers, percentages and explicit invalid-expression/division-by-zero errors.
+- **Currency:** daily reference rates for 15 currencies, swap direction, editable amount and rate date. Refresh sends only the selected currency pair to [Frankfurter](https://frankfurter.dev/); amounts remain local. These are reference rates, not transaction quotes.
+- **Voice memos:** explicit microphone permission, record, pause/resume, stop/save, playback, export and Finder reveal. Audio stays in `~/Library/Application Support/WaveDock/Voice Memos`; quitting stops recording. Nothing is uploaded.
+- **Audio:** select an output device and adjust system output volume where the device supports it. External devices with fixed volume expose a clear explanation.
+- **App groups:** create named collections of pinned apps, launch from a compact grid, and remove groups without touching installed apps.
+- **Web search:** query DuckDuckGo, Google or Bing in your browser.
+
+## Connected widgets and Dock behavior
 
 - Whole-tile Dock pages prevent right-edge overflow. Previous/next controls, page count and Settings stay visible, including with all widgets enabled.
 - **Windows**: move a selected window to halves, quarters, maximize or center, choose a display, focus, minimize and undo. Allow WaveDock in Privacy & Security → Accessibility, then Refresh windows. Native full-screen windows must leave full screen first. Apps may enforce their own minimum sizes; WaveDock reports constraints and preserves Undo. This does not implement drag-to-edge snapping or thumbnails.
@@ -111,6 +126,9 @@ Latest build status distinguishes queued/running/completed states. A failed refr
 
 ## Permissions and data
 
+- **Microphone:** requested only from Record new memo. Recordings remain local until you explicitly export them.
+- **Currency:** sends only a currency pair to Frankfurter when refreshed.
+- **Web search:** sends the typed query to the chosen search engine when you press Search.
 - **Reminders:** requested only from Connect / refresh Reminders. Completing a reminder writes that selected change to Apple Reminders.
 - **Screen capture / color:** invoked only by their buttons; macOS handles any required permission. Screenshot capture goes to the clipboard; the toolbar can choose a save location.
 - **GitHub:** sends the repository name to GitHub when refreshed. Optional CLI mode uses the account already signed in to `gh`. No WaveDock credential store.
@@ -158,14 +176,14 @@ This is a substantial early-access app, not a complete CoolDock clone. In partic
 - One Dock on one selected display at a time. No per-display simultaneous docks, left/right layout, or automatic profile switching yet.
 - Connected calendars refresh every minute and on Calendar changes. Weather refreshes manually and currently uses the first matching city and Fahrenheit.
 - Tasks are WaveDock-local; Apple Reminders is a separate opt-in widget. Focus sessions and stopwatch laps do not survive quitting the app.
-- System information does not yet include CPU/RAM utilization charts or network speed history.
+- System monitoring samples while enabled; CPU history is limited to the current session. Hardware temperature and peripheral battery telemetry are not implemented.
 - No window thumbnails, minimized-window tiles, custom app-icon packs, folder groups, or full native Dock drag/drop semantics.
 - No automatic update service, Apple notarization, or App Store distribution yet. Login startup needs an installed app and may require macOS approval.
 - Codex allowances, GitHub, OpenAI API token usage, Claude API token usage, and Cursor team analytics are supported. OpenAI/Claude consumer-plan allowances and commerce/mail integrations remain unimplemented. API metrics do not represent consumer-plan limits.
-- Screenshots, unit conversions and color picking are supported. Voice recording, currency rates, wallpaper marketplace, app groups and window thumbnails remain unimplemented.
+- Screenshots, unit/currency conversion, color picking, voice memos and app groups are supported. Wallpaper services, per-app audio mixing and window thumbnails remain unimplemented.
 - Music and calendar need end-to-end validation across OS versions and real permission states. Multi-display placement needs testing on more hardware.
 
-See [CoolDock comparison](docs/COOLDOCK-COMPARISON.md) for the sourced gap audit. Next priorities are app groups, window previews, additional supported providers, and multi-display hardware coverage. Production readiness requires broader testing and a signed/notarized release process.
+See [CoolDock comparison](docs/COOLDOCK-COMPARISON.md) for the sourced gap audit. Next priorities are window previews, additional supported providers, and multi-display hardware coverage. Production readiness requires broader testing and a signed/notarized release process.
 
 ## Project structure
 

@@ -39,11 +39,31 @@ import SwiftUI
         model.toolkit.enabled = ToolKind.allCases.map(\.rawValue)
         for iconSize in [32.0, 48, 64] {
             model.iconSize = iconSize
+            // A fresh host synchronously measures each size; Published updates settle on the next run-loop turn.
+            delegate.panel.contentView = NSHostingView(rootView: DockView(model: model))
             delegate.layoutDock()
+            if abs(delegate.panel.frame.height - model.dockHeight) >= 1 { print("FAIL: Dock height actual=\(delegate.panel.frame.height) reserved=\(model.dockHeight)"); fflush(stdout); preconditionFailure("Dock height mismatch") }
             precondition(delegate.panel.frame.width <= screen.frame.width - 19)
             precondition(delegate.panel.frame.minX >= screen.frame.minX)
             precondition(delegate.panel.frame.maxX <= screen.frame.maxX)
         }
+        // Capture the real card components with clearly synthetic display data for visual QA.
+        model.accent = "White"; model.toolkit.note = "Ideas for a quieter workspace"; model.toolkit.tasks = [TaskItem(title: "Review the new design"), TaskItem(title: "Take a short break")]
+        model.toolkit.monitor.cpu = 34; model.toolkit.monitor.available = true; model.toolkit.monitor.history = [5, 12, 9, 22, 18, 34, 26, 19, 28, 14, 20, 34]
+        model.toolkit.weatherText = "26°"; model.toolkit.weatherCity = "Sample forecast"
+        model.toolkit.spotify.track = TrackSnapshot(title: "A little room to breathe", artist: "Sample music", playing: false)
+        model.toolkit.spotify.connected = true
+        let gallery = NSHostingView(rootView: VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 12) { BrandIcon().frame(width: 48, height: 48); VStack(alignment: .leading) { Text("WaveDock").font(.system(size: 25, weight: .semibold)); Text("Thoughtfully at hand.").foregroundStyle(.secondary) }; Spacer(); Text("DESIGN PREVIEW · SAMPLE DATA").font(.system(size: 9, weight: .medium)).foregroundStyle(.secondary) }
+            ForEach([[ToolKind.focus, .weather, .spotify], [.system, .tasks, .notes], [.water, .progress, .appGroups]], id: \.self) { row in
+                HStack(spacing: 12) { ForEach(row) { kind in RichWidgetCard(kind: kind, model: model, kit: model.toolkit, open: {}).frame(width: 236, height: 80) } }
+            }
+        }.padding(26).background(Color(white: 0.075)).foregroundStyle(.white).preferredColorScheme(.dark))
+        let galleryWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 784, height: 400), styleMask: [.borderless], backing: .buffered, defer: false)
+        galleryWindow.isReleasedWhenClosed = false; galleryWindow.contentView = gallery; galleryWindow.orderFront(nil)
+        gallery.setFrameSize(gallery.fittingSize); gallery.layoutSubtreeIfNeeded()
+        if let bitmap = gallery.bitmapImageRepForCachingDisplay(in: gallery.bounds) { gallery.cacheDisplay(in: gallery.bounds, to: bitmap); if let data = bitmap.representation(using: .png, properties: [:]) { try data.write(to: output.appendingPathComponent("design-preview.png")) } }
+        galleryWindow.orderOut(nil); model.toolkit.monitor.stop(); model.toolkit.spotify.disconnect()
         // Actual window states, not only the pure policy.
         delegate.sessionActive = false; delegate.checkAutoHide(); precondition(!delegate.panel.isVisible)
         delegate.sessionActive = true; delegate.screenAwake = false; delegate.checkAutoHide(); precondition(!delegate.panel.isVisible)

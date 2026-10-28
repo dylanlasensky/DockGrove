@@ -2,7 +2,7 @@ import AppKit
 
 /// A page contains whole tiles only. Navigation and Settings are outside the page.
 struct DockPageLayout {
-    static let gap: CGFloat = 12
+    static let gap: CGFloat = 10
     static let chrome: CGFloat = 154 // padding, previous/next, count and Settings
     static func pages(widths: [CGFloat], available: CGFloat) -> [[Int]] {
         guard !widths.isEmpty else { return [[]] }
@@ -26,8 +26,14 @@ enum DockEntry: Identifiable {
     var id: String {
         switch self { case .app(let a): return "app:" + a.id; case .add: return "add"; case .usage: return "usage"; case .tool(let k): return k.rawValue; case .clock: return "clock" }
     }
-    func width(iconSize: Double) -> CGFloat {
-        switch self { case .app: return iconSize + 8; case .add: return 28; case .usage: return 177; case .clock: return 100
-        case .tool(let kind): return kind == .separator ? 1 : kind == .spacer ? 24 : 72 }
+    func width(iconSize: Double, rich: Bool = true) -> CGFloat {
+        switch self { case .app: return iconSize + 8; case .add: return 28; case .usage: return rich ? 202 : 177; case .clock: return rich ? 136 : 100
+        case .tool(let kind):
+            if kind == .separator { return 1 }; if kind == .spacer { return 24 }; if !rich { return 72 }
+            switch kind { case .spotify, .appleMusic, .music, .calendar, .googleCalendar: return 236
+            case .tasks, .notes: return 208
+            case .focus, .stopwatch: return 170
+            case .system, .progress, .appGroups, .water: return 184
+            default: return 174 } }
     }
 }

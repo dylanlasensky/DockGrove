@@ -52,7 +52,7 @@ final class DockPanel: NSPanel {
         settings.contentView = NSHostingView(rootView: SettingsView(model: model))
         settings.center()
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        status.button?.image = NSImage(systemSymbolName: "water.waves", accessibilityDescription: "WaveDock")
+        status.button?.image = BrandIcon.menuImage
         let menu = NSMenu()
         for (title, action, key) in [("Settings…", #selector(showSettings), ","), ("Show / hide WaveDock", #selector(toggleVisibility), "d"), ("Refresh usage", #selector(refresh), "r"), ("Restore Apple Dock", #selector(restore), ""), ("Quit WaveDock", #selector(quit), "q")] {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: key); item.target = self; menu.addItem(item)
@@ -179,6 +179,15 @@ final class DockPanel: NSPanel {
                     precondition(!usage.buckets.isEmpty)
                     print("PASS: live Codex allowance read")
                 } catch { print("UNVERIFIED: live Codex: \(error.localizedDescription)") }
+                let currency = CurrencyWidget(); currency.refresh()
+                while currency.loading { try? await Task.sleep(nanoseconds: 100_000_000) }
+                if currency.report != nil { print("PASS: live currency reference rate through widget client") }
+                else { print("FAIL: live currency: " + currency.status); failed = true }
+                let monitor = SystemMonitor(); monitor.sample(); try? await Task.sleep(nanoseconds: 250_000_000); monitor.sample()
+                if monitor.available && monitor.memory >= 0 && monitor.memory <= 100 { print("PASS: live CPU, memory and network sampling") }
+                else { print("FAIL: live system sampling"); failed = true }
+                let audio = AudioControl(); audio.refresh()
+                print(audio.outputs.isEmpty ? "UNVERIFIED: no audio outputs available" : "PASS: live audio output discovery")
                 fflush(stdout); exit(failed ? 1 : 0)
             }
             NSApplication.shared.run(); return

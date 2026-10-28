@@ -22,13 +22,18 @@ struct ToolTile: View {
         }
     }
     var body: some View {
-        Button { interaction.expanded.toggle(); if kind == .search { kit.scanApplications() } } label: {
-            VStack(spacing: 5) {
-                Image(systemName: kind.icon).font(.system(size: 20, weight: .medium)).foregroundStyle(model.color)
-                Text(caption).font(.system(size: 10, weight: .medium)).lineLimit(1).monospacedDigit()
-            }.frame(width: 72, height: max(48, model.iconSize))
-                .background(model.color.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
-        }.buttonStyle(.plain).help(kind.title)
+        Group {
+            if kit.richWidgets {
+                RichWidgetCard(kind: kind, model: model, kit: kit) { interaction.expanded.toggle(); if kind == .search { kit.scanApplications() } }
+            } else {
+                Button { interaction.expanded.toggle(); if kind == .search { kit.scanApplications() } } label: {
+                    VStack(spacing: 5) {
+                        Image(systemName: kind.icon).font(.system(size: 20, weight: .medium)).foregroundStyle(model.color)
+                        Text(caption).font(.system(size: 10, weight: .medium)).lineLimit(1).monospacedDigit()
+                    }.frame(width: 72, height: max(48, model.iconSize)).modifier(WidgetSurface(radius: 12))
+                }.buttonStyle(.plain).help(kind.title)
+            }
+        }
         .contextMenu {
             Button("Move earlier") { kit.moveWidget(kind, by: -1) }
             Button("Move later") { kit.moveWidget(kind, by: 1) }
@@ -37,13 +42,20 @@ struct ToolTile: View {
         }
         .popover(isPresented: $interaction.expanded, arrowEdge: kit.edge == "Top" ? .bottom : .top) {
             VStack(alignment: .leading, spacing: 15) {
-                Label(kind.title, systemImage: kind.icon).font(.title3.bold()).foregroundStyle(model.color)
+                HStack { Label(kind.title, systemImage: kind.icon).font(.headline); Spacer(); WaveMark().stroke(model.color.opacity(0.6), style: StrokeStyle(lineWidth: 1.8, lineCap: .round)).frame(width: 23, height: 23) }
+                Divider()
                 contents
             }.padding(22).frame(width: 350).preferredColorScheme(.dark)
         }
     }
     @ViewBuilder var contents: some View {
         switch kind {
+        case .calculator: CalculatorView()
+        case .currency: CurrencyView(widget: kit.currency)
+        case .voiceMemo: VoiceMemoView(memo: kit.voiceMemo)
+        case .audio: AudioControlView(audio: kit.audio)
+        case .appGroups: AppGroupsView(groups: kit.groups, model: model)
+        case .webSearch: WebSearchView()
         case .windows: WindowManagerView(manager: kit.windows, model: model)
         case .googleCalendar: CalendarAgendaView(calendar: kit.googleCalendar)
         case .spotify: MusicPlayerView(player: kit.spotify)
@@ -117,13 +129,7 @@ struct ToolTile: View {
             } }}.frame(maxHeight: 230)
             HStack { Button("Add files…", action: kit.addFiles); Button("Downloads") { NSWorkspace.shared.open(FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")) } }
             Text("Removing a shortcut leaves the original file in place.").font(.caption).foregroundStyle(.secondary)
-        case .system:
-            Label(kit.battery, systemImage: "battery.100percent")
-            Label(kit.memory, systemImage: "memorychip")
-            Label(kit.storage, systemImage: "internaldrive")
-            Label("\(ProcessInfo.processInfo.activeProcessorCount) CPU cores", systemImage: "cpu")
-            Button("Open Activity Monitor") { NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app")) }
-            Text("Battery and free space refresh every 15 seconds.").font(.caption).foregroundStyle(.secondary)
+        case .system: SystemDetailView(monitor: kit.monitor, kit: kit)
         case .calendar: CalendarAgendaView(calendar: kit.calendar)
         case .clipboard:
             Toggle("Capture copied text", isOn: $kit.clipboardEnabled)
@@ -158,8 +164,12 @@ struct WorkspaceSettings: View {
             Label("Widget library", systemImage: "square.grid.2x2").font(.headline)
             Text("Enable the tools you want in your Dock. Use the page arrows when the Dock fills up. Settings stays visible on every page.").font(.caption).foregroundStyle(.secondary)
             TextField("Find a widget…", text: $widgetSearch)
-            ForEach(ToolKind.allCases.filter { widgetSearch.isEmpty || $0.title.localizedCaseInsensitiveContains(widgetSearch) }) { kind in
-                Toggle(isOn: Binding(get: { kit.enabled.contains(kind.rawValue) }, set: { kit.toggle(kind, $0) })) { Label(kind.title, systemImage: kind.icon) }
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                ForEach(ToolKind.allCases.filter { widgetSearch.isEmpty || $0.title.localizedCaseInsensitiveContains(widgetSearch) }) { kind in
+                    Toggle(isOn: Binding(get: { kit.enabled.contains(kind.rawValue) }, set: { kit.toggle(kind, $0) })) {
+                        HStack(spacing: 8) { Image(systemName: kind.icon).foregroundStyle(model.color).frame(width: 22); Text(kind.title).font(.system(size: 11, weight: .medium)).lineLimit(1) }
+                    }.toggleStyle(.switch).controlSize(.mini).padding(10).modifier(WidgetSurface(radius: 10)).help(kind.title)
+                }
             }
         }.padding(18).background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 16))
     }

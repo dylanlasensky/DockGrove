@@ -75,7 +75,7 @@ enum WindowPlacement: String, CaseIterable, Identifiable {
         }
         return found.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
-    static func bounds(_ window: AXUIElement) -> CGRect? {
+    nonisolated static func bounds(_ window: AXUIElement) -> CGRect? {
         var p: CFTypeRef?, s: CFTypeRef?
         guard AXUIElementCopyAttributeValue(window, kAXPositionAttribute as CFString, &p) == .success,
               AXUIElementCopyAttributeValue(window, kAXSizeAttribute as CFString, &s) == .success,
@@ -92,28 +92,40 @@ enum WindowPlacement: String, CaseIterable, Identifiable {
         return CGRect(x: usable.minX, y: globalTop - usable.maxY, width: usable.width, height: usable.height)
     }
     func place(_ placement: WindowPlacement, dockHeight: CGFloat = 0) {
-        guard trusted, let selected, !NSScreen.screens.isEmpty, let current = Self.bounds(selected.element) else { status = "Window unavailable. Refresh the window list."; return }
+        guard !loading, trusted, let selected, !NSScreen.screens.isEmpty, let current = Self.bounds(selected.element) else { status = "Window unavailable. Refresh the window list."; return }
         var full: CFTypeRef?
         AXUIElementCopyAttributeValue(selected.element, "AXFullScreen" as CFString, &full)
         guard (full as? Bool) != true else { status = "Leave native full screen before arranging this window."; return }
         let screen = NSScreen.screens[min(max(0, displayIndex), NSScreen.screens.count - 1)]
         let target = placement.frame(in: Self.usableFrame(screen: screen, dockHeight: dockHeight), current: current)
         undo[selected.id] = current // Preserve recovery even if the app accepts only part of the resize.
-        if setFrame(target, window: selected.element) { selected.owner.activate(options: []); AXUIElementPerformAction(selected.element, kAXRaiseAction as CFString) }
+        arrange(target, selected: selected)
     }
-    @discardableResult private func setFrame(_ frame: CGRect, window: AXUIElement) -> Bool {
-        var point = frame.origin, size = frame.size
-        guard let p = AXValueCreate(.cgPoint, &point), let s = AXValueCreate(.cgSize, &size) else { return false }
-        _ = AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
-        let moved = AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, p)
-        let sized = AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, s)
-        _ = AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, p)
-        guard moved == .success, sized == .success else { status = "This window refused part of the move or resize. Use Undo to restore the previous layout."; return false }
-        if let actual = Self.bounds(window), abs(actual.width - frame.width) > 4 || abs(actual.height - frame.height) > 4 || abs(actual.minX - frame.minX) > 4 || abs(actual.minY - frame.minY) > 4 { status = "The app constrained the requested size or position. Undo is available." }
-        else { status = "Window arranged. Use Undo to restore its previous size." }
-        return true
+    private func arrange(_ frame: CGRect, selected: ManagedWindow, undoing: Bool = false) {
+        guard !loading else { return }
+        loading = true; status = "Arranging window…"
+        selected.owner.activate(options: [])
+        let element = selected.element, id = selected.id, pid = selected.owner.processIdentifier
+        Task {
+            let result = await Task.detached(priority: .userInitiated) {
+                WindowFrameWriter.apply(frame, window: element, pid: pid)
+            }.value
+            loading = false
+            switch result {
+            case .arranged:
+                status = undoing ? "Previous layout restored." : "Window arranged. Undo is available."
+                if undoing { undo.removeValue(forKey: id) }
+            case .constrained(let actual):
+                status = "This app limits its window to \(Int(actual.width)) × \(Int(actual.height)). Try a larger layout; Undo is available."
+            case .unavailable:
+                status = "The app refused this layout. Refresh its window or check Accessibility access. Undo is available."
+            }
+        }
     }
-    func undoPlacement() { guard let selected, let frame = undo[selected.id] else { status = "No previous layout for this window."; return }; if setFrame(frame, window: selected.element) { undo.removeValue(forKey: selected.id) } }
+    func undoPlacement() {
+        guard !loading, let selected, let frame = undo[selected.id] else { status = "No previous layout for this window."; return }
+        arrange(frame, selected: selected, undoing: true)
+    }
     func focus() { guard let selected else { return }; _ = AXUIElementSetAttributeValue(selected.element, kAXMinimizedAttribute as CFString, kCFBooleanFalse); selected.owner.activate(options: []); AXUIElementPerformAction(selected.element, kAXRaiseAction as CFString) }
     func minimize() { guard let selected else { return }; if AXUIElementSetAttributeValue(selected.element, kAXMinimizedAttribute as CFString, kCFBooleanTrue) != .success { status = "This window cannot be minimized." } }
 }
@@ -128,9 +140,52 @@ struct WindowManagerView: View {
             Picker("Window", selection: $manager.selectedID) { Text("Select a window").tag(""); ForEach(manager.windows) { Text($0.title).tag($0.id) } }
             Picker("Move to display", selection: $manager.displayIndex) { ForEach(Array(NSScreen.screens.enumerated()), id: \.offset) { i, screen in Text(screen.localizedName).tag(i) } }
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())]) {
-                ForEach(WindowPlacement.allCases) { placement in Button(placement.rawValue) { manager.place(placement, dockHeight: model.replacingDock && !model.toolkit.autoHide && manager.displayIndex == model.toolkit.screenIndex ? model.iconSize + 56 : 0) }.frame(maxWidth: .infinity) }
-            }.disabled(manager.selected == nil)
-            HStack { Button("Focus", action: manager.focus); Button("Minimize", action: manager.minimize); Button("Undo layout", action: manager.undoPlacement) }.disabled(manager.selected == nil)
+                ForEach(WindowPlacement.allCases) { placement in Button(placement.rawValue) { manager.place(placement, dockHeight: model.replacingDock && !model.toolkit.autoHide && manager.displayIndex == min(max(0, model.toolkit.screenIndex), max(0, NSScreen.screens.count - 1)) ? model.dockHeight : 0) }.frame(maxWidth: .infinity) }
+            }.disabled(manager.selected == nil || manager.loading)
+            HStack { Button("Focus", action: manager.focus); Button("Minimize", action: manager.minimize); Button("Undo layout", action: manager.undoPlacement) }.disabled(manager.selected == nil || manager.loading)
         }.onAppear { if manager.trusted { manager.refresh() } }
+    }
+}
+
+/// AX writes are acknowledged before many apps have completed layout. Wait off the main
+/// thread, then retry size-position-size for apps that clamp moves to their old size.
+enum WindowFrameWriter {
+    enum Result { case arranged, constrained(CGRect), unavailable }
+    static func matches(_ a: CGRect, _ b: CGRect) -> Bool {
+        abs(a.minX - b.minX) <= 4 && abs(a.minY - b.minY) <= 4 && abs(a.width - b.width) <= 4 && abs(a.height - b.height) <= 4
+    }
+    static func settle(target: CGRect, write: () -> Bool, read: () -> CGRect?, pause: () -> Void) -> Result {
+        var accepted = false
+        for _ in 0..<3 {
+            accepted = write() || accepted
+            for _ in 0..<6 {
+                pause()
+                if let actual = read(), matches(actual, target) { return .arranged }
+            }
+        }
+        if accepted, let actual = read() { return .constrained(actual) }
+        return .unavailable
+    }
+    static func apply(_ frame: CGRect, window: AXUIElement, pid: pid_t) -> Result {
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(window, 1)
+        AXUIElementSetMessagingTimeout(app, 1)
+        // Electron and some accessibility clients change resize behavior while enhanced
+        // UI is enabled. Restore the exact value, and only touch it when it was enabled.
+        var enhanced: CFTypeRef?
+        let enhancedKey = "AXEnhancedUserInterface" as CFString
+        let restoreEnhanced = AXUIElementCopyAttributeValue(app, enhancedKey, &enhanced) == .success && (enhanced as? Bool) == true
+        if restoreEnhanced { _ = AXUIElementSetAttributeValue(app, enhancedKey, kCFBooleanFalse) }
+        defer { if restoreEnhanced { _ = AXUIElementSetAttributeValue(app, enhancedKey, kCFBooleanTrue) } }
+        _ = AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+        _ = AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+        return settle(target: frame, write: {
+            var point = frame.origin, size = frame.size
+            guard let p = AXValueCreate(.cgPoint, &point), let s = AXValueCreate(.cgSize, &size) else { return false }
+            let firstSize = AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, s)
+            let move = AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, p)
+            let secondSize = AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, s)
+            return move == .success && (firstSize == .success || secondSize == .success)
+        }, read: { WindowManager.bounds(window) }, pause: { Thread.sleep(forTimeInterval: 0.08) })
     }
 }

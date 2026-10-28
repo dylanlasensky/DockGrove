@@ -4,7 +4,7 @@ import AppKit
     // Validate whole-tile paging at laptop, external-display and narrow resolutions.
     for screenWidth in [640.0, 800, 1024, 1280, 1440, 1920, 2560, 3840] {
         for iconSize in [36.0, 48, 64] {
-            let widths: [CGFloat] = Array(repeating: CGFloat(iconSize + 8), count: 40) + [28, 177] + ToolKind.allCases.map { DockEntry.tool($0).width(iconSize: iconSize) } + [100]
+            let widths: [CGFloat] = Array(repeating: CGFloat(iconSize + 8), count: 40) + [28, 202] + ToolKind.allCases.map { DockEntry.tool($0).width(iconSize: iconSize) } + [136]
             let width = DockPageLayout.bodyWidth(screenWidth: screenWidth, naturalWidth: widths.reduce(0, +) + Double(widths.count - 1) * DockPageLayout.gap)
             let capacity = width - DockPageLayout.chrome
             let pages = DockPageLayout.pages(widths: widths, available: capacity)
@@ -25,6 +25,39 @@ import AppKit
         precondition(WindowPlacement.center.frame(in: area, current: current) == area)
     }
     print("PASS: all ten window layouts, display boundaries, negative origins, oversized centering")
+    let target = CGRect(x: 10, y: 20, width: 700, height: 500)
+    var observed = CGRect(x: 0, y: 0, width: 200, height: 100), polls = 0, writes = 0
+    let settled = WindowFrameWriter.settle(target: target, write: { writes += 1; return true }, read: { observed }, pause: { polls += 1; if polls == 8 { observed = target } })
+    guard case .arranged = settled else { preconditionFailure("Delayed app layout was incorrectly reported as constrained") }
+    precondition(writes == 2 && polls == 8)
+    let constrained = WindowFrameWriter.settle(target: target, write: { true }, read: { CGRect(x: 10, y: 20, width: 900, height: 500) }, pause: {})
+    guard case .constrained = constrained else { preconditionFailure("App minimum size was ignored") }
+    let denied = WindowFrameWriter.settle(target: target, write: { false }, read: { nil }, pause: {})
+    guard case .unavailable = denied else { preconditionFailure("Refused layout reported success") }
+    print("PASS: delayed AX layout convergence, bounded retries, app constraints and refused writes")
+    for (expression, expected) in [("2+3*4", 14.0), ("(2+3)*4", 20), ("-2^2", -4), ("2^3^2", 512), ("50%*200", 100), ("10÷2+3×4", 17), (".5+1.25", 1.75)] {
+        let actual = try Calculator.evaluate(expression); precondition(abs(actual - expected) < 0.00001)
+    }
+    for invalid in ["1/0", "(2+3", "1..2", "system(1)", "2^9999", String(repeating: "1", count: 257)] {
+        do { _ = try Calculator.evaluate(invalid); preconditionFailure("Invalid calculation accepted") } catch { }
+    }
+    precondition(AccentPalette.rgb("#FFAA00") == 0xFFAA00 && AccentPalette.rgb("bad input") == nil)
+    precondition(SystemMonitor.rate(previous: 100, current: 300, elapsed: 2) == 100)
+    precondition(SystemMonitor.rate(previous: 300, current: 100, elapsed: 2) == 0)
+    let rate = try CurrencyWidget.decode(Data(#"{"date":"2026-10-28","base":"USD","quote":"EUR","rate":0.9}"#.utf8), base: "USD", quote: "EUR")
+    precondition(rate.rate == 0.9)
+    for json in [#"{"date":"2026-10-28","base":"USD","quote":"EUR","rate":-1}"#, #"{"date":"2026-10-28","base":"GBP","quote":"EUR","rate":1}"#] {
+        do { _ = try CurrencyWidget.decode(Data(json.utf8), base: "USD", quote: "EUR"); preconditionFailure("Bad rate accepted") } catch { }
+    }
+    let groupSuite = "WaveDockGroups." + UUID().uuidString, groupDefaults = UserDefaults(suiteName: groupSuite)!
+    defer { groupDefaults.removePersistentDomain(forName: groupSuite) }
+    let groups = AppGroups(defaults: groupDefaults)
+    groups.add(name: " Work ", paths: ["/Applications/Test.app", "/Applications/Test.app", "/tmp/file"])
+    precondition(groups.groups.count == 1 && groups.groups[0].paths.count == 1 && groups.groups[0].name == "Work")
+    precondition(AppGroups(defaults: groupDefaults).groups.count == 1)
+    groupDefaults.set("#13579B", forKey: "accent"); groupDefaults.set(false, forKey: "richWidgets")
+    let custom = DockModel(defaults: groupDefaults); precondition(custom.accent == "#13579B" && !custom.toolkit.richWidgets)
+    print("PASS: arithmetic precedence and invalid inputs, custom accents, network counter resets, currency validation and group persistence")
     let track = try TrackSnapshot.decode(Data("playing\u{1e}Title\nwith newline\u{1e}Artist\n".utf8))
     precondition(track.playing && track.title == "Title\nwith newline" && track.artist == "Artist")
     let emptyArtist = try TrackSnapshot.decode(Data("paused\u{1e}Track\u{1e}\n".utf8)); precondition(emptyArtist.artist.isEmpty)
