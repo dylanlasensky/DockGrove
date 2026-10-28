@@ -191,7 +191,8 @@ final class DockPanel: NSPanel {
                 while currency.loading { try? await Task.sleep(nanoseconds: 100_000_000) }
                 if currency.report != nil { print("PASS: live currency reference rate through widget client") }
                 else { print("FAIL: live currency: " + currency.status); failed = true }
-                let monitor = SystemMonitor(); monitor.sample(); try? await Task.sleep(nanoseconds: 250_000_000); monitor.sample()
+                // Match the widget cadence: cached host statistics may not advance in 250 ms.
+                let monitor = SystemMonitor(); monitor.sample(); try? await Task.sleep(nanoseconds: 2_000_000_000); monitor.sample()
                 if monitor.available && monitor.memory >= 0 && monitor.memory <= 100 { print("PASS: live CPU, memory and network sampling") }
                 else { print("FAIL: live system sampling"); failed = true }
                 let audio = AudioControl(); audio.refresh()
