@@ -6,6 +6,9 @@ import SwiftUI
     do {
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
         delegate.settings.orderOut(nil)
+        let edit = NSApp.mainMenu?.items.first(where: { $0.submenu?.title == "Edit" })?.submenu
+        precondition(edit?.items.contains(where: { $0.action == Selector(("selectAll:")) && $0.keyEquivalent == "a" }) == true)
+        precondition(edit?.items.contains(where: { $0.action == Selector(("paste:")) && $0.keyEquivalent == "v" }) == true)
         let model = delegate.model!
         model.toolkit.showRunning = false
         model.toolkit.autoHide = false
