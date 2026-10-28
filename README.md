@@ -6,14 +6,14 @@ WaveDock is a free, open-source Mac app created by Dylan Lasensky. It gives you 
 
 Built with Swift, SwiftUI, and AppKit. No Electron, web wrapper, subscription, account with WaveDock, or third-party package dependencies.
 
-> **Early access, v0.3.0.** WaveDock is inspired by the usefulness of widget docks. It is an independent project, not affiliated with CoolDock or OpenAI. It does not yet match CoolDock's full catalog or production maturity. See the feature matrix and limitations below.
+> **Early access, v0.4.0.** WaveDock is inspired by the usefulness of widget docks. It is an independent project, not affiliated with CoolDock or OpenAI. It does not yet match CoolDock's full catalog or production maturity. See the feature matrix and limitations below.
 
 ## Requirements
 
 - macOS 14 Sonoma or newer.
 - Apple Silicon or Intel Mac. The build produces a universal app.
 - Xcode Command Line Tools to build from source (`xcode-select --install`).
-- A compatible Codex CLI signed in with ChatGPT for AI usage tracking. Other widgets work without it.
+- A compatible Codex CLI signed in with ChatGPT for Codex allowances. API/team usage widgets require their own provider admin keys; other widgets work without these connections.
 
 ## Install
 
@@ -32,7 +32,7 @@ zsh build.sh
 open dist/WaveDock.app
 ```
 
-The build uses the installed Apple toolchain and creates `dist/WaveDock.app`. It generates the app icon from the included drawing script. Build outputs are excluded from version control.
+The build uses the installed Apple toolchain and creates `dist/WaveDock.app`. It generates the app icon from the included drawing script. Build outputs are excluded from version control. Ad-hoc rebuilds may require you to re-enable macOS privacy permissions; stable distribution requires a consistent Developer ID signature.
 
 ## First setup
 
@@ -80,7 +80,17 @@ The menu-bar wave always gives access to Settings, show/hide, usage refresh, App
 | Login startup | Native macOS login item registration; approval status shown |
 | Music | Opt-in Spotify or Apple Music connection, track/artist, previous/play-pause/next, ten-second polling while connected |
 
-## Connect AI usage
+## New in 0.4
+
+- Whole-tile Dock pages prevent right-edge overflow. Previous/next controls, page count and Settings stay visible, including with all widgets enabled.
+- **Windows**: move a selected window to halves, quarters, maximize or center, choose a display, focus, minimize and undo. Allow WaveDock in Privacy & Security → Accessibility, then Refresh windows. Native full-screen windows must leave full screen first. Apps may enforce their own minimum sizes; WaveDock reports constraints and preserves Undo. This does not implement drag-to-edge snapping or thumbnails.
+- **Google Calendar**: add Google in macOS Internet Accounts, enable Calendars, then connect the widget and select calendars belonging to that account. WaveDock reads the next seven days through EventKit; macOS owns Google sign-in and synchronization. The general Calendar widget can include iCloud, Google and other configured calendars. Both refresh while connected and support Disconnect. No custom Google OAuth client is needed.
+- **Spotify and Apple Music**: separate widgets can be enabled together. Open the installed player, then Connect / refresh and allow Automation. Track, artist, playback state and transport controls refresh every ten seconds while connected. Reads run off the UI thread with a timeout; an exited player or failed read clears stale track data. The original Music widget remains as a combined panel.
+- **OpenAI API, Claude API and Cursor team usage**: enable each from the widget library, enter that provider's organization/team admin API key in its secure field, and press Save & connect. Keys are stored in macOS Keychain. Refresh is explicit, with optional hourly polling for the current session. Disconnect & forget removes the saved key. Reports cover the last seven days; API widgets show tokens and Cursor shows separate activity counts. These require admin access and do not show ChatGPT Plus, Claude Pro/Max or personal Cursor subscription allowances. No API inference is performed.
+
+API references: [OpenAI organization usage](https://developers.openai.com/api/reference/resources/admin/subresources/organization/subresources/usage/methods/completions), [Claude usage reports](https://platform.claude.com/docs/en/manage-claude/usage-cost-api), [Cursor team analytics](https://cursor.com/docs/account/teams/admin-api). Calendar setup: [Apple's calendar account guide](https://support.apple.com/guide/calendar/add-calendars-and-calendar-accounts-icl4308d6701/mac).
+
+## Connect Codex allowance usage
 
 1. Sign in with **ChatGPT** in Codex.
 2. In WaveDock Settings, choose **Connect & refresh**.
@@ -104,6 +114,8 @@ Latest build status distinguishes queued/running/completed states. A failed refr
 - **Reminders:** requested only from Connect / refresh Reminders. Completing a reminder writes that selected change to Apple Reminders.
 - **Screen capture / color:** invoked only by their buttons; macOS handles any required permission. Screenshot capture goes to the clipboard; the toolbar can choose a save location.
 - **GitHub:** sends the repository name to GitHub when refreshed. Optional CLI mode uses the account already signed in to `gh`. No WaveDock credential store.
+- **Window management:** opt-in Accessibility access permits reading window titles and moving/resizing selected windows. Titles remain in memory.
+- **AI API widgets:** explicitly saved admin keys reside in Keychain and are sent only to the provider API. Reports stay in memory. Credentials are never exported with profiles.
 - **Calendar:** requested only when you press Connect / refresh calendar. Events are read into memory; WaveDock does not edit them.
 - **Music:** macOS asks for Automation permission for your chosen player. Open Spotify or Music and play a track before connecting. Disconnect stops polling.
 - **Clipboard:** disabled on every launch until explicitly enabled. Text history stays in memory and clears when you quit. Copies marked concealed, transient, or automatically generated are skipped. Apps do not all mark sensitive text, so disable capture when copying sensitive information.
@@ -144,16 +156,16 @@ The fixture runs locally without credentials or network calls. It checks the act
 This is a substantial early-access app, not a complete CoolDock clone. In particular:
 
 - One Dock on one selected display at a time. No per-display simultaneous docks, left/right layout, or automatic profile switching yet.
-- Calendar and weather refresh manually. Weather currently uses the first matching city and Fahrenheit.
+- Connected calendars refresh every minute and on Calendar changes. Weather refreshes manually and currently uses the first matching city and Fahrenheit.
 - Tasks are WaveDock-local; Apple Reminders is a separate opt-in widget. Focus sessions and stopwatch laps do not survive quitting the app.
 - System information does not yet include CPU/RAM utilization charts or network speed history.
 - No window thumbnails, minimized-window tiles, custom app-icon packs, folder groups, or full native Dock drag/drop semantics.
 - No automatic update service, Apple notarization, or App Store distribution yet. Login startup needs an installed app and may require macOS approval.
-- GitHub and Codex are supported. Claude and other AI providers, Shopify, Stripe, Linear, Supabase, mail, and other account integrations remain unimplemented; service names or ordinary website links are not presented as live widgets.
+- Codex allowances, GitHub, OpenAI API token usage, Claude API token usage, and Cursor team analytics are supported. OpenAI/Claude consumer-plan allowances and commerce/mail integrations remain unimplemented. API metrics do not represent consumer-plan limits.
 - Screenshots, unit conversions and color picking are supported. Voice recording, currency rates, wallpaper marketplace, app groups and window thumbnails remain unimplemented.
 - Music and calendar need end-to-end validation across OS versions and real permission states. Multi-display placement needs testing on more hardware.
 
-See [CoolDock comparison](docs/COOLDOCK-COMPARISON.md) for the sourced gap audit. Next priorities are additional AI providers with supported authentication, app groups/window management, and multi-display hardware coverage. Production readiness requires broader testing and a signed/notarized release process.
+See [CoolDock comparison](docs/COOLDOCK-COMPARISON.md) for the sourced gap audit. Next priorities are app groups, window previews, additional supported providers, and multi-display hardware coverage. Production readiness requires broader testing and a signed/notarized release process.
 
 ## Project structure
 

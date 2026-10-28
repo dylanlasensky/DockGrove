@@ -28,13 +28,21 @@ import SwiftUI
             window.center(); window.orderFront(nil)
             view.layoutSubtreeIfNeeded()
             let size = view.fittingSize
-            precondition(size.width.isFinite && size.height.isFinite && size.width > 0 && size.height > 0, "Invalid layout: \(kind)")
+            precondition(size.width.isFinite && size.height.isFinite && size.width > 0 && size.width <= 351 && size.height > 0 && size.height < screen.frame.height - 60, "Invalid layout: \(kind)")
             view.setFrameSize(size); window.setContentSize(size); view.layoutSubtreeIfNeeded()
             if let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
                 view.cacheDisplay(in: view.bounds, to: bitmap)
                 if let data = bitmap.representation(using: .png, properties: [:]) { try data.write(to: output.appendingPathComponent(kind.rawValue + ".png")) }
             }
             window.orderOut(nil)
+        }
+        model.toolkit.enabled = ToolKind.allCases.map(\.rawValue)
+        for iconSize in [32.0, 48, 64] {
+            model.iconSize = iconSize
+            delegate.layoutDock()
+            precondition(delegate.panel.frame.width <= screen.frame.width - 19)
+            precondition(delegate.panel.frame.minX >= screen.frame.minX)
+            precondition(delegate.panel.frame.maxX <= screen.frame.maxX)
         }
         // Actual window states, not only the pure policy.
         delegate.sessionActive = false; delegate.checkAutoHide(); precondition(!delegate.panel.isVisible)

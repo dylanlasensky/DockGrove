@@ -13,7 +13,7 @@ struct ToolTile: View {
         case .water: return kit.utilities.waterDue ? "Water break" : "\(kit.utilities.water)/\(kit.utilities.waterGoal) glasses"
         case .habits: return "\(kit.utilities.habits.filter { $0.completedDays.contains(Habit.day(Date())) }.count) done today"
         case .weather: return kit.weatherText
-        case .music: return kit.musicConnected ? kit.musicTitle : "Music"
+        case .music: return "Music"
         case .focus: return kit.focusFinished ? "Complete" : kit.timerText
         case .tasks: return "\(kit.tasks.filter { !$0.done }.count) to do"
         case .files: return "\(kit.files.count) items"
@@ -44,6 +44,13 @@ struct ToolTile: View {
     }
     @ViewBuilder var contents: some View {
         switch kind {
+        case .windows: WindowManagerView(manager: kit.windows, model: model)
+        case .googleCalendar: CalendarAgendaView(calendar: kit.googleCalendar)
+        case .spotify: MusicPlayerView(player: kit.spotify)
+        case .appleMusic: MusicPlayerView(player: kit.appleMusic)
+        case .openaiUsage: AIUsageView(widget: kit.openaiUsage)
+        case .anthropicUsage: AIUsageView(widget: kit.anthropicUsage)
+        case .cursorUsage: AIUsageView(widget: kit.cursorUsage)
         case .github: GitHubView(github: kit.github)
         case .bookmarks, .folders, .stopwatch, .water, .habits, .progress, .clocks, .converter, .capture, .colors, .controls, .reminders, .spacer, .separator:
             UtilityView(kind: kind, utility: kit.utilities)
@@ -55,20 +62,9 @@ struct ToolTile: View {
             Text("City search is sent to Open-Meteo when you refresh. No location permission needed.").font(.caption).foregroundStyle(.secondary)
             Link("Weather data by Open-Meteo", destination: URL(string: "https://open-meteo.com/")!).font(.caption)
         case .music:
-            Picker("Player", selection: $kit.musicSource) { Text("Spotify").tag("Spotify"); Text("Apple Music").tag("Music") }.pickerStyle(.segmented)
-                .onChange(of: kit.musicSource) { kit.musicConnected = false; kit.musicTitle = "Connect a player"; kit.musicArtist = "" }
-            Text(kit.musicTitle).font(.headline)
-            Text(kit.musicArtist).foregroundStyle(.secondary)
-            if kit.musicConnected {
-                HStack(spacing: 30) {
-                    Button { kit.readMusic(command: "previous track") } label: { Image(systemName: "backward.fill") }.help("Previous track")
-                    Button { kit.readMusic(command: "playpause") } label: { Image(systemName: "playpause.fill") }.help("Play or pause")
-                    Button { kit.readMusic(command: "next track") } label: { Image(systemName: "forward.fill") }.help("Next track")
-                }.buttonStyle(.bordered)
-                Button("Disconnect") { kit.musicConnected = false }
-            } else { Button("Connect player") { kit.readMusic() } }
-            if let error = kit.musicError { Text(error).font(.caption).foregroundStyle(.orange) }
-            Text("Connection asks macOS for permission to control the selected player.").font(.caption).foregroundStyle(.secondary)
+            MusicPlayerView(player: kit.spotify)
+            Divider()
+            MusicPlayerView(player: kit.appleMusic)
         case .search:
             TextField("Find an app…", text: $kit.query).textFieldStyle(.roundedBorder)
             ScrollView { LazyVStack(spacing: 4) {
@@ -128,15 +124,7 @@ struct ToolTile: View {
             Label("\(ProcessInfo.processInfo.activeProcessorCount) CPU cores", systemImage: "cpu")
             Button("Open Activity Monitor") { NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app")) }
             Text("Battery and free space refresh every 15 seconds.").font(.caption).foregroundStyle(.secondary)
-        case .calendar:
-            Text(kit.calendarStatus).font(.caption).foregroundStyle(.secondary)
-            ScrollView { VStack(alignment: .leading, spacing: 14) { ForEach(Array(kit.events.enumerated()), id: \.offset) { _, event in
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(event.title ?? "Untitled event").font(.headline)
-                    Text(event.isAllDay ? event.startDate.formatted(date: .abbreviated, time: .omitted) + " · All day" : event.startDate.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
-                }
-            } }}.frame(maxHeight: 260)
-            Button("Connect / refresh calendar", action: kit.loadCalendar)
+        case .calendar: CalendarAgendaView(calendar: kit.calendar)
         case .clipboard:
             Toggle("Capture copied text", isOn: $kit.clipboardEnabled)
             Text("Opt-in, memory only, up to 20 entries. Marked password-manager copies are skipped. Turn off capture for other sensitive text.").font(.caption).foregroundStyle(.secondary)
@@ -168,7 +156,7 @@ struct WorkspaceSettings: View {
             Divider()
             LoginSettings(utility: kit.utilities)
             Label("Widget library", systemImage: "square.grid.2x2").font(.headline)
-            Text("Enable the tools you want in your Dock. Scroll across the Dock when it fills up.").font(.caption).foregroundStyle(.secondary)
+            Text("Enable the tools you want in your Dock. Use the page arrows when the Dock fills up. Settings stays visible on every page.").font(.caption).foregroundStyle(.secondary)
             TextField("Find a widget…", text: $widgetSearch)
             ForEach(ToolKind.allCases.filter { widgetSearch.isEmpty || $0.title.localizedCaseInsensitiveContains(widgetSearch) }) { kind in
                 Toggle(isOn: Binding(get: { kit.enabled.contains(kind.rawValue) }, set: { kit.toggle(kind, $0) })) { Label(kind.title, systemImage: kind.icon) }

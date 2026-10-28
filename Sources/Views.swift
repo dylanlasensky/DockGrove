@@ -10,44 +10,61 @@ final class TileInteraction: ObservableObject {
 
 struct DockView: View {
     @ObservedObject var model: DockModel
+    @State private var page = 0
+    var entries: [DockEntry] {
+        model.apps.map(DockEntry.app) + model.runningApps.map(DockEntry.app) + [.add, .usage] +
+        model.toolkit.enabled.compactMap(ToolKind.init(rawValue:)).map(DockEntry.tool) + (model.showClock ? [.clock] : [])
+    }
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) { HStack(spacing: 15) {
-            HStack(spacing: 9) {
-                ForEach(model.apps) { app in AppTile(app: app, model: model) }
-                ForEach(model.runningApps) { app in AppTile(app: app, model: model) }
-                Button(action: model.addApps) {
-                    Image(systemName: "plus").font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.55)).frame(width: 28, height: model.iconSize)
-                }.buttonStyle(.plain).help("Pin an app")
-            }.frame(height: model.iconSize + 14)
-            Rectangle().fill(.white.opacity(0.13)).frame(width: 1, height: 42)
-            UsageTile(model: model)
-            ForEach(model.toolkit.enabled.compactMap(ToolKind.init(rawValue:))) { kind in
-                if kind == .spacer { Color.clear.frame(width: 24, height: 40) }
-                else if kind == .separator { Divider().frame(height: 40) }
-                else { ToolTile(kind: kind, model: model, kit: model.toolkit) }
-            }
-            if model.showClock {
-                Rectangle().fill(.white.opacity(0.13)).frame(width: 1, height: 42)
-                TimelineView(.periodic(from: .now, by: 30)) { context in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(context.date, format: .dateTime.hour().minute()).font(.system(size: 22, weight: .medium, design: .rounded)).monospacedDigit()
-                        Text(context.date, format: .dateTime.weekday(.abbreviated).month(.abbreviated).day()).font(.system(size: 10)).foregroundStyle(.white.opacity(0.5))
-                    }.frame(minWidth: 77, alignment: .leading)
+        let screen = NSScreen.screens.indices.contains(model.toolkit.screenIndex) ? NSScreen.screens[model.toolkit.screenIndex] : NSScreen.main
+        let widths = entries.map { $0.width(iconSize: model.iconSize) }
+        let natural = widths.reduce(0, +) + Double(max(0, widths.count - 1)) * DockPageLayout.gap
+        let width = DockPageLayout.bodyWidth(screenWidth: screen?.frame.width ?? 1440, naturalWidth: natural)
+        let pages = DockPageLayout.pages(widths: widths, available: width - DockPageLayout.chrome)
+        let current = min(page, pages.count - 1)
+        HStack(spacing: 8) {
+            Button { page = max(0, current - 1) } label: { Image(systemName: "chevron.left").frame(width: 24, height: 46) }
+                .disabled(current == 0).help("Previous Dock page").accessibilityLabel("Previous Dock page")
+            HStack(spacing: DockPageLayout.gap) {
+                ForEach(pages[current], id: \.self) { i in
+                    entry(entries[i]).frame(width: widths[i], height: model.iconSize + 28)
                 }
-            }
-            Button { model.settingsAction?() } label: {
-                Image(systemName: "slider.horizontal.3").font(.system(size: 15)).foregroundStyle(.white.opacity(0.6)).frame(width: 24, height: 36)
-            }.buttonStyle(.plain).help("WaveDock settings")
-        }.padding(.horizontal, 20).padding(.vertical, 13) }
-        .frame(width: min((NSScreen.screens.indices.contains(model.toolkit.screenIndex) ? NSScreen.screens[model.toolkit.screenIndex].frame.width : (NSScreen.main?.frame.width ?? 1440)) - 48, 450 + Double(model.apps.count + model.runningApps.count) * (model.iconSize + 9) + Double(model.toolkit.enabled.count) * 87), height: model.iconSize + 52)
+                Spacer(minLength: 0)
+            }.frame(width: max(1, width - DockPageLayout.chrome), height: model.iconSize + 30).clipped()
+            VStack(spacing: 3) {
+                Button { page = min(pages.count - 1, current + 1) } label: { Image(systemName: "chevron.right").frame(width: 24, height: 26) }
+                    .disabled(current == pages.count - 1).help("Next Dock page").accessibilityLabel("Next Dock page")
+                Text("\(current + 1)/\(pages.count)").font(.system(size: 9)).monospacedDigit().foregroundStyle(.secondary)
+            }.frame(width: 32)
+            Button { model.settingsAction?() } label: { Image(systemName: "slider.horizontal.3").frame(width: 26, height: 46) }
+                .help("WaveDock settings").accessibilityLabel("WaveDock settings")
+        }
+        .buttonStyle(.plain).padding(.horizontal, 16).padding(.vertical, 10)
+        .frame(width: width, height: model.iconSize + 52)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 25, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 25, style: .continuous).stroke(.white.opacity(0.20), lineWidth: 0.7))
-        .shadow(color: .black.opacity(0.3), radius: 18, y: 7)
+        .overlay(RoundedRectangle(cornerRadius: 25).stroke(.white.opacity(0.2), lineWidth: 0.7))
+        .clipShape(RoundedRectangle(cornerRadius: 25))
         .padding(.horizontal, 12).padding(.top, 16).padding(.bottom, 4)
-        .foregroundStyle(.white)
-        .preferredColorScheme(.dark)
-        .fixedSize()
+        .foregroundStyle(.white).preferredColorScheme(.dark)
+        .onChange(of: entries.map(\.id)) { page = min(page, pages.count - 1) }
+    }
+    @ViewBuilder private func entry(_ item: DockEntry) -> some View {
+        switch item {
+        case .app(let app): AppTile(app: app, model: model)
+        case .add: Button(action: model.addApps) { Image(systemName: "plus").frame(width: 28, height: model.iconSize) }.help("Pin an app")
+        case .usage: UsageTile(model: model)
+        case .tool(let kind):
+            if kind == .spacer { Color.clear }
+            else if kind == .separator { Divider().frame(height: 40) }
+            else { ToolTile(kind: kind, model: model, kit: model.toolkit) }
+        case .clock:
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(context.date, format: .dateTime.hour().minute()).font(.system(size: 20, weight: .medium, design: .rounded)).monospacedDigit()
+                    Text(context.date, format: .dateTime.weekday(.abbreviated).month(.abbreviated).day()).font(.system(size: 10)).foregroundStyle(.secondary)
+                }.lineLimit(1).minimumScaleFactor(0.75)
+            }
+        }
     }
 }
 
@@ -193,7 +210,7 @@ struct SettingsView: View {
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 8) {
-                        Text("EARLY ACCESS 0.3").font(.system(size: 9, weight: .bold)).tracking(1).foregroundStyle(.secondary)
+                        Text("EARLY ACCESS 0.4").font(.system(size: 9, weight: .bold)).tracking(1).foregroundStyle(.secondary)
                         Button("Done") { model.closeSettingsAction?() }
                     }
                 }

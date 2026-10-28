@@ -182,7 +182,14 @@ final class DockPanel: NSPanel {
             }
             NSApplication.shared.run(); return
         }
-        if CommandLine.arguments.contains("--self-test") { runSelfTests(); return }
+        if CommandLine.arguments.contains("--self-test") {
+            runSelfTests()
+            Task { @MainActor in
+                do { try await runIntegrationTests(); fflush(stdout); exit(0) }
+                catch { print("FAIL: integration tests: \(error)"); fflush(stdout); exit(1) }
+            }
+            NSApplication.shared.run(); return
+        }
         let app = NSApplication.shared
         let delegate = AppDelegate(); app.delegate = delegate
         withExtendedLifetime(delegate) { app.run() }

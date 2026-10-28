@@ -88,7 +88,8 @@ import AppKit
     precondition(kit.files == ["/tmp/test"])
     for kind in ToolKind.allCases { kit.toggle(kind, true); kit.toggle(kind, true) }
     precondition(kit.enabled.count == ToolKind.allCases.count)
-    kit.moveWidget(.separator, by: -1); precondition(kit.enabled[kit.enabled.count - 3] == "separator")
+    let separatorIndex = kit.enabled.firstIndex(of: "separator")!
+    kit.moveWidget(.separator, by: -1); precondition(kit.enabled[separatorIndex - 1] == "separator")
     kit.resetTimer(5); precondition(kit.seconds == 300)
     kit.toggleTimer(); precondition(kit.focusEnd != nil); kit.toggleTimer(); precondition(kit.focusEnd == nil)
     kit.focusEnd = Date().addingTimeInterval(-1); kit.tickNow(); precondition(kit.focusFinished && kit.seconds == 0)

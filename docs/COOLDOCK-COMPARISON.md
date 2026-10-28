@@ -16,14 +16,20 @@ Sources: [widget catalog](https://cooldock.app/docs/widgets), [layout behavior](
 | Developer / AI | Codex allowance buckets | Adds public/private GitHub repository activity and Actions status; verifies Codex read path |
 | Startup | Manual | Native login-item control |
 
+## Added in 0.4
+
+32 library entries now include separate Google Calendar, Spotify, Apple Music, Windows, OpenAI API, Claude API and Cursor team widgets. Codex allowances remain a dedicated tile. Dock pages keep complete tiles within the selected display, with Settings always reachable. Window management offers halves, quarters, maximize, center, monitor selection, focus, minimize and undo through macOS Accessibility. Google calendars use macOS Internet Accounts and EventKit. Music transport requests are bounded and run off the UI thread.
+
+AI integrations use documented organization/admin usage endpoints with Keychain storage, explicit refresh, optional hourly polling, pagination validation and error states. API tokens/team activity are distinct from consumer subscription allowances. These widgets require provider admin access; adding a UI and fixture tests does not establish live account validation.
+
 ## Remaining gaps
 
 These are **not** implemented, and the UI does not pretend otherwise:
 
-- Additional AI plan/API providers beyond Codex. Each requires a supported provider-specific authentication and usage contract; a webpage shortcut is not usage tracking.
+- Consumer plan limits for Claude and personal Cursor, and AI providers beyond the implemented Codex/OpenAI API/Claude API/Cursor team integrations.
 - Commerce, analytics, mail, social, and other service integrations beyond GitHub.
-- Multiple simultaneous docks, left/right/floating layouts, automatic profiles, app groups, thumbnail/window management, accessibility-based reserved space, badges, custom icon packs and complete native Dock drag/drop behavior.
+- Multiple simultaneous docks, left/right/floating layouts, automatic profiles, app groups, window thumbnails and drag-to-edge snapping, accessibility-based reserved space, badges, custom icon packs and complete native Dock drag/drop behavior.
 - Live CPU/network history, hardware temperature and peripheral battery monitoring, per-app audio, voice memos, calculator, currency rates, background sounds and wallpaper/photo services.
 - Provider permissions and data behavior across all supported macOS versions, physical multi-monitor testing, signed/notarized distribution, automatic updates and the polish expected of a mature commercial app.
 
-The user selected **AI usage and GitHub** as the next integration priority. GitHub is implemented here; further AI providers remain explicit follow-up work. This release materially improves replacement behavior and local capabilities but does not claim CoolDock's entire catalog or production maturity.
+The user selected **AI usage and GitHub** as the next integration priority. GitHub and three additional API/team usage widgets are implemented; consumer-plan coverage and other providers remain explicit follow-up work. This release materially improves replacement behavior and local capabilities but does not claim CoolDock's entire catalog or production maturity.

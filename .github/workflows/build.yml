@@ -9,20 +9,23 @@ permissions:
   contents: read
 jobs:
   build:
+    timeout-minutes: 20
     strategy:
       matrix:
         validation-pass: [1, 2]
-    runs-on: macos-14
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
       - name: Build universal app
         run: zsh build.sh
-      - name: Test Dock behavior, utilities, usage protocol and persistence
+      - name: Test layout, windows, AI clients, music, calendar and existing regressions
         run: |
           chmod +x Tests/fixture_codex.py
           dist/WaveDock.app/Contents/MacOS/WaveDock --self-test --fixture-cli "$PWD/Tests/fixture_codex.py"
           codesign --verify --strict dist/WaveDock.app
           plutil -lint dist/WaveDock.app/Contents/Info.plist
+          lipo -verify_arch arm64 dist/WaveDock.app/Contents/MacOS/WaveDock
+          lipo -verify_arch x86_64 dist/WaveDock.app/Contents/MacOS/WaveDock
       - name: Package
         run: ditto -c -k --sequesterRsrc --keepParent dist/WaveDock.app dist/WaveDock.zip
       - uses: actions/upload-artifact@v4
