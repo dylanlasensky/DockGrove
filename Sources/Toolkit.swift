@@ -10,12 +10,21 @@ struct DockProfile: Codable, Identifiable {
 }
 enum ToolKind: String, CaseIterable, Identifiable {
     case search, focus, notes, tasks, files, system, calendar, clipboard, weather, music
+    case bookmarks, folders, stopwatch, water, habits, progress, clocks, converter, capture, colors, controls, reminders, spacer, separator, github
     var id: String { rawValue }
     var title: String { switch self {
+    case .github: return "GitHub"; case .bookmarks: return "Bookmarks"; case .folders: return "Folders & Downloads"; case .stopwatch: return "Stopwatch"
+    case .water: return "Drink water"; case .habits: return "Habits"; case .progress: return "Time progress"; case .clocks: return "World clocks"
+    case .converter: return "Converter"; case .capture: return "Screenshot"; case .colors: return "Color picker"; case .controls: return "Quick controls"
+    case .reminders: return "Reminders"; case .spacer: return "Space"; case .separator: return "Separator"
     case .weather: return "Weather"; case .music: return "Music"; case .search: return "App search"; case .focus: return "Focus"; case .notes: return "Quick note"; case .tasks: return "Tasks"
     case .files: return "File shelf"; case .system: return "System"; case .calendar: return "Calendar"; case .clipboard: return "Clipboard"
     } }
     var icon: String { switch self {
+    case .github: return "chevron.left.forwardslash.chevron.right"; case .bookmarks: return "bookmark"; case .folders: return "folder"; case .stopwatch: return "stopwatch"
+    case .water: return "drop"; case .habits: return "checkmark.seal"; case .progress: return "chart.pie"; case .clocks: return "globe"
+    case .converter: return "arrow.left.arrow.right"; case .capture: return "camera.viewfinder"; case .colors: return "eyedropper"; case .controls: return "switch.2"
+    case .reminders: return "list.bullet"; case .spacer: return "space"; case .separator: return "line.diagonal"
     case .weather: return "cloud.sun"; case .music: return "music.note"; case .search: return "magnifyingglass"; case .focus: return "timer"; case .notes: return "note.text"; case .tasks: return "checklist"
     case .files: return "tray.full"; case .system: return "gauge.with.dots.needle.50percent"; case .calendar: return "calendar"; case .clipboard: return "doc.on.clipboard"
     } }
@@ -27,6 +36,7 @@ enum ToolKind: String, CaseIterable, Identifiable {
     @Published var enabled: [String] { didSet { store.set(enabled, forKey: "widgets") } }
     @Published var profiles: [DockProfile] { didSet { save(profiles, "profiles") } }
     @Published var autoHide: Bool { didSet { store.set(autoHide, forKey: "autoHide") } }
+    @Published var hideOnOverlap: Bool { didSet { store.set(hideOnOverlap, forKey: "hideOnOverlap") } }
     @Published var showRunning: Bool { didSet { store.set(showRunning, forKey: "showRunning") } }
     @Published var edge: String { didSet { store.set(edge, forKey: "edge") } }
     @Published var screenIndex: Int { didSet { store.set(screenIndex, forKey: "screenIndex") } }
@@ -53,6 +63,8 @@ enum ToolKind: String, CaseIterable, Identifiable {
     @Published var storage = ""
     @Published var events: [EKEvent] = []
     @Published var calendarStatus = "Connect to see your next seven days."
+    let github: GitHubWidget
+    let utilities: Utilities
     let store: UserDefaults
     private let eventStore = EKEventStore()
     private var tick: Timer?
@@ -60,11 +72,14 @@ enum ToolKind: String, CaseIterable, Identifiable {
     private var ticks = 0
     init(store: UserDefaults = .standard) {
         self.store = store
+        utilities = Utilities(store: store)
+        github = GitHubWidget(store: store)
         note = store.string(forKey: "quickNote") ?? ""
         tasks = Self.decode([TaskItem].self, store: store, key: "tasks") ?? []
         profiles = Self.decode([DockProfile].self, store: store, key: "profiles") ?? []
         files = store.stringArray(forKey: "shelfFiles") ?? []
         enabled = store.stringArray(forKey: "widgets") ?? ["search", "focus", "tasks"]
+        hideOnOverlap = store.bool(forKey: "hideOnOverlap")
         autoHide = store.bool(forKey: "autoHide"); showRunning = store.object(forKey: "showRunning") as? Bool ?? true
         edge = store.string(forKey: "edge") ?? "Bottom"; screenIndex = store.integer(forKey: "screenIndex")
         sampleSystem()
@@ -76,6 +91,10 @@ enum ToolKind: String, CaseIterable, Identifiable {
     }
     private func save<T: Encodable>(_ value: T, _ key: String) { if let data = try? JSONEncoder().encode(value) { store.set(data, forKey: key) } }
     func toggle(_ kind: ToolKind, _ value: Bool) { if value { if !enabled.contains(kind.rawValue) { enabled.append(kind.rawValue) } } else { enabled.removeAll { $0 == kind.rawValue } } }
+    func moveWidget(_ kind: ToolKind, by offset: Int) {
+        guard let i = enabled.firstIndex(of: kind.rawValue), enabled.indices.contains(i + offset) else { return }
+        enabled.swapAt(i, i + offset)
+    }
     func tickNow() {
         if let end = focusEnd {
             seconds = max(0, Int(ceil(end.timeIntervalSinceNow)))

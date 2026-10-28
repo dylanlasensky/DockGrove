@@ -22,7 +22,11 @@ struct DockView: View {
             }.frame(height: model.iconSize + 14)
             Rectangle().fill(.white.opacity(0.13)).frame(width: 1, height: 42)
             UsageTile(model: model)
-            ForEach(model.toolkit.enabled.compactMap(ToolKind.init(rawValue:))) { kind in ToolTile(kind: kind, model: model, kit: model.toolkit) }
+            ForEach(model.toolkit.enabled.compactMap(ToolKind.init(rawValue:))) { kind in
+                if kind == .spacer { Color.clear.frame(width: 24, height: 40) }
+                else if kind == .separator { Divider().frame(height: 40) }
+                else { ToolTile(kind: kind, model: model, kit: model.toolkit) }
+            }
             if model.showClock {
                 Rectangle().fill(.white.opacity(0.13)).frame(width: 1, height: 42)
                 TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -40,7 +44,7 @@ struct DockView: View {
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 25, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 25, style: .continuous).stroke(.white.opacity(0.20), lineWidth: 0.7))
         .shadow(color: .black.opacity(0.3), radius: 18, y: 7)
-        .padding(24)
+        .padding(.horizontal, 12).padding(.top, 16).padding(.bottom, 4)
         .foregroundStyle(.white)
         .preferredColorScheme(.dark)
         .fixedSize()
@@ -74,6 +78,9 @@ struct AppTile: View {
             Divider()
             if model.apps.contains(app) { Button("Unpin") { model.remove(app) } }
             else { Button("Pin to Dock") { model.pin(app) } }
+            if let running = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL == app.url }) {
+                Button(running.isHidden ? "Show app" : "Hide app") { if running.isHidden { running.unhide() } else { running.hide() } }
+            }
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([app.url]) }
             Button("Quit app") { NSWorkspace.shared.runningApplications.first { $0.bundleURL == app.url }?.terminate() }.disabled(!app.isRunning)
         }
@@ -186,7 +193,7 @@ struct SettingsView: View {
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 8) {
-                        Text("EARLY ACCESS 0.2").font(.system(size: 9, weight: .bold)).tracking(1).foregroundStyle(.secondary)
+                        Text("EARLY ACCESS 0.3").font(.system(size: 9, weight: .bold)).tracking(1).foregroundStyle(.secondary)
                         Button("Done") { model.closeSettingsAction?() }
                     }
                 }
@@ -206,7 +213,7 @@ struct SettingsView: View {
                 WorkspaceSettings(model: model, kit: model.toolkit)
                 card("Your Mac Dock", icon: "dock.rectangle") {
                     Toggle("Use WaveDock as my Dock", isOn: Binding(get: { model.replacingDock }, set: { model.changeDockAction?($0) }))
-                    Text("Turns on auto-hide for Apple's Dock while WaveDock runs. Your original setting returns when you quit. Apple's Dock remains reachable at the screen edge.")
+                    Text("Replaces Apple’s Dock at the bottom edge while WaveDock runs. Hides during full screen and restores your original Dock preferences when you quit.")
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     if let error = model.systemError { Text(error).font(.caption).foregroundStyle(.orange) }
                     HStack {

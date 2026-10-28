@@ -9,6 +9,9 @@ struct ToolTile: View {
     @StateObject private var interaction = TileInteraction()
     var caption: String {
         switch kind {
+        case .github: return kit.github.snapshot?.run?.displayStatus ?? "GitHub"
+        case .water: return kit.utilities.waterDue ? "Water break" : "\(kit.utilities.water)/\(kit.utilities.waterGoal) glasses"
+        case .habits: return "\(kit.utilities.habits.filter { $0.completedDays.contains(Habit.day(Date())) }.count) done today"
         case .weather: return kit.weatherText
         case .music: return kit.musicConnected ? kit.musicTitle : "Music"
         case .focus: return kit.focusFinished ? "Complete" : kit.timerText
@@ -26,6 +29,12 @@ struct ToolTile: View {
             }.frame(width: 72, height: max(48, model.iconSize))
                 .background(model.color.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
         }.buttonStyle(.plain).help(kind.title)
+        .contextMenu {
+            Button("Move earlier") { kit.moveWidget(kind, by: -1) }
+            Button("Move later") { kit.moveWidget(kind, by: 1) }
+            Divider()
+            Button("Remove widget") { kit.toggle(kind, false) }
+        }
         .popover(isPresented: $interaction.expanded, arrowEdge: kit.edge == "Top" ? .bottom : .top) {
             VStack(alignment: .leading, spacing: 15) {
                 Label(kind.title, systemImage: kind.icon).font(.title3.bold()).foregroundStyle(model.color)
@@ -35,6 +44,9 @@ struct ToolTile: View {
     }
     @ViewBuilder var contents: some View {
         switch kind {
+        case .github: GitHubView(github: kit.github)
+        case .bookmarks, .folders, .stopwatch, .water, .habits, .progress, .clocks, .converter, .capture, .colors, .controls, .reminders, .spacer, .separator:
+            UtilityView(kind: kind, utility: kit.utilities)
         case .weather:
             Text(kit.weatherText).font(.system(size: 40, weight: .light, design: .rounded))
             Text(kit.weatherDetail).font(.callout).foregroundStyle(.secondary)
@@ -137,14 +149,16 @@ struct ToolTile: View {
 }
 
 struct WorkspaceSettings: View {
+    @State private var widgetSearch = ""
     @ObservedObject var model: DockModel
     @ObservedObject var kit: Toolkit
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Label("Layout & profiles", systemImage: "rectangle.3.group").font(.headline)
-            Picker("Position", selection: $kit.edge) { Text("Bottom").tag("Bottom"); Text("Top").tag("Top") }.pickerStyle(.segmented)
+            Picker("Position", selection: $kit.edge) { Text("Bottom").tag("Bottom"); Text("Top").tag("Top") }.pickerStyle(.segmented).disabled(model.replacingDock)
             Picker("Display", selection: $kit.screenIndex) { ForEach(Array(NSScreen.screens.enumerated()), id: \.offset) { index, screen in Text(screen.localizedName).tag(index) } }
             Toggle("Automatically hide WaveDock", isOn: $kit.autoHide)
+            Toggle("Hide when windows overlap", isOn: $kit.hideOnOverlap)
             Toggle("Include unpinned running apps", isOn: $kit.showRunning)
             HStack { TextField("Name this layout…", text: $kit.profileName); Button("Save layout") { model.saveProfile() }.disabled(kit.profileName.trimmingCharacters(in: .whitespaces).isEmpty) }
             ForEach(kit.profiles) { profile in
@@ -152,11 +166,23 @@ struct WorkspaceSettings: View {
             }
             HStack { Button("Export layouts…", action: model.exportProfiles); Button("Import layouts…", action: model.importProfiles) }
             Divider()
+            LoginSettings(utility: kit.utilities)
             Label("Widget library", systemImage: "square.grid.2x2").font(.headline)
             Text("Enable the tools you want in your Dock. Scroll across the Dock when it fills up.").font(.caption).foregroundStyle(.secondary)
-            ForEach(ToolKind.allCases) { kind in
+            TextField("Find a widget…", text: $widgetSearch)
+            ForEach(ToolKind.allCases.filter { widgetSearch.isEmpty || $0.title.localizedCaseInsensitiveContains(widgetSearch) }) { kind in
                 Toggle(isOn: Binding(get: { kit.enabled.contains(kind.rawValue) }, set: { kit.toggle(kind, $0) })) { Label(kind.title, systemImage: kind.icon) }
             }
         }.padding(18).background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+struct LoginSettings: View {
+    @ObservedObject var utility: Utilities
+    var body: some View {
+        VStack(alignment: .leading) {
+            Toggle("Open WaveDock at login", isOn: Binding(get: { utility.loginEnabled }, set: { utility.setLogin($0) }))
+            if let message = utility.status { Text(message).font(.caption).foregroundStyle(.secondary) }
+        }
     }
 }

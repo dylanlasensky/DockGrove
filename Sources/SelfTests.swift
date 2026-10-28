@@ -3,6 +3,7 @@ import Foundation
 @MainActor func runSelfTests() {
     let modern = #"{"rateLimits":{"limitId":"codex","primary":{"usedPercent":70,"windowDurationMins":300,"resetsAt":2000000000}},"rateLimitsByLimitId":{"codex":{"limitId":"codex","primary":{"usedPercent":30.5,"windowDurationMins":300,"resetsAt":2000000000},"secondary":{"usedPercent":10,"windowDurationMins":10080}},"other":{"limitId":"other","limitName":"Other model","primary":{"usedPercent":100,"windowDurationMins":60}}}}"#
     do {
+        try runBehaviorTests()
         let response = try JSONDecoder().decode(UsageResponse.self, from: Data(modern.utf8))
         precondition(response.buckets.count == 2)
         precondition(response.buckets.first?.0 == "codex")
@@ -20,7 +21,7 @@ import Foundation
         let task = TaskItem(title: "Check build", done: true)
         let decodedTask = try JSONDecoder().decode(TaskItem.self, from: JSONEncoder().encode(task))
         precondition(decodedTask.done)
-        precondition(Set(ToolKind.allCases.map(\.rawValue)).count == 10)
+        precondition(Set(ToolKind.allCases.map(\.rawValue)).count == ToolKind.allCases.count)
         let suite = "WaveDockTests." + UUID().uuidString
         let isolated = UserDefaults(suiteName: suite)!
         defer { isolated.removePersistentDomain(forName: suite) }
