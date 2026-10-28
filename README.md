@@ -136,7 +136,7 @@ Quitting or choosing Restore Apple Dock restores the exact journaled values. Rel
 
 Quit a running WaveDock before using command-line recovery. If necessary, change auto-hide directly in System Settings → Desktop & Dock. Restoration failures retain the journal for retry. A second normal WaveDock instance cannot take ownership of the first instance’s Dock settings.
 
-WaveDock excludes native full-screen Spaces and suppresses its panel when a regular app covers the selected display, during session inactivity, and while displays sleep. Hidden means no visible panel and no interception of clicks. A quarter-second edge dwell reveals an auto-hidden Dock; it hides 0.7 seconds after leaving. Full-screen suppression takes precedence over popovers. Background utilities’ transparent overlays are excluded from full-screen detection. Window-bounds detection is conservative; unusual games/video players and more display configurations still need hardware validation.
+WaveDock excludes native full-screen Spaces and suppresses its panel when the active regular app covers the selected display, during session inactivity, and while displays sleep. Hidden means no visible panel and no interception of clicks. A quarter-second edge dwell reveals an auto-hidden Dock; it hides 0.7 seconds after leaving. Full-screen suppression takes precedence over popovers. Background utilities’ transparent overlays are excluded from full-screen detection. Window-bounds detection is conservative; unusual games/video players and more display configurations still need hardware validation.
 
 ## Tests
 

@@ -28,6 +28,10 @@ import AppKit
     let track = try TrackSnapshot.decode(Data("playing\u{1e}Title\nwith newline\u{1e}Artist\n".utf8))
     precondition(track.playing && track.title == "Title\nwith newline" && track.artist == "Artist")
     let emptyArtist = try TrackSnapshot.decode(Data("paused\u{1e}Track\u{1e}\n".utf8)); precondition(emptyArtist.artist.isEmpty)
+    do {
+        _ = try TrackSnapshot.decode(Data("error\u{1e}-1743\u{1e} \n".utf8))
+        preconditionFailure("Denied Automation became a track")
+    } catch let error as MusicReadFailure { precondition(error.message.contains("denied Automation")) }
     for invalid in ["", "error", "other\u{1e}title\u{1e}artist"] { do { _ = try TrackSnapshot.decode(Data(invalid.utf8)); preconditionFailure("Bad music data accepted") } catch { } }
     let process = try await Task.detached { try BoundedProcess.run("/usr/bin/printf", arguments: ["music"], timeout: 2) }.value
     precondition(String(decoding: process, as: UTF8.self) == "music")

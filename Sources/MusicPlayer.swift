@@ -1,12 +1,24 @@
 import AppKit
 import SwiftUI
 
+enum MusicReadFailure: Error {
+    case automation(Int)
+    var message: String {
+        switch self {
+        case .automation(-1743): return "macOS denied Automation access. Enable this player for WaveDock in Privacy & Security > Automation, then retry. Rebuilt copies may need a fresh permission grant."
+        case .automation(-1712): return "The player took too long to respond. Open it, finish any welcome screens, then retry."
+        case .automation(-1728): return "No current track is available. Select a track in the player and retry."
+        case .automation(let code): return "The player could not complete the request (macOS error \(code)). Open it and retry."
+        }
+    }
+}
 struct TrackSnapshot: Equatable {
     let title: String
     let artist: String
     let playing: Bool
     static func decode(_ data: Data) throws -> TrackSnapshot {
         let lines = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .newlines).components(separatedBy: "\u{1e}")
+        if lines.first == "error", lines.count > 1, let code = Int(lines[1]) { throw MusicReadFailure.automation(code) }
         guard lines.count == 3, ["playing", "paused", "stopped"].contains(lines[0]) else { throw UsageError.service }
         return TrackSnapshot(title: lines[1], artist: lines[2], playing: lines[0] == "playing")
     }
@@ -37,14 +49,19 @@ enum MusicCommand: String, CaseIterable { case previous = "previous track", togg
         busy = true; let requestID = generation, bundle = bundleID
         // Only fixed application IDs and enumerated transport commands enter the script.
         let script = """
-        with timeout of 5 seconds
-          tell application id "\(bundle)"
-            \(command?.rawValue ?? "")
-            set playback to player state as text
-            if playback is "stopped" then return "stopped" & (ASCII character 30) & "Nothing playing" & (ASCII character 30) & " "
-            return playback & (ASCII character 30) & (name of current track) & (ASCII character 30) & (artist of current track)
-          end tell
-        end timeout
+        try
+          with timeout of 5 seconds
+            tell application id "\(bundle)"
+              \(command?.rawValue ?? "")
+              set playback to player state as text
+              if playback is "stopped" then return "stopped" & (ASCII character 30) & "Nothing playing" & (ASCII character 30) & " "
+              if not (exists current track) then return "stopped" & (ASCII character 30) & "Nothing playing" & (ASCII character 30) & " "
+              return playback & (ASCII character 30) & (name of current track) & (ASCII character 30) & (artist of current track)
+            end tell
+          end timeout
+        on error number errorNumber
+          return "error" & (ASCII character 30) & (errorNumber as text) & (ASCII character 30) & " "
+        end try
         """
         Task { @MainActor in
             let result = await Task.detached(priority: .utility) { Result { try BoundedProcess.run("/usr/bin/osascript", arguments: ["-e", script], timeout: 8) } }.value
@@ -52,6 +69,7 @@ enum MusicCommand: String, CaseIterable { case previous = "previous track", togg
             switch result {
             case .success(let data):
                 do { track = try TrackSnapshot.decode(data); connected = true; status = "Connected to \(name)" }
+                catch let failure as MusicReadFailure { connected = false; track = nil; status = failure.message }
                 catch { connected = false; track = nil; status = "No readable track. Open the player and select music, then reconnect." }
             case .failure:
                 connected = false; track = nil

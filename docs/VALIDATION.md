@@ -12,7 +12,7 @@ This performs two complete universal builds with offline regression tests, signa
 
 Both full passes of `zsh Tests/validate.sh --native --live` passed for 0.4. Each built arm64 and x86_64, ran all offline regressions, checked signature/plist/architectures, rendered all 30 functional widgets, checked native window states, and successfully read live public GitHub and Codex allowances.
 
-The prior CI run 40750383530 was cancelled before either job ran: GitHub reported that no hosted runner acquired the jobs and cited macOS ARM capacity constraints. The workflow now uses the documented `macos-15-intel` standard runner, still builds both architectures, and runs two independent test jobs. The first Intel run built the app and passed every regression, then exposed an Xcode 16 `lipo` argument-order incompatibility. Both CI and the local validation script now place the input binary before `-verify_arch`. Final remote CI results must be checked on the published commit.
+The prior CI run 40750383530 was cancelled before either job ran: GitHub reported that no hosted runner acquired the jobs and cited macOS ARM capacity constraints. The workflow now uses the documented `macos-15-intel` standard runner, still builds both architectures, and runs two independent test jobs. The first Intel run built the app and passed every regression, then exposed an Xcode 16 `lipo` argument-order incompatibility. Both CI and the local validation script now place the input binary before `-verify_arch`. CI run [40756654494](https://github.com/dylanlasensky/WaveDock/actions/runs/40756654494) then passed both Intel jobs, including builds, every regression, architecture checks and artifact uploads. Subsequent runtime refinements must also pass CI on their own commit.
 
 ## Automated coverage
 
@@ -42,13 +42,13 @@ The 0.3 baseline manual checks exercised native full-screen entry/exit twice, Gi
 
 - The full library fits across three Dock pages on the development display. First/last pages and persistent Settings/page navigation were inspected visually.
 - Spotify successfully returned track/artist and changed from paused to playing and back to paused through WaveDock. Disconnect cleared the track.
-- Calendar permission was granted in macOS. Only iCloud was configured in Internet Accounts; Google synchronization requires adding the user's Google account before it can be validated.
-- The ad-hoc rebuilt app can require renewed macOS permissions. Initial window discovery showed incomplete results; discovery was moved off the main thread with a longer timeout and standard-window filtering. Final live placement validation remains separate from the passing geometry tests.
+- Calendar permission was granted in macOS and the final widget successfully listed available iCloud, birthday and subscribed calendars. Disconnect cleared them. Only iCloud was configured in Internet Accounts; Google synchronization requires adding the user's Google account before it can be validated.
+- The ad-hoc rebuilt app can require renewed macOS permissions. Initial window discovery showed incomplete results; discovery was moved off the main thread with a longer timeout and standard-window filtering. The stale permission entry was replaced with the exact app path, after which standard-window discovery worked. Live placement/Undo actions were exercised on the blank host; macOS constrained requested sizes, and the widget reported that limitation. Unrestricted resizing across arbitrary apps is not certified.
 - No OpenAI/Claude organization or Cursor team admin key was provided. Those clients passed offline request/response tests; live authenticated reports are not claimed.
 
 ## Explicitly not certified
 
-- Calendar and Apple Reminders approval/revocation and live edits, Music/Spotify Automation approval and playback, screen-capture permission, color-sampler interaction and login-item approval across OS versions.
+- Google account synchronization, Apple Reminders live edits, full Apple Music playback, screen-capture permission, color-sampler interaction and login-item approval across OS versions. Apple Music was running without a loaded track; its first live connection failed. Error reporting now distinguishes denied Automation, timeouts and a missing current track, while the empty-player path handles an absent track. Spotify read/play/pause was verified live.
 - Private GitHub authorization or GitHub Enterprise, live OpenAI/Claude organization and Cursor team admin-key reports, weather availability across cities and network failures. API fixtures validate protocol logic, not account access or live totals.
 - Physical sleep/lock, Mission Control, external monitors, Sidecar, games, all browser full-screen video variants, or accessibility-based screen-space reservation.
 - Full CoolDock feature parity, production security review, Developer ID signing, Apple notarization, automatic updates or App Store acceptance.

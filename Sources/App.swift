@@ -109,6 +109,7 @@ final class DockPanel: NSPanel {
         func cgRect(_ r: CGRect) -> CGRect { CGRect(x: r.minX, y: globalTop - r.maxY, width: r.width, height: r.height) }
         let bounds = cgRect(screen.frame), dock = cgRect(panel.frame)
         let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+        let activePID = NSWorkspace.shared.frontmostApplication?.processIdentifier
         var fullscreen = false, overlap = false
         for window in windows {
             guard let pid = window[kCGWindowOwnerPID as String] as? Int32, pid != ProcessInfo.processInfo.processIdentifier,
@@ -117,7 +118,7 @@ final class DockPanel: NSPanel {
                   (window[kCGWindowAlpha as String] as? Double ?? 1) > 0,
                   let data = window[kCGWindowBounds as String] as? NSDictionary,
                   let rect = CGRect(dictionaryRepresentation: data) else { continue }
-            fullscreen = fullscreen || DockVisibility.coversScreen(rect, bounds)
+            fullscreen = fullscreen || (pid == activePID && DockVisibility.coversScreen(rect, bounds))
             overlap = overlap || rect.intersects(dock)
         }
         let show = visibility.visible(now: Date(), enabled: model.visible,
