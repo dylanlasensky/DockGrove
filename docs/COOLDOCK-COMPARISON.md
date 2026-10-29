@@ -26,11 +26,15 @@ AI integrations use documented organization/admin usage endpoints with Keychain 
 
 Rich information cards replace the icon-only widget presentation, with optional compact mode. Original monochrome branding, a new app icon, White/None accents and arbitrary custom RGB colors provide a consistent visual identity. Adds CPU history, memory use, network throughput, system audio output/volume, local voice recording, arithmetic calculator, daily currency conversion, app groups and web search. Window placement now waits for actual layout convergence and retries off the UI thread.
 
+## Added in 0.6
+
+Claude Code can report supported Pro/Max allowance windows through the documented local status line. Gemini CLI provides imported per-model session tokens and requests. These are distinct sources: Gemini session activity is not remaining chat quota. The new website provides branded product storytelling, interactive previews and free static Cloudflare hosting.
+
 ## Remaining gaps
 
 These are **not** implemented, and the UI does not pretend otherwise:
 
-- Consumer plan limits for Claude and personal Cursor, and AI providers beyond the implemented Codex/OpenAI API/Claude API/Cursor team integrations.
+- Personal Cursor limits, Gemini consumer chat quota, Claude web-only accounts without the supported Code status line, and providers beyond the implemented integrations.
 - Commerce, analytics, mail, social, and other service integrations beyond GitHub.
 - Multiple simultaneous docks, left/right/floating layouts, automatic profiles, window thumbnails and drag-to-edge snapping, accessibility-based reserved space, badges, custom icon packs and complete native Dock drag/drop behavior.
 - Hardware temperature and peripheral battery monitoring, per-app audio mixing, background sounds and wallpaper/photo services.

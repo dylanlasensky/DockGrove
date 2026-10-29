@@ -1,5 +1,11 @@
 # WaveDock validation
 
+## Version 0.6 coverage
+
+The two-pass suite now covers Claude Code status-line reports, expired and missing allowance windows, invalid percentages and costs, Gemini per-model tokens without overlapping cache counts, replacement imports, private-field exclusion, local file permissions, and preserving custom Claude settings. Native checks render both new widgets with empty and populated data, including three allowance windows and a long model list. Personal Claude/Gemini accounts are not part of live acceptance for this release.
+
+Website checks validate local links, assets, identifiers, JavaScript syntax, accessibility/motion safeguards, the packaged download, and a static-only Cloudflare configuration. Browser acceptance covers desktop and phone layouts, provider tabs and keyboard navigation, timer start/pause, accent previews, FAQ disclosure, and mobile navigation. CI runs the build, offline regressions, package, and website checks independently twice. Exact-commit results and deployment checks are recorded in the pull request.
+
 ## 0.5 verification
 
 The redesigned app adds 36 functional widget views, rich cards, custom accents, live system graphs, audio output control, calculator, currency, local voice memos and app groups. Two full local passes succeeded on the initial 0.5 implementation. Final verification also asserts that window placement reserves the exact rendered Dock height and reads live currency/system/audio data. Both final local passes and both CI jobs on commit 9367483 succeeded. Live testing then verified all ten window layouts and Undo twice on the blank AppKit host, two calculator results, both directions of currency conversion, White/None accents twice, and two audio volume changes with exact restoration. A final standard Edit-menu fix restores native Select All/Cut/Copy/Paste/Undo shortcuts; see PR #1 for its exact-commit validation status.

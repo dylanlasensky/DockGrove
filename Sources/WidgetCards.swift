@@ -72,6 +72,17 @@ struct RichWidgetCard: View {
             }
         case .github:
             VStack(alignment: .leading, spacing: 4) { eyebrow("GITHUB", icon: kind.icon); Text(kit.github.snapshot?.run?.displayStatus ?? "Repository activity").font(.system(size: 12, weight: .medium)).lineLimit(1) }
+        case .claudeCodeUsage, .geminiUsage:
+            let widget = kind == .claudeCodeUsage ? kit.claudeCodeUsage : kit.geminiUsage
+            VStack(alignment: .leading, spacing: 4) {
+                eyebrow(widget.provider.title.uppercased(), icon: kind.icon)
+                if let report = widget.report {
+                    if widget.provider == .claude {
+                        Text(report.activeWindows(at: Date()).first.map { "\(Int(100 - $0.used))% left" } ?? "No active limit").font(.system(size: 19, weight: .medium)).lineLimit(1)
+                    } else { Text(report.totalTokens.formatted() + " tokens").font(.system(size: 17, weight: .medium)).lineLimit(1) }
+                    Text(report.stale(at: Date()) ? "Older report" : widget.provider == .claude ? "Reported allowance" : "Latest imported session").font(.system(size: 9)).foregroundStyle(.secondary)
+                } else { Text("Connect local usage").font(.system(size: 12, weight: .medium)).lineLimit(1) }
+            }.onAppear { widget.start() }
         case .openaiUsage, .anthropicUsage, .cursorUsage:
             let widget = kind == .openaiUsage ? kit.openaiUsage : kind == .anthropicUsage ? kit.anthropicUsage : kit.cursorUsage
             VStack(alignment: .leading, spacing: 4) { eyebrow(kind == .openaiUsage ? "OPENAI API" : kind == .anthropicUsage ? "CLAUDE API" : "CURSOR TEAM", icon: "chart.bar.xaxis")
