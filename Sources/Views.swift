@@ -11,6 +11,7 @@ final class TileInteraction: ObservableObject {
 struct DockView: View {
     @ObservedObject var model: DockModel
     @State private var page = 0
+    @State private var lastDrag = CGSize.zero
     var entries: [DockEntry] {
         model.apps.map(DockEntry.app) + model.runningApps.map(DockEntry.app) + [.add] + (model.showUsageCard ? [.usage] : []) +
         model.toolkit.enabled.compactMap(ToolKind.init(rawValue:)).map(DockEntry.tool) + (model.showClock ? [.clock] : [])
@@ -42,6 +43,20 @@ struct DockView: View {
         .buttonStyle(.plain).padding(.horizontal, 16).padding(.vertical, 10)
         .frame(width: width, height: max(64, model.iconSize + 20) + 24)
         .background { DockPlate(theme: model.theme) }
+        .overlay(alignment:.top) {
+            Capsule().fill(model.color.opacity(0.6)).frame(width:28,height:4).padding(7).contentShape(Rectangle())
+                .help("Drag to move this Dock. Replacement docks stay at the bottom.")
+                .gesture(DragGesture().onChanged { value in
+                    guard let screen else { return }
+                    let dx = value.translation.width-lastDrag.width, dy = value.translation.height-lastDrag.height
+                    model.alignment = min(1,max(0,model.alignment + dx/max(1,screen.frame.width-width-20)))
+                    if !model.replacingDock {
+                        if model.toolkit.edge != "Floating" { model.elevation = model.toolkit.edge == "Top" ? 1 : 0; model.toolkit.edge = "Floating" }
+                        model.elevation = min(1,max(0,model.elevation-dy/max(1,screen.visibleFrame.height-model.dockHeight)))
+                    }
+                    lastDrag = value.translation
+                }.onEnded { _ in lastDrag = .zero })
+        }
         .overlay(RoundedRectangle(cornerRadius: 27).stroke(.white.opacity(0.2), lineWidth: 0.7))
         .clipShape(RoundedRectangle(cornerRadius: 27))
         .padding(.horizontal, 12).padding(.top, 16).padding(.bottom, 4)
@@ -56,7 +71,20 @@ struct DockView: View {
         case .tool(let kind):
             if kind == .spacer { Color.clear }
             else if kind == .separator { Divider().frame(height: 40) }
-            else { ToolTile(kind: kind, model: model, kit: model.toolkit) }
+            else { ToolTile(kind: kind, model: model, kit: model.toolkit)
+                .onDrag { NSItemProvider(object: ("wavedock-widget:"+kind.rawValue) as NSString) }
+                .onDrop(of:[.text],isTargeted:nil) { providers in
+                    guard let provider=providers.first else { return false }
+                    _ = provider.loadObject(ofClass:String.self) { text,_ in
+                        guard let text, text.hasPrefix("wavedock-widget:") else { return }
+                        let id=String(text.dropFirst(16))
+                        Task { @MainActor in
+                            guard let from=model.toolkit.enabled.firstIndex(of:id), let to=model.toolkit.enabled.firstIndex(of:kind.rawValue), from != to else { return }
+                            withAnimation(.easeInOut(duration:0.18)) { let item=model.toolkit.enabled.remove(at:from); model.toolkit.enabled.insert(item,at:to) }
+                        }
+                    }; return true
+                }
+            }
         case .clock:
             TimelineView(.periodic(from: .now, by: 30)) { context in
                 VStack(alignment: .leading, spacing: 3) {
