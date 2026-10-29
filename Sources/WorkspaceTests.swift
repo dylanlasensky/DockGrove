@@ -18,11 +18,11 @@ import SwiftUI
     var dwell=SnapDwell(); let now=Date()
     precondition(!dwell.ready("left",now:now)); precondition(dwell.ready("left",now:now.addingTimeInterval(0.2)))
     precondition(!dwell.ready("right",now:now.addingTimeInterval(0.21))); precondition(!dwell.ready(nil,now:now.addingTimeInterval(0.5)))
-    for fraction in [0.35,0.5,1.0] { for width in [640.0,1440,2560] {
+    for fraction in [CGFloat(0.35),0.5,1.0] { for width in [CGFloat(640),1440,2560] {
         let widths=ToolKind.allCases.map { DockEntry.tool($0).width(iconSize:64) }
         let configured=min(width,max((widths.max() ?? 236)+DockPageLayout.chrome+44,width*fraction))
         let capacity=DockPageLayout.bodyWidth(screenWidth:configured,naturalWidth:10000)-DockPageLayout.chrome
-        for page in DockPageLayout.pages(widths:widths,available:capacity) { precondition(page.map { widths[$0] }.reduce(0,+)+Double(max(0,page.count-1))*DockPageLayout.gap <= capacity) }
+        for page in DockPageLayout.pages(widths:widths,available:capacity) { precondition(page.map { widths[$0] }.reduce(0,+)+CGFloat(max(0,page.count-1))*DockPageLayout.gap <= capacity) }
     } }
     var pet=CompanionState(); let baseline=pet.fullness; pet.advance(to:pet.lastUpdate.addingTimeInterval(86400*30)); precondition(pet.fullness >= baseline-0.4)
     for _ in 0..<20 { pet.feed(); pet.play() }; precondition(pet.fullness==100 && pet.joy==100 && pet.energy >= 25)
