@@ -30,13 +30,19 @@ Rich information cards replace the icon-only widget presentation, with optional 
 
 Claude Code can report supported Pro/Max allowance windows through the documented local status line. Gemini CLI provides imported per-model session tokens and requests. These are distinct sources: Gemini session activity is not remaining chat quota. The new website provides branded product storytelling, interactive previews and free static Cloudflare hosting.
 
+## Added in 0.7
+
+Four independent dock layouts with per-dock paging, widgets, themes, physical display selection, width, alignment and floating height. Opt-in drag-to-edge snapping previews the target before release and uses the existing constrained-window writer and Undo. Album-derived music colors and a local focus companion are original WaveDock additions. Appearance now includes Glass, Graphite, Pearl and System rather than forcing dark text/surfaces everywhere.
+
+References revisited: [CoolDock screens](https://cooldock.app/docs/screens), [appearance](https://cooldock.app/docs/appearance), [layout](https://cooldock.app/docs/layout), [Apple color](https://developer.apple.com/design/human-interface-guidelines/color), [materials](https://developer.apple.com/design/human-interface-guidelines/materials), and [motion](https://developer.apple.com/design/human-interface-guidelines/motion). CoolDock documents mirrored profiles across displays with independent interaction state; WaveDock chooses separately configured docks. Album-derived backgrounds and the cat are not claimed as CoolDock features.
+
 ## Remaining gaps
 
 These are **not** implemented, and the UI does not pretend otherwise:
 
 - Personal Cursor limits, Gemini consumer chat quota, Claude web-only accounts without the supported Code status line, and providers beyond the implemented integrations.
 - Commerce, analytics, mail, social, and other service integrations beyond GitHub.
-- Multiple simultaneous docks, left/right/floating layouts, automatic profiles, window thumbnails and drag-to-edge snapping, accessibility-based reserved space, badges, custom icon packs and complete native Dock drag/drop behavior.
+- Vertical left/right docks, automatic profile switching, window thumbnails, native accessibility-based reserved space, badges, custom icon packs and complete native Dock drag/drop behavior.
 - Hardware temperature and peripheral battery monitoring, per-app audio mixing, background sounds and wallpaper/photo services.
 - Provider permissions and data behavior across all supported macOS versions, physical multi-monitor testing, signed/notarized distribution, automatic updates and the polish expected of a mature commercial app.
 

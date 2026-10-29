@@ -1,5 +1,11 @@
 # WaveDock validation
 
+## Version 0.7 coverage
+
+Regression tests add all edge and corner snap zones on negative-coordinate screens, edge dwell/cancellation, per-edge window reservations, small custom Dock widths, theme persistence, companion needs/levels and exactly-once focus rewards, and artwork source/format validation. Native tests exercise four independent Dock models, separate content/themes, screen containment, session/sleep suppression, removal, and all 39 functional widget views. Live Accessibility acceptance depends on macOS granting this rebuilt app access; offline geometry tests are not proof of a live gesture.
+
+Website tests and browser acceptance cover the new layout and companion demos at desktop and phone widths. Exact-commit results and any live permission limitations are recorded in the release PR.
+
 ## Version 0.6 coverage
 
 The two-pass suite now covers Claude Code status-line reports, expired and missing allowance windows, invalid percentages and costs, Gemini per-model tokens without overlapping cache counts, replacement imports, private-field exclusion, local file permissions, and preserving custom Claude settings. Native checks render both new widgets with empty and populated data, including three allowance windows and a long model list. Personal Claude/Gemini accounts are not part of live acceptance for this release.

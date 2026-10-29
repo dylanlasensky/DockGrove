@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 
 struct RichWidgetCard: View {
+    @Environment(\.colorScheme) private var scheme
     let kind: ToolKind
     @ObservedObject var model: DockModel
     @ObservedObject var kit: Toolkit
@@ -11,10 +12,17 @@ struct RichWidgetCard: View {
             Button(action: open) { summary.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading).contentShape(Rectangle()) }.buttonStyle(.plain)
             controls
         }.padding(.horizontal, 12).padding(.vertical, 9).frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background { if model.albumColors && [.spotify,.appleMusic,.music].contains(kind), let player=musicPlayer, player.artwork != nil { RoundedRectangle(cornerRadius:18).fill(LinearGradient(colors:[player.artworkTint,Color(white:0.07)],startPoint:.topLeading,endPoint:.bottomTrailing)) } }
+            .foregroundStyle(model.albumColors && musicPlayer?.artwork != nil ? Color.white : Color.primary)
+            .environment(\.colorScheme, model.albumColors && musicPlayer?.artwork != nil ? .dark : scheme)
             .modifier(WidgetSurface()).help(kind.title).accessibilityElement(children: .contain)
     }
+    var musicPlayer: MusicPlayer? { [.spotify,.music].contains(kind) ? kit.spotify : kind == .appleMusic ? kit.appleMusic : nil }
     @ViewBuilder var summary: some View {
         switch kind {
+        case .pet:
+            HStack(spacing: 5) { CatPortrait(resting: kit.pet.state.resting, accent: model.color).frame(width:65,height:58); VStack(alignment:.leading,spacing:4) { Text(kit.pet.state.name).font(.system(size:12,weight:.semibold)).lineLimit(1); Text(kit.pet.state.mood).font(.system(size:9)).foregroundStyle(.secondary).lineLimit(2) } }
+
         case .focus:
             VStack(alignment: .leading, spacing: 3) {
                 eyebrow(kit.focusFinished ? "SESSION COMPLETE" : "FOCUS", icon: "timer")
@@ -43,7 +51,7 @@ struct RichWidgetCard: View {
             HStack(spacing: 9) { glyph("note.text"); VStack(alignment: .leading, spacing: 4) { Text("Quick note").font(.system(size: 12, weight: .semibold)); Text(kit.note.isEmpty ? "A thought worth keeping" : kit.note).font(.system(size: 10)).lineLimit(2).foregroundStyle(.secondary) } }
         case .spotify, .appleMusic, .music:
             let player = kind == .appleMusic ? kit.appleMusic : kit.spotify
-            HStack(spacing: 9) { glyph(kind.icon); VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 9) { MusicArtworkView(player:player); VStack(alignment: .leading, spacing: 4) {
                 Text(player.track?.title ?? player.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
                 Text(player.track.map { $0.artist.isEmpty ? ($0.playing ? "Playing" : "Paused") : $0.artist } ?? "Connect your music").font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
             } }

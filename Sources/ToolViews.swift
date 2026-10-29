@@ -9,6 +9,7 @@ struct ToolTile: View {
     @StateObject private var interaction = TileInteraction()
     var caption: String {
         switch kind {
+        case .pet: return kit.pet.state.name
         case .github: return kit.github.snapshot?.run?.displayStatus ?? "GitHub"
         case .water: return kit.utilities.waterDue ? "Water break" : "\(kit.utilities.water)/\(kit.utilities.waterGoal) glasses"
         case .habits: return "\(kit.utilities.habits.filter { $0.completedDays.contains(Habit.day(Date())) }.count) done today"
@@ -45,11 +46,12 @@ struct ToolTile: View {
                 HStack { Label(kind.title, systemImage: kind.icon).font(.headline); Spacer(); WaveMark().stroke(model.color.opacity(0.6), style: StrokeStyle(lineWidth: 1.8, lineCap: .round)).frame(width: 23, height: 23) }
                 Divider()
                 contents
-            }.padding(22).frame(width: 350).preferredColorScheme(.dark)
+            }.padding(22).frame(width: 350).preferredColorScheme(model.scheme)
         }
     }
     @ViewBuilder var contents: some View {
         switch kind {
+        case .pet: CompanionView(pet: kit.pet, accent: model.color)
         case .claudeCodeUsage: LocalAIUsageView(widget: kit.claudeCodeUsage)
         case .geminiUsage: LocalAIUsageView(widget: kit.geminiUsage)
         case .calculator: CalculatorView()
@@ -151,8 +153,7 @@ struct WorkspaceSettings: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Label("Layout & profiles", systemImage: "rectangle.3.group").font(.headline)
-            Picker("Position", selection: $kit.edge) { Text("Bottom").tag("Bottom"); Text("Top").tag("Top") }.pickerStyle(.segmented).disabled(model.replacingDock)
-            Picker("Display", selection: $kit.screenIndex) { ForEach(Array(NSScreen.screens.enumerated()), id: \.offset) { index, screen in Text(screen.localizedName).tag(index) } }
+            Picker("Display", selection: Binding(get: { kit.screenIndex }, set: { kit.screenIndex = $0; if NSScreen.screens.indices.contains($0) { model.screenID = DockModel.displayID(NSScreen.screens[$0]) } })) { ForEach(Array(NSScreen.screens.enumerated()), id: \.offset) { index, screen in Text(screen.localizedName).tag(index) } }
             Toggle("Automatically hide WaveDock", isOn: $kit.autoHide)
             Toggle("Hide when windows overlap", isOn: $kit.hideOnOverlap)
             Toggle("Include unpinned running apps", isOn: $kit.showRunning)

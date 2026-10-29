@@ -34,3 +34,8 @@ if('IntersectionObserver' in window){const observer=new IntersectionObserver(ent
 let scheduled=false;const desktop=document.querySelector('.desktop');
 function parallax(){scheduled=false;if(reduced.matches||innerWidth<701){desktop.style.transform='none';return;}const bounds=desktop.getBoundingClientRect();const progress=Math.max(0,Math.min(1,(innerHeight-bounds.top)/innerHeight));desktop.style.transform='rotateX('+((1-progress)*7).toFixed(2)+'deg)';}
 window.addEventListener('scroll',()=>{if(!scheduled){scheduled=true;requestAnimationFrame(parallax);}},{passive:true});window.addEventListener('resize',parallax);parallax();
+
+const layoutButtons=[...document.querySelectorAll('[data-layout-choice]')];
+layoutButtons.forEach(button=>button.addEventListener('click',()=>{document.querySelector('.layout-demo').dataset.layout=button.dataset.layoutChoice;layoutButtons.forEach(b=>b.setAttribute('aria-pressed',String(b===button)));}));
+document.querySelector('#feed-pet').addEventListener('click',()=>{document.querySelector('#pet-reaction').textContent='A happy little purr. Thank you.';});
+document.querySelector('#rest-pet').addEventListener('click',e=>{const resting=e.currentTarget.getAttribute('aria-pressed')!=='true';e.currentTarget.setAttribute('aria-pressed',String(resting));e.currentTarget.textContent=resting?'Wake up':'Nap time';document.querySelector('.pet-scene').classList.toggle('is-resting',resting);document.querySelector('#pet-reaction').textContent=resting?'Dreaming of your next good idea.':'A little company. A calmer day.';});

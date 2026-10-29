@@ -12,6 +12,9 @@ final class DockPanel: NSPanel {
     var panel: DockPanel!
     var settings: NSWindow!
     var status: NSStatusItem!
+    var workspace: DockWorkspace!
+    var workspaceWindow: NSWindow?
+    var snapper: WindowSnapper?
     var subscriptions = Set<AnyCancellable>()
     var visibilityTimer: Timer?
     var visibility = DockVisibility()
@@ -45,6 +48,10 @@ final class DockPanel: NSPanel {
         editItem.submenu = editMenu; mainMenu.addItem(editItem); NSApp.mainMenu = mainMenu
         model = DockModel(defaults: testing ? UserDefaults(suiteName: "WaveDockUITests")! : .standard)
         do { if !testing { try SystemDock.restore() } } catch { model.systemError = "Could not restore the original Dock setting. Use Restore Apple Dock to retry." }
+        workspace = DockWorkspace(defaults: model.defaults, testing: testing)
+        workspace.configure = { [weak self] dock in self?.configureExtra(dock) }
+        model.manageDocksAction = { [weak self] in self?.showDocks() }
+        model.toolkit.windows.usableFrameProvider = { [weak self] screen in self?.usableFrame(screen) ?? WindowManager.usableFrame(screen:screen,dockHeight:0) }
         model.settingsAction = { [weak self] in self?.showSettings() }
         model.closeSettingsAction = { [weak self] in self?.settings.orderOut(nil) }
         model.changeDockAction = { [weak self] enabled in self?.setReplacement(enabled) }
@@ -85,32 +92,63 @@ final class DockPanel: NSPanel {
         workspace.addObserver(self, selector: #selector(screenSlept), name: NSWorkspace.screensDidSleepNotification, object: nil)
         workspace.addObserver(self, selector: #selector(screenWoke), name: NSWorkspace.screensDidWakeNotification, object: nil)
         if !testing && model.defaults.object(forKey: "replacementEnabled") as? Bool != false { setReplacement(true) }
+        self.workspace.restore()
+        snapper = WindowSnapper(model: model)
+        if !CommandLine.arguments.contains("--native-test") { snapper?.start() }
         layoutDock(); checkAutoHide()
         if !CommandLine.arguments.contains("--native-test") && !model.defaults.bool(forKey: "hasLaunched02") { showSettings(); model.defaults.set(true, forKey: "hasLaunched02") }
         if let i = CommandLine.arguments.firstIndex(of: "--native-test"), CommandLine.arguments.indices.contains(i + 1) {
             DispatchQueue.main.async { runNativeTests(self, output: URL(fileURLWithPath: CommandLine.arguments[i + 1])) }
         }
     }
-    @objc func layoutDock() {
-        guard !NSScreen.screens.isEmpty, let view = panel?.contentView else { return }
-        let screen = NSScreen.screens[min(max(0, model.toolkit.screenIndex), NSScreen.screens.count - 1)]
-        view.invalidateIntrinsicContentSize()
-        let fitted = view.fittingSize
-        let width = min(fitted.width, screen.frame.width - 20)
-        let height = fitted.height
-        // Above the Apple Dock in preview mode; along the bottom in replacement mode.
-        let bottom = model.replacingDock ? screen.frame.minY : screen.visibleFrame.minY
-        let y = model.toolkit.edge == "Top" ? screen.visibleFrame.maxY - height : bottom
-        panel.setFrame(NSRect(x: screen.frame.midX - width / 2, y: y, width: width, height: height), display: true)
+    func configureExtra(_ dock: ExtraDock) {
+        dock.model.manageDocksAction = { [weak self] in self?.showDocks() }
+        dock.model.visibilityAction = { [weak self] in self?.checkAutoHide() }
+        dock.model.toolkit.windows.usableFrameProvider = { [weak self] screen in self?.usableFrame(screen) ?? WindowManager.usableFrame(screen:screen,dockHeight:0) }
+        dock.model.objectWillChange.debounce(for:.milliseconds(60),scheduler:RunLoop.main).sink { [weak self, weak dock] _ in guard let dock else { return }; self?.layout(dock.panel, model:dock.model); self?.checkAutoHide() }.store(in:&dock.subscriptions)
+        for publisher in [dock.model.toolkit.objectWillChange,dock.model.toolkit.utilities.objectWillChange,dock.model.toolkit.github.objectWillChange] {
+            publisher.receive(on:RunLoop.main).sink { [weak dock] _ in dock?.model.objectWillChange.send() }.store(in:&dock.subscriptions)
+        }
+        layout(dock.panel,model:dock.model)
     }
-    @objc func spaceChanged() { settlingUntil = Date().addingTimeInterval(0.5); panel.orderOut(nil); visibility = DockVisibility() }
+    func showDocks() {
+        if workspaceWindow == nil {
+            workspaceWindow = NSWindow(contentRect:NSRect(x:0,y:0,width:540,height:350),styleMask:[.titled,.closable],backing:.buffered,defer:false)
+            workspaceWindow?.isReleasedWhenClosed=false; workspaceWindow?.title="Your Docks"
+            workspaceWindow?.contentView=NSHostingView(rootView:DockWorkspaceView(workspace:workspace,primary:model)); workspaceWindow?.center()
+        }
+        workspaceWindow?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps:true)
+    }
+    @objc func layoutDock() {
+        guard model != nil, panel != nil else { return }
+        layout(panel,model:model)
+        for dock in workspace?.docks ?? [] { layout(dock.panel,model:dock.model) }
+    }
+    func layout(_ panel: DockPanel, model: DockModel) {
+        guard let screen=model.selectedScreen, let view=panel.contentView else { return }
+        view.invalidateIntrinsicContentSize()
+        panel.setFrame(DockGeometry.frame(size:view.fittingSize,screen:screen.frame,visible:screen.visibleFrame,edge:model.replacingDock ? "Bottom" : model.toolkit.edge,alignment:model.alignment,elevation:model.elevation,replacing:model.replacingDock),display:true)
+    }
+    func usableFrame(_ screen:NSScreen) -> CGRect {
+        var rects:[CGRect]=[]
+        if let panel, let model, model.visible && !model.toolkit.autoHide && model.toolkit.edge != "Floating" { rects.append(panel.frame) }
+        for dock in workspace?.docks ?? [] where dock.model.visible && !dock.model.toolkit.autoHide && dock.model.toolkit.edge != "Floating" { rects.append(dock.panel.frame) }
+        let usable=DockGeometry.reserve(screen.visibleFrame,docks:rects)
+        return CGRect(x:usable.minX,y:(NSScreen.screens.first?.frame.maxY ?? 0)-usable.maxY,width:usable.width,height:usable.height)
+    }
+    @objc func spaceChanged() { settlingUntil = Date().addingTimeInterval(0.5); panel.orderOut(nil); visibility = DockVisibility(); snapper?.cancel(); for dock in workspace?.docks ?? [] { dock.panel.orderOut(nil); dock.visibility=DockVisibility() } }
     @objc func sessionResigned() { sessionActive = false; checkAutoHide() }
     @objc func sessionBecameActive() { sessionActive = true; spaceChanged(); layoutDock() }
     @objc func screenSlept() { screenAwake = false; checkAutoHide() }
     @objc func screenWoke() { screenAwake = true; spaceChanged(); layoutDock() }
     func checkAutoHide() {
-        guard let panel, let model, !NSScreen.screens.isEmpty else { return }
-        let screen = NSScreen.screens[min(max(0, model.toolkit.screenIndex), NSScreen.screens.count - 1)]
+        guard let panel, let model else { return }
+        check(panel,model:model,visibility:&visibility)
+        for dock in workspace?.docks ?? [] { check(dock.panel,model:dock.model,visibility:&dock.visibility) }
+        if !sessionActive || !screenAwake { snapper?.cancel() }
+    }
+    func check(_ panel:DockPanel,model:DockModel,visibility:inout DockVisibility) {
+        guard let screen=model.selectedScreen else { panel.orderOut(nil); return }
         let mouse = NSEvent.mouseLocation
         let globalTop = NSScreen.screens.first?.frame.maxY ?? 0
         // CGWindow coordinates use a top-left origin, including on secondary displays.
@@ -131,8 +169,8 @@ final class DockPanel: NSPanel {
         }
         let show = visibility.visible(now: Date(), enabled: model.visible,
             suppressed: fullscreen || !sessionActive || !screenAwake || Date() < settlingUntil,
-            autoHide: model.toolkit.autoHide,
-            overlapping: model.toolkit.hideOnOverlap && overlap,
+            autoHide: model.toolkit.autoHide && model.toolkit.edge != "Floating",
+            overlapping: model.toolkit.hideOnOverlap && model.toolkit.edge != "Floating" && overlap,
             pointerInside: panel.isVisible && panel.frame.contains(mouse),
             pointerAtEdge: DockVisibility.atEdge(mouse, screen: screen.frame, dock: panel.frame, top: model.toolkit.edge == "Top"),
             interacting: !(panel.childWindows ?? []).isEmpty)

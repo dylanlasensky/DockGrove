@@ -8,7 +8,7 @@ WaveDock is a free, open-source Mac app created by Dylan Lasensky. It gives you 
 
 Built with Swift, SwiftUI, and AppKit. No Electron, web wrapper, subscription, account with WaveDock, or third-party package dependencies.
 
-> **Early access, v0.6.0.** WaveDock is inspired by the usefulness of widget docks. It is an independent project, not affiliated with CoolDock or OpenAI. It does not yet match CoolDock's full catalog or production maturity. See the feature matrix and limitations below.
+> **Early access, v0.7.0.** WaveDock is inspired by the usefulness of widget docks. It is an independent project, not affiliated with CoolDock or OpenAI. It does not yet match CoolDock's full catalog or production maturity. See the feature matrix and limitations below.
 
 ## Requirements
 
@@ -81,6 +81,16 @@ The menu-bar wave always gives access to Settings, show/hide, usage refresh, App
 | Widget organization | Search library, move widgets earlier/later, remove by right-click, space and separator entries |
 | Login startup | Native macOS login item registration; approval status shown |
 | Music | Opt-in Spotify or Apple Music connection, track/artist, previous/play-pause/next, ten-second polling while connected |
+
+## New in 0.7
+
+- **Multiple docks:** Settings → Manage all docks adds up to three extra docks. Each has its own apps, widgets, paging, display, position and appearance. Only the main dock replaces Apple's Dock. Extra layouts can sit at the top, bottom, or a floating position. Width never clips a whole widget; page arrows keep everything reachable. Display choices retain a physical display identifier and fall back safely if disconnected.
+- **Window snapping:** Enable it in the main Dock's Settings, grant macOS Accessibility, then hold Option while dragging a title bar. Pause briefly at an edge for the preview and release. Sides create halves, corners create quarters, top maximizes, and the bottom edge uses the bottom half. Escape cancels; Windows → Undo layout restores the original frame. Requiring Option is configurable. Other apps' minimum sizes still apply. This is not native macOS workspace reservation.
+- **Appearance:** Glass, Graphite, Pearl and System themes; independent dock widths, horizontal alignment and floating height; arbitrary accents; appearance saved with layout profiles. Reduce Transparency and Reduce Motion are respected.
+- **Music:** Spotify artwork and local Apple Music artwork, with an optional subdued background sampled from the album. A neutral fallback keeps transport usable when art is unavailable. Spotify artwork requests go to its image CDN; images are bounded, downsampled and held in memory.
+- **Companion cat:** Enable Companion cat, name your cat, feed, play or rest. Completed WaveDock focus sessions grant joy and levels. Needs do not decay for time spent away; no application or keystroke tracking is used.
+
+The website source lives in [`website/`](website/). Its free Cloudflare preview is **[wavedock-preview.limit-dylanlasensky.workers.dev](https://wavedock-preview.limit-dylanlasensky.workers.dev/)**. No custom domain or paid service is required. Deployment instructions are in [website/README.md](website/README.md).
 
 ## New in 0.6
 
