@@ -24,10 +24,14 @@ struct CompanionState: Codable, Equatable {
     var mood: String { resting ? "Dreaming softly" : fullness < 45 ? "A little snack?" : energy < 45 ? "Ready for a nap" : "Happy to be here" }
 }
 @MainActor final class Companion: ObservableObject {
+    @Published var animal: String { didSet { defaults.set(animal, forKey: "companionAnimal") } }
+    static let animals = ["Miso", "Black cat", "Orange cat", "Golden dog", "Husky", "Dragon", "Cow", "Rabbit", "Fox"]
     @Published var state: CompanionState { didSet { save() } }
     private let defaults: UserDefaults
     init(defaults: UserDefaults) {
         self.defaults = defaults
+        let choice = defaults.string(forKey: "companionAnimal") ?? "Miso"
+        animal = Self.animals.contains(choice) ? choice : "Miso"
         var restored = defaults.data(forKey: "companion").flatMap { try? JSONDecoder().decode(CompanionState.self, from: $0) } ?? CompanionState()
         restored.fullness = restored.fullness.isFinite ? min(100, max(25, restored.fullness)) : 75
         restored.energy = restored.energy.isFinite ? min(100, max(25, restored.energy)) : 80
@@ -42,7 +46,11 @@ struct CompanionState: Codable, Equatable {
 
 /// Original vector illustration, drawn at any Dock scale without downloaded artwork.
 struct CatPortrait: View {
+    var isCat: Bool { ["Miso","Black cat","Orange cat"].contains(animal) }
+    var symbol: String { ["Golden dog":"🐕","Husky":"🐺","Dragon":"🐉","Cow":"🐄","Rabbit":"🐇","Fox":"🦊"][animal] ?? "🐈" }
+    var fur: Color { animal == "Black cat" ? Color(white:0.25) : animal == "Orange cat" ? Color(red:0.9,green:0.52,blue:0.22) : Color(red:0.83,green:0.77,blue:0.69) }
     var resting: Bool
+    var animal: String = "Miso"
     var accent: Color
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
@@ -51,13 +59,15 @@ struct CatPortrait: View {
             Canvas { c, s in
                 func ellipse(_ x: Double, _ y: Double, _ w: Double, _ h: Double, _ color: Color) { c.fill(Path(ellipseIn: CGRect(x: x*s.width, y: y*s.height, width:w*s.width,height:h*s.height)), with:.color(color)) }
                 ellipse(0.05,0.65,0.9,0.28,accent.opacity(0.3)); ellipse(0.12,0.67,0.76,0.17,accent.opacity(0.22))
-                ellipse(0.22,0.36,0.61,0.39,Color(red:0.72,green:0.65,blue:0.57))
-                var ears = Path(); ears.move(to:CGPoint(x:s.width*0.25,y:s.height*0.48)); ears.addLine(to:CGPoint(x:s.width*0.26,y:s.height*0.14)); ears.addLine(to:CGPoint(x:s.width*0.45,y:s.height*0.35)); ears.move(to:CGPoint(x:s.width*0.48,y:s.height*0.34)); ears.addLine(to:CGPoint(x:s.width*0.67,y:s.height*0.14)); ears.addLine(to:CGPoint(x:s.width*0.68,y:s.height*0.5)); c.fill(ears,with:.color(Color(red:0.79,green:0.72,blue:0.64)))
-                ellipse(0.24,0.29,0.46,0.4,Color(red:0.83,green:0.77,blue:0.69))
+                ellipse(0.22,0.36,0.61,0.39,fur)
+                var ears = Path(); ears.move(to:CGPoint(x:s.width*0.25,y:s.height*0.48)); ears.addLine(to:CGPoint(x:s.width*0.26,y:s.height*0.14)); ears.addLine(to:CGPoint(x:s.width*0.45,y:s.height*0.35)); ears.move(to:CGPoint(x:s.width*0.48,y:s.height*0.34)); ears.addLine(to:CGPoint(x:s.width*0.67,y:s.height*0.14)); ears.addLine(to:CGPoint(x:s.width*0.68,y:s.height*0.5)); c.fill(ears,with:.color(fur))
+                ellipse(0.24,0.29,0.46,0.4,fur)
                 for x in [0.36,0.56] { ellipse(x,0.46,0.045,resting ? 0.014 : 0.055,Color(white:0.2)) }
                 ellipse(0.46,0.54,0.04,0.025,Color(red:0.57,green:0.37,blue:0.36))
-                var tail = Path(); tail.move(to:CGPoint(x:s.width*0.79,y:s.height*0.58)); tail.addCurve(to:CGPoint(x:s.width*0.58,y:s.height*0.73),control1:CGPoint(x:s.width*0.98,y:s.height*0.69),control2:CGPoint(x:s.width*0.77,y:s.height*0.85)); c.stroke(tail,with:.color(Color(red:0.62,green:0.55,blue:0.47)),style:StrokeStyle(lineWidth:s.width*0.075,lineCap:.round))
-            }.scaleEffect(x: 1, y: breath, anchor: .bottom)
+                var tail = Path(); tail.move(to:CGPoint(x:s.width*0.79,y:s.height*0.58)); tail.addCurve(to:CGPoint(x:s.width*0.58,y:s.height*0.73),control1:CGPoint(x:s.width*0.98,y:s.height*0.69),control2:CGPoint(x:s.width*0.77,y:s.height*0.85)); c.stroke(tail,with:.color(fur.opacity(0.85)),style:StrokeStyle(lineWidth:s.width*0.075,lineCap:.round))
+            }.opacity(isCat ? 1 : 0)
+            .overlay { if !isCat { VStack(spacing:0) { Text(symbol).font(.system(size:54)); Text(resting ? "Z z z" : "♥").font(.caption).foregroundStyle(accent) }.frame(maxWidth:.infinity,maxHeight:.infinity).background(Ellipse().fill(accent.opacity(0.15)).frame(height:18),alignment:.bottom) } }
+            .scaleEffect(x: 1, y: breath, anchor: .bottom)
         }.accessibilityLabel(resting ? "Cat asleep in a bed" : "Cat resting in a bed")
     }
 }
@@ -67,7 +77,8 @@ struct CompanionView: View {
     @State private var name = ""
     var body: some View {
         VStack(spacing: 14) {
-            CatPortrait(resting: pet.state.resting, accent: accent).frame(height: 125)
+            CatPortrait(resting: pet.state.resting, animal: pet.animal, accent: accent).frame(width:175, height:125)
+            Picker("Companion", selection:$pet.animal) { ForEach(Companion.animals,id: \.self) { Text($0) } }
             Text(pet.state.name).font(.title2.bold())
             Text(pet.state.mood).foregroundStyle(.secondary)
             HStack { Button("Feed") { pet.state.feed() }; Button("Play") { pet.state.play() }.disabled(pet.state.resting); Button(pet.state.resting ? "Wake up" : "Rest") { pet.state.resting.toggle() } }

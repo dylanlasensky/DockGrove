@@ -130,6 +130,10 @@ struct DockApp: Identifiable, Equatable {
         return NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }.compactMap { $0.bundleURL.map { DockApp(url: $0) } }.filter { !apps.contains($0) && $0.url.lastPathComponent != "WaveDock.app" }
     }
     func pin(_ app: DockApp) { if !apps.contains(app) { apps.append(app); persistApps() } }
+    func dropApp(_ path: String, onto target: DockApp) {
+        guard let source = apps.firstIndex(where: { $0.id == path }), let destination = apps.firstIndex(of: target), source != destination else { return }
+        let item = apps.remove(at: source); apps.insert(item, at: destination); persistApps()
+    }
     func reorder(_ path: String, before target: DockApp) {
         guard let origin = apps.firstIndex(where: { $0.id == path }), let dest = apps.firstIndex(of: target), origin != dest else { return }
         let item = apps.remove(at: origin); apps.insert(item, at: origin < dest ? dest - 1 : dest); persistApps()

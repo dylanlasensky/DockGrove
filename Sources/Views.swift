@@ -71,6 +71,7 @@ struct DockView: View {
 struct AppTile: View {
     let app: DockApp
     @ObservedObject var model: DockModel
+    @State private var dropTarget = false
     @StateObject private var interaction = TileInteraction()
     var body: some View {
         VStack(spacing: 4) {
@@ -81,9 +82,10 @@ struct AppTile: View {
             Circle().fill(app.isRunning ? model.color : .clear).frame(width: 4, height: 4)
         }
         .onDrag { NSItemProvider(object: app.id as NSString) }
-        .onDrop(of: [.text], isTargeted: nil) { providers in
+        .overlay(RoundedRectangle(cornerRadius:12).stroke(dropTarget ? model.color : .clear,lineWidth:2))
+        .onDrop(of: [.text], isTargeted: $dropTarget) { providers in
             guard let provider = providers.first else { return false }
-            _ = provider.loadObject(ofClass: String.self) { text, _ in if let text = text { Task { @MainActor in model.reorder(text, before: app) } } }; return true
+            _ = provider.loadObject(ofClass: String.self) { text, _ in if let text = text { Task { @MainActor in withAnimation(.easeInOut(duration:0.18)) { model.dropApp(text, onto: app) } } } }; return true
         }
         .onHover { interaction.hovered = $0 }
         .animation(.spring(response: 0.23, dampingFraction: 0.65), value: interaction.hovered)
@@ -106,6 +108,7 @@ struct AppTile: View {
 
 struct UsageTile: View {
     @ObservedObject var model: DockModel
+    @State private var dropTarget = false
     @StateObject private var interaction = TileInteraction()
     var body: some View {
         Button { interaction.expanded.toggle() } label: {
