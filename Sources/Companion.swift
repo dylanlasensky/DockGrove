@@ -105,6 +105,8 @@ struct CatPortrait: View {
                 if frames.indices.contains(pose.frame) {
                     Image(nsImage:frames[pose.frame]).resizable().interpolation(.high).scaledToFit()
                         .padding(geometry.size.height*0.065)
+                        // Fox uses extra transparent gutters; normalize its on-screen size.
+                        .scaleEffect(animal == "Fox" ? 2 : 1)
                         .scaleEffect(x:1,y:pose.breath,anchor:.bottom)
                         .offset(x:geometry.size.width*pose.x,y:geometry.size.height*pose.y)
                 }

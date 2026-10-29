@@ -57,3 +57,9 @@ POSES: crouch before hop, airborne gentle hop forelegs forward, land forepaws, s
 SUBJECT: an elegant red fox with detailed russet coat, black stockings, cream chest, pointed ears, bushy white tipped tail and bright eyes
 
 POSES: prowl left forepaw, stand looking curiously back, prowl right forepaw, crouch ready to pounce, leap with tail balancing, curl asleep nose under tail
+
+## Layout repair pass
+
+The built-in generator edited sheets with tight margins, preserving the original animal and six poses. Prompt: Keep the 1536x1024 canvas and 3 by 2 layout. Shrink every complete animal to the central 350x350 pixels of its own 512x512 cell, with at least 81 pixels of transparent padding on all sides. No tails, ears, paws, wings or horns may touch a cell boundary. Keep all six poses including the sleeping sixth pose, detailed illustrated style and true alpha. No grid lines, pads, floor, shadows, backdrop, text or new objects. Four initial repairs requested 55-pixel padding at 75 percent scale; the same preservation constraints applied.
+
+The Fox sheet received a final repair: halve each pose to a 250-pixel maximum and center the six animals at the six cell centers. The renderer scales this padded sheet 2× to match the visible size of the other companions.

@@ -60,7 +60,7 @@ import SwiftUI
                 Text(animal).font(.title2.bold())
                 ForEach(0..<2) { row in
                     HStack { ForEach(0..<3) { col in
-                        Image(nsImage:frames[row*3+col]).resizable().scaledToFit().frame(width:160,height:160)
+                        Image(nsImage:frames[row*3+col]).resizable().scaledToFit().frame(width:160,height:160).scaleEffect(animal == "Fox" ? 2 : 1)
                     } }
                 }
             }.padding(18).background(animal == "Black cat" ? Color(white:0.85) : Color(white:0.12)).foregroundStyle(.orange))

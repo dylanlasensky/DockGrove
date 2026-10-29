@@ -41,6 +41,16 @@ import SwiftUI
     for animal in Companion.animals {
         let frames = CompanionArtwork.frames(animal)
         precondition(frames.count == 6 && frames.allSatisfy { $0.size == NSSize(width:512,height:512) }, "Missing or malformed companion sheet: \(animal)")
+        for frame in frames {
+            let bitmap = NSBitmapImageRep(cgImage:frame.cgImage(forProposedRect:nil,context:nil,hints:nil)!)
+            var borderInk = 0
+            for i in 0..<512 {
+                for (x,y) in [(i,0),(i,511),(0,i),(511,i)] {
+                    if (bitmap.colorAt(x:x,y:y)?.alphaComponent ?? 0) > 0.4 { borderInk += 1 }
+                }
+            }
+            precondition(borderInk < 16, "Companion pose crosses a sprite boundary: \(animal)")
+        }
         let poses = stride(from:0.0,to:18.0,by:0.1).map { CompanionPose.at($0,animal:animal,resting:false,reduceMotion:false) }
         precondition(Set(poses.map(\.frame)).count == 5 && poses.allSatisfy { (0..<5).contains($0.frame) })
         precondition(CompanionPose.at(3,animal:animal,resting:true,reduceMotion:false).frame == 5)
