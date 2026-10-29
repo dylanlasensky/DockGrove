@@ -148,15 +148,30 @@ enum ToolKind: String, CaseIterable, Identifiable {
         if panel.runModal() == .OK { for url in panel.urls { addFile(url) } }
     }
     func addFile(_ url: URL) { guard url.isFileURL, !files.contains(url.path) else { return }; files.append(url.path) }
-    func scanApplications() {
-        guard applications.isEmpty else { return }
+    @Published private(set) var scanningApps = false
+    func scanApplications(force: Bool = false) {
+        guard !scanningApps, force || applications.isEmpty else { return }
+        scanningApps = true
         let roots = ["/Applications", "/System/Applications", NSHomeDirectory() + "/Applications"]
-        var found: [DockApp] = []
+        Task {
+            let urls = await Task.detached(priority: .utility) { Self.applicationURLs(roots) }.value
+            let found = urls.map { DockApp(url: $0) }
+            if applications != found { applications = found }
+            scanningApps = false
+        }
+    }
+    nonisolated private static func applicationURLs(_ roots: [String]) -> [URL] {
+        var found = Set<URL>()
         for root in roots {
             guard let iterator = FileManager.default.enumerator(at: URL(fileURLWithPath: root), includingPropertiesForKeys: nil, options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { continue }
-            for case let url as URL in iterator where url.pathExtension == "app" { found.append(DockApp(url: url)) }
+            for case let url as URL in iterator where url.pathExtension == "app" { found.insert(url.standardizedFileURL) }
         }
-        applications = found.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        let finder = URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")
+        if FileManager.default.fileExists(atPath: finder.path) { found.insert(finder) }
+        return found.sorted {
+            let comparison = $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent)
+            return comparison == .orderedSame ? $0.path < $1.path : comparison == .orderedAscending
+        }
     }
     func sampleSystem() {
         memory = ByteCountFormatter.string(fromByteCount: Int64(ProcessInfo.processInfo.physicalMemory), countStyle: .memory) + " RAM installed"
@@ -172,6 +187,7 @@ enum ToolKind: String, CaseIterable, Identifiable {
         }
     }
     func fetchWeather() {
+        guard !LicenseConfiguration.commercial else { weatherText = "Weather unavailable"; weatherDetail = "A commercially approved weather service must be configured before this feature can be enabled."; return }
         let city = weatherCity.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !city.isEmpty, !weatherLoading else { return }
         weatherLoading = true

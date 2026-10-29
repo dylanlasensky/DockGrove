@@ -50,7 +50,7 @@ struct SnapDwell {
     private func tick() {
         let down=NSEvent.pressedMouseButtons & 1 != 0
         defer { pressed=down }
-        guard let model, model.snappingEnabled, model.toolkit.windows.trusted else { cancel(); return }
+        guard let model, model.canUseFeatures, model.snappingEnabled, model.toolkit.windows.trusted else { cancel(); return }
         if down && !pressed {
             cancelled=false; cancel()
             let point=NSEvent.mouseLocation, globalTop=NSScreen.screens.first?.frame.maxY ?? 0, request=generation

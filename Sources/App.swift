@@ -91,7 +91,14 @@ final class DockPanel: NSPanel {
         workspace.addObserver(self, selector: #selector(sessionBecameActive), name: NSWorkspace.sessionDidBecomeActiveNotification, object: nil)
         workspace.addObserver(self, selector: #selector(screenSlept), name: NSWorkspace.screensDidSleepNotification, object: nil)
         workspace.addObserver(self, selector: #selector(screenWoke), name: NSWorkspace.screensDidWakeNotification, object: nil)
-        if !testing && model.defaults.object(forKey: "replacementEnabled") as? Bool != false { setReplacement(true) }
+        if !testing && model.defaults.bool(forKey: "replacementEnabled") { setReplacement(true) }
+        LicenseManager.shared.objectWillChange.debounce(for: .milliseconds(100), scheduler: RunLoop.main).sink { [weak self] _ in
+            guard let self, !self.model.canUseFeatures else { return }
+            if self.model.replacingDock { self.setReplacement(false) }
+            self.snapper?.cancel()
+            self.model.appPickerWindow?.close(); self.workspaceWindow?.close()
+            for dock in self.workspace.docks { dock.model.appPickerWindow?.close() }
+        }.store(in: &subscriptions)
         self.workspace.restore()
         snapper = WindowSnapper(model: model)
         if !CommandLine.arguments.contains("--native-test") { snapper?.start() }
@@ -112,6 +119,7 @@ final class DockPanel: NSPanel {
         layout(dock.panel,model:dock.model)
     }
     func showDocks() {
+        guard model.canUseFeatures else { showSettings(); return }
         if workspaceWindow == nil {
             workspaceWindow = NSWindow(contentRect:NSRect(x:0,y:0,width:540,height:350),styleMask:[.titled,.closable],backing:.buffered,defer:false)
             workspaceWindow?.isReleasedWhenClosed=false; workspaceWindow?.title="Your Docks"
@@ -185,6 +193,7 @@ final class DockPanel: NSPanel {
     @objc func restore() { setReplacement(false) }
     @objc func quit() { NSApp.terminate(nil) }
     func setReplacement(_ enabled: Bool) {
+        guard !enabled || model.canUseFeatures else { model.systemError = "Activate WaveDock before using Dock replacement."; return }
         do {
             if !testing { if enabled { try SystemDock.hide() } else { try SystemDock.restore() } }
             model.replacingDock = enabled; model.systemError = nil

@@ -1,5 +1,7 @@
 # AI usage connections
 
+The 1.0 purchase does not include provider subscriptions, API credits, or access to private usage data. App license activation is separate from each provider connection. Swift is not an API-access limitation; supported interfaces and provider permissions determine availability.
+
 WaveDock labels each source separately. A token count is not a subscription allowance.
 No integration generates AI requests simply to refresh usage.
 

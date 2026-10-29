@@ -4,10 +4,11 @@ import Combine
 
 struct DockApp: Identifiable, Equatable {
     let url: URL
-    var id: String { url.path }
+    var id: String { url.standardizedFileURL.path }
+    static func == (lhs: DockApp, rhs: DockApp) -> Bool { lhs.id == rhs.id }
     var name: String { FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "") }
     var icon: NSImage { NSWorkspace.shared.icon(forFile: url.path) }
-    var isRunning: Bool { NSWorkspace.shared.runningApplications.contains { $0.bundleURL?.standardizedFileURL == url.standardizedFileURL } }
+    var isRunning: Bool { NSWorkspace.shared.runningApplications.contains { $0.bundleURL?.standardizedFileURL.path == id } }
 }
 
 @MainActor final class DockModel: ObservableObject {
@@ -34,6 +35,8 @@ struct DockApp: Identifiable, Equatable {
     @Published var showUsageCard: Bool { didSet { defaults.set(showUsageCard, forKey: "showUsageCard") } }
     @Published var snappingEnabled: Bool { didSet { defaults.set(snappingEnabled, forKey: "snappingEnabled") } }
     @Published var snapRequiresOption: Bool { didSet { defaults.set(snapRequiresOption, forKey: "snapRequiresOption") } }
+    var appPickerWindow: NSWindow?
+    @Published var appHistory: [([DockApp], [String])] = []
     var tileFrames: [String:CGRect] = [:]
     var isAdditionalDock = false
     var manageDocksAction: (() -> Void)?
@@ -47,7 +50,7 @@ struct DockApp: Identifiable, Equatable {
               let uuid = CGDisplayCreateUUIDFromDisplayID(number.uint32Value)?.takeRetainedValue() else { return screen.localizedName }
         return CFUUIDCreateString(nil, uuid) as String
     }
-    var scheme: ColorScheme? { theme == "System" ? nil : theme == "Pearl" ? .light : .dark }
+    var scheme: ColorScheme? { (theme == "System" || theme == "Automatic") ? nil : theme == "Pearl" ? .light : .dark }
 
     @Published var systemError: String?
     let toolkit: Toolkit
@@ -56,6 +59,8 @@ struct DockApp: Identifiable, Equatable {
     var closeSettingsAction: (() -> Void)?
     var changeDockAction: ((Bool) -> Void)?
     var visibilityAction: (() -> Void)?
+    var canUseFeatures: Bool { LicenseManager.shared.permitsFeatures }
+    private var licenseObservation: AnyCancellable?
     private var timer: Timer?
     private var observations: [NSObjectProtocol] = []
 
@@ -63,7 +68,7 @@ struct DockApp: Identifiable, Equatable {
         self.defaults = defaults
         entryOrder = defaults.stringArray(forKey:"entryOrder") ?? []
         dockName = defaults.string(forKey: "dockName") ?? "Main Dock"
-        theme = defaults.string(forKey: "theme") ?? "Glass"
+        theme = defaults.string(forKey: "theme") ?? "Automatic"
         widthFraction = min(1,max(0.35,defaults.object(forKey: "widthFraction") as? Double ?? 1))
         alignment = min(1,max(0,defaults.object(forKey: "alignment") as? Double ?? 0.5))
         elevation = min(1,max(0,defaults.object(forKey: "elevation") as? Double ?? 0.5))
@@ -94,7 +99,8 @@ struct DockApp: Identifiable, Equatable {
         timer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in if self?.usageEnabled == true { self?.refreshUsage() } }
         }
-        if usageEnabled { refreshUsage() }
+        licenseObservation = LicenseManager.shared.objectWillChange.debounce(for: .milliseconds(50), scheduler: RunLoop.main).sink { [weak self] _ in self?.objectWillChange.send() }
+        if usageEnabled && canUseFeatures { refreshUsage() }
     }
 
     deinit {
@@ -103,36 +109,28 @@ struct DockApp: Identifiable, Equatable {
     }
 
     var dockHeight: Double { max(64, iconSize + 20) + 44 }
-    var color: Color { (theme == "Pearl" || theme == "System") && accent == "White" ? .primary : AccentPalette.color(accent) }
+    var color: Color { (theme == "Pearl" || theme == "System" || theme == "Automatic") && accent == "White" ? .primary : AccentPalette.color(accent) }
     var activeBucket: LimitBucket? { usage?.buckets.first { $0.0 == selectedBucket }?.1 ?? usage?.buckets.first?.1 }
     func persistApps() { defaults.set(apps.map(\.id), forKey: "apps") }
     func open(_ app: DockApp) {
+        guard canUseFeatures else { settingsAction?(); return }
         let configuration = NSWorkspace.OpenConfiguration()
         NSWorkspace.shared.openApplication(at: app.url, configuration: configuration) { _, _ in }
     }
-    func addApps() {
-        NSApp.activate(ignoringOtherApps: true)
-        let picker = NSOpenPanel()
-        picker.title = "Pin apps to WaveDock"
-        picker.directoryURL = URL(fileURLWithPath: "/Applications")
-        picker.canChooseDirectories = false
-        picker.allowsMultipleSelection = true
-        picker.allowedContentTypes = [.applicationBundle]
-        if picker.runModal() == .OK {
-            for url in picker.urls where !apps.contains(where: { $0.url == url }) { apps.append(DockApp(url: url)) }
-            persistApps()
-        }
-    }
-    func remove(_ app: DockApp) { apps.removeAll { $0.id == app.id }; persistApps() }
+    func addApps() { showAppPicker() }
+    func remove(_ app: DockApp) { rememberApps(); apps.removeAll { $0.id == app.id }; entryOrder.removeAll { $0 == "app:" + app.id }; persistApps() }
     func move(_ app: DockApp, by offset: Int) {
         guard let index = apps.firstIndex(of: app), apps.indices.contains(index + offset) else { return }
+        rememberApps()
+        let source = apps[index], target = apps[index + offset]
+        moveEntry("app:" + source.id, onto: "app:" + target.id)
         apps.swapAt(index, index + offset); persistApps()
     }
     var runningApps: [DockApp] {
         guard toolkit.showRunning else { return [] }
         return NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }.compactMap { $0.bundleURL.map { DockApp(url: $0) } }.filter { !apps.contains($0) && $0.url.lastPathComponent != "WaveDock.app" }
     }
-    func pin(_ app: DockApp) { if !apps.contains(app) { apps.append(app); persistApps() } }
+    func pin(_ app: DockApp) { _ = chooseApp(app, replacing: nil) }
     var orderedEntries: [DockEntry] {
         let available = apps.map(DockEntry.app) + runningApps.map(DockEntry.app) + [.add] + (showUsageCard ? [.usage] : []) + toolkit.enabled.compactMap(ToolKind.init(rawValue:)).map(DockEntry.tool) + (showClock ? [.clock] : [])
         var seen=Set<String>()
@@ -162,7 +160,7 @@ struct DockApp: Identifiable, Equatable {
     }
     func applyProfile(_ profile: DockProfile) {
         if let order=profile.entryOrder { entryOrder=Array(order.prefix(1000)) }
-        if let value=profile.theme, ["Glass","Graphite","Pearl","System"].contains(value) { theme=value }
+        if let value=profile.theme, ["Automatic","Glass","Graphite","Pearl","System"].contains(value) { theme=value }
         if let value=profile.widthFraction,value.isFinite { widthFraction=min(1,max(0.35,value)) }
         if let value=profile.alignment,value.isFinite { alignment=min(1,max(0,value)) }
         if let value=profile.elevation,value.isFinite { elevation=min(1,max(0,value)) }
@@ -193,6 +191,7 @@ struct DockApp: Identifiable, Equatable {
         }
     }
     func refreshUsage() {
+        guard canUseFeatures else { return }
         guard !fetching else { return }
         fetching = true
         let custom = customCLI

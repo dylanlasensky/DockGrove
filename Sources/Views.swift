@@ -20,7 +20,7 @@ struct DockView: View {
     @State private var turnedDuringDrag = false
     @GestureState private var dragging = false
     private let dragClock = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
-    var entries: [DockEntry] { model.orderedEntries }
+    var entries: [DockEntry] { model.canUseFeatures ? model.orderedEntries : [] }
     var body: some View {
         let screen = model.selectedScreen
         let widths = entries.map { $0.width(iconSize: model.iconSize, rich: model.toolkit.richWidgets) }
@@ -29,6 +29,7 @@ struct DockView: View {
         let pages = DockPageLayout.pages(widths: widths, available: width - DockPageLayout.chrome)
         let current = min(page, pages.count - 1)
         HStack(spacing: 8) {
+            if !model.canUseFeatures { Button("Activate WaveDock") { model.settingsAction?() } }
             Button { page = max(0, current - 1) } label: { Image(systemName: "chevron.left").frame(width: 24, height: 46) }
                 .background(arrowGeometry(-1))
                 .foregroundStyle(dwell.direction == -1 ? model.color : .primary)
@@ -106,7 +107,7 @@ struct DockView: View {
                     lastDrag = value.translation
                 }.onEnded { _ in lastDrag = .zero })
         }
-        .overlay(RoundedRectangle(cornerRadius: 27).stroke(.white.opacity(0.2), lineWidth: 0.7))
+        .overlay(RoundedRectangle(cornerRadius: 27).stroke(Color(nsColor: .separatorColor), lineWidth: 0.7))
         .clipShape(RoundedRectangle(cornerRadius: 27))
         .padding(.horizontal, 12).padding(.top, 16).padding(.bottom, 4)
         .overlay(alignment:.top) {
@@ -162,9 +163,15 @@ struct AppTile: View {
             }.buttonStyle(.plain).help(app.name)
             Circle().fill(app.isRunning ? model.color : .clear).frame(width: 4, height: 4)
         }
+        .onDrop(of: [UTType.fileURL.identifier], isTargeted: $dropTarget) { providers in
+            model.acceptFiles(providers, for: app)
+        }
         .onHover { interaction.hovered = $0 }
         .animation(.spring(response: 0.23, dampingFraction: 0.65), value: interaction.hovered)
         .contextMenu {
+            Button("Windows…") { model.showAppWindows(app) }
+            Button("Replace app…") { model.showAppPicker(replacing: app) }
+            Button("Undo app change") { model.undoAppChange() }.disabled(model.appHistory.isEmpty)
             Button("Open \(app.name)") { model.open(app) }
             Divider()
             Button("Move left") { model.move(app, by: -1) }.disabled(model.apps.first == app)
@@ -172,11 +179,11 @@ struct AppTile: View {
             Divider()
             if model.apps.contains(app) { Button("Unpin") { model.remove(app) } }
             else { Button("Pin to Dock") { model.pin(app) } }
-            if let running = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL == app.url }) {
+            if let running = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL?.standardizedFileURL.path == app.id }) {
                 Button(running.isHidden ? "Show app" : "Hide app") { if running.isHidden { running.unhide() } else { running.hide() } }
             }
             Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([app.url]) }
-            Button("Quit app") { NSWorkspace.shared.runningApplications.first { $0.bundleURL == app.url }?.terminate() }.disabled(!app.isRunning)
+            Button("Quit app") { NSWorkspace.shared.runningApplications.first { $0.bundleURL?.standardizedFileURL.path == app.id }?.terminate() }.disabled(!app.isRunning)
         }
     }
 }
@@ -194,7 +201,7 @@ struct UsageTile: View {
                     Spacer()
                     if model.fetching { ProgressView().controlSize(.mini) }
                     else if model.usageError != nil { Image(systemName: "exclamationmark.circle").foregroundStyle(.orange) }
-                    else { Image(systemName: "chevron.up").font(.system(size: 8, weight: .bold)).foregroundStyle(.white.opacity(0.4)) }
+                    else { Image(systemName: "chevron.up").font(.system(size: 8, weight: .bold)).foregroundStyle(.secondary) }
                 }.font(.system(size: 10))
                 if let bucket = model.activeBucket {
                     if let primary = bucket.primary { MiniMeter(window: primary, color: model.color) }
@@ -204,11 +211,11 @@ struct UsageTile: View {
                         Text(model.usageError != nil ? "Connection unavailable" : "Connect your usage").font(.system(size: 12, weight: .medium))
                         Spacer()
                         Image(systemName: "arrow.up.right").font(.system(size: 10))
-                    }.foregroundStyle(.white.opacity(0.65))
+                    }.foregroundStyle(.secondary)
                 }
             }.padding(.horizontal, model.toolkit.richWidgets ? 12 : 0).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center).modifier(WidgetSurface())
         }.buttonStyle(.plain)
-        .popover(isPresented: $interaction.expanded, arrowEdge: model.toolkit.edge == "Top" ? .bottom : .top) { UsageDetails(model: model).padding(22).frame(width: 335).preferredColorScheme(.dark) }
+        .popover(isPresented: $interaction.expanded, arrowEdge: model.toolkit.edge == "Top" ? .bottom : .top) { UsageDetails(model: model).padding(22).frame(width: 335).preferredColorScheme(model.scheme) }
     }
 }
 
@@ -220,11 +227,11 @@ struct MiniMeter: View {
             HStack {
                 Text("\(Int(window.remaining))% left").font(.system(size: 14, weight: .semibold, design: .rounded)).monospacedDigit()
                 Spacer()
-                Text(window.title).font(.system(size: 9)).foregroundStyle(.white.opacity(0.5))
+                Text(window.title).font(.caption).foregroundStyle(.secondary)
             }
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(.white.opacity(0.12))
+                    Capsule().fill(Color.primary.opacity(0.12))
                     Capsule().fill(window.remaining < 15 ? .orange : color).frame(width: geometry.size.width * window.remaining / 100)
                 }
             }.frame(height: 4)
@@ -287,10 +294,21 @@ struct SettingsView: View {
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 8) {
-                        Text("VERSION 0.7 · PREVIEW").font(.system(size: 9, weight: .bold)).tracking(1).foregroundStyle(.secondary)
+                        Text("VERSION 1.0 · RELEASE CANDIDATE").font(.system(size: 10, weight: .bold)).tracking(1).foregroundStyle(.secondary)
                         Button("Done") { model.closeSettingsAction?() }
                     }
                 }
+                if LicenseConfiguration.commercial {
+                    LicenseSettingsView()
+                } else {
+                    DisclosureGroup("Development access enabled · License testing") {
+                        LicenseSettingsView().padding(.top, 8)
+                    }.font(.callout)
+                }
+                if !model.canUseFeatures {
+                    Button("Restore Apple Dock") { model.changeDockAction?(false) }
+                }
+                if model.canUseFeatures {
                 card("Make it yours", icon: "paintpalette") {
                     DockAppearanceSettings(model: model)
                     HStack {
@@ -315,6 +333,7 @@ struct SettingsView: View {
                     Toggle("Show clock and date", isOn: $model.showClock)
                     HStack {
                         Button("Pin apps…", action: model.addApps)
+                        Button("Undo") { model.undoAppChange() }.disabled(model.appHistory.isEmpty)
                         Text("Drag icons to reorder. Right-click for more actions.").font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -347,21 +366,22 @@ struct SettingsView: View {
                     }
                     if let error = model.usageError { Text(error).font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true) }
                 }
+                }
                 HStack {
                     Text("WaveDock · Thoughtfully at hand.").font(.caption).foregroundStyle(.secondary)
                     Spacer()
                     Button("Quit WaveDock") { NSApp.terminate(nil) }
                 }
             }.padding(28)
-        }.frame(width: 590, height: 720).background(Color(nsColor: .windowBackgroundColor)).preferredColorScheme(.dark)
+        }.frame(width: 590, height: 720).background(Color(nsColor: .windowBackgroundColor)).preferredColorScheme(model.scheme)
     }
     private func card<Content: View>(_ title: String, icon: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 13) {
             Label(title, systemImage: icon).font(.headline)
             content()
         }.padding(18).frame(maxWidth: .infinity, alignment: .leading)
-            .background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(.white.opacity(0.06)))
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color(nsColor: .separatorColor)))
     }
     private func chooseCLI() {
         let picker = NSOpenPanel(); picker.title = "Choose the Codex executable"; picker.canChooseDirectories = false

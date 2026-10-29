@@ -54,7 +54,7 @@ enum DockGeometry {
     let prefix: String
     var configure: ((ExtraDock)->Void)?
     init(defaults:UserDefaults, testing:Bool) {
-        self.defaults = defaults; prefix = testing ? "WaveDockUITests.dock." : "com.wavedock.extra."
+        self.defaults = defaults; prefix = testing ? "WaveDockUITests.dock." : (LicenseConfiguration.commercial ? "com.wavedock.extra." : "com.wavedock.development.extra.")
     }
     func restore() {
         let ids = defaults.stringArray(forKey:"additionalDocks") ?? []
@@ -97,7 +97,7 @@ struct DockAppearanceSettings: View {
     var body: some View {
         VStack(alignment:.leading,spacing:12) {
             TextField("Dock name",text:$model.dockName).textFieldStyle(.roundedBorder)
-            Picker("Appearance",selection:$model.theme) { ForEach(["Glass","Graphite","Pearl","System"],id:\.self) { Text($0) } }
+            Picker("Appearance",selection:$model.theme) { ForEach(["Automatic","Glass","Graphite","Pearl","System"],id:\.self) { Text($0) } }
             HStack { Text("Maximum width"); Slider(value:$model.widthFraction,in:0.35...1); Text("\(Int(model.widthFraction*100))%").monospacedDigit() }
             HStack { Text("Horizontal position"); Slider(value:$model.alignment,in:0...1) }
             Picker("Position",selection:Binding(get:{model.toolkit.edge},set:{model.toolkit.edge=$0})) { Text("Bottom").tag("Bottom"); Text("Top").tag("Top"); Text("Floating").tag("Floating") }.disabled(model.replacingDock)

@@ -4,15 +4,17 @@
 
 **Your apps, useful widgets, and AI usage in one native Mac Dock.**
 
-WaveDock is a free, open-source Mac app. It gives you a customizable glass Dock with app launchers, a widget library, saved layouts, and a tile for the usage limits returned by your ChatGPT account's Codex service.
+WaveDock is a native Mac app. It gives you a customizable glass Dock with app launchers, a widget library, saved layouts, and a tile for the usage limits returned by your ChatGPT account's Codex service.
 
-Built with Swift, SwiftUI, and AppKit. No Electron, web wrapper, subscription, account with WaveDock, or third-party package dependencies.
+Built with Swift, SwiftUI, and AppKit. The 1.0 commercial candidate adds purchase and activation services while keeping notes, tasks, recordings and companion progress local.
 
-[Visit the WaveDock website](https://wavedock-preview.limit-dylanlasensky.workers.dev/)
+> **Version 1.0.0 app and website candidate.** Proposed offer: **US $9.99 once**, major version 1 and its maintenance updates, all nine companions, three personal Macs. No subscription. Stripe is test-only; live sales and Apple notarization are pending. Pet redesign is excluded from this update. The legacy 0.8 edition retains its MIT permissions. See [commercial transition](docs/COMMERCIAL-LICENSE-TRANSITION.md), [commerce setup](docs/COMMERCE.md), and [validation evidence](docs/VALIDATION.md). WaveDock is independent and not affiliated with Apple, CoolDock or OpenAI.
+
+[WaveDock website](https://wavedock-preview.limit-dylanlasensky.workers.dev/) · Website source and the test-commerce implementation are under `website/`. Checkout remains unavailable until the test services are configured.
 
 ## Companion and personalization
 
-Choose Miso, Black cat, Orange cat, Golden dog, Husky, Dragon, Cow, Rabbit or Fox in the companion widget. Care and focus progress are retained when switching animals. All nine companions have individually generated, detailed illustrations with six poses each: walking, grooming, play, rest, and species-specific motion such as dragon wingbeats and rabbit hops. There is no shared pad. Reduce Motion uses a still pose. Artwork and generation prompts are included in `Assets/Companions/`. Drag any app or widget onto another tile to take its position; apps, widgets, clock and usage tiles share one saved order. A colored border marks the drop target. Keep holding over a page arrow for just over half a second to turn the page; keep holding to continue through pages, then move onto a tile and release. Dropping directly on an arrow is a shortcut to move to the adjacent page. Releasing elsewhere outside the tiles cancels the move. Grab the small accent-colored handle at the top of a Dock to move it; replacement docks remain at the bottom while companion docks can float. Themes and arbitrary accent colors are independent for each Dock under Settings.
+The existing nine companions and their six-pose artwork remain unchanged in this update. Revised pet designs and the new animation engine are being developed separately and are not included here. Care and focus progress remain local. Drag any app or widget onto another tile to take its position; apps, widgets, clock and usage tiles share one saved order. A colored border marks the drop target. Keep holding over a page arrow for just over half a second to turn the page; keep holding to continue through pages, then move onto a tile and release. Dropping directly on an arrow is a shortcut to move to the adjacent page. Releasing elsewhere outside the tiles cancels the move. Grab the small accent-colored handle at the top of a Dock to move it; replacement docks remain at the bottom while companion docks can float. Themes and arbitrary accent colors are independent for each Dock under Settings.
 
 ## Requirements
 
@@ -25,7 +27,9 @@ Choose Miso, Black cat, Orange cat, Golden dog, Husky, Dragon, Cow, Rabbit or Fo
 
 ### Download a build
 
-Open [Actions](https://github.com/dylanlasensky/WaveDock/actions), choose a **successful** "Build and test macOS app" run, and download **WaveDock-macOS-universal-pass-1** (or pass-2) under Artifacts. GitHub may require you to sign in. Extract the artifact, then extract the enclosed `WaveDock.zip`. Drag `WaveDock.app` into Applications and open it.
+The 1.0 candidate is not yet a public commercial release. Development CI artifacts are for review, not paid fulfillment. A configured commercial build will activate with a test license issued by the test backend; its private release artifact is served only through the license-checked download endpoint.
+
+Do not replace an installed working Dock during review. The development build uses a separate bundle identity. Legacy public downloads remain historical artifacts with their original license.
 
 Builds are ad-hoc signed for local testing, **not Developer ID signed or notarized by Apple**. If macOS blocks a build you trust, use its **System Settings → Privacy & Security → Open Anyway** flow. Do not disable Gatekeeper globally.
 
@@ -34,20 +38,21 @@ Builds are ad-hoc signed for local testing, **not Developer ID signed or notariz
 ```sh
 git clone https://github.com/dylanlasensky/WaveDock.git
 cd WaveDock
-zsh build.sh
+zsh build.sh --development
+# Open the development build only when ready to review:
 open dist/WaveDock.app
 ```
 
-The build uses the installed Apple toolchain and creates `dist/WaveDock.app`. It generates the app icon from the included drawing script. Build outputs are excluded from version control. Ad-hoc rebuilds may require you to re-enable macOS privacy permissions; stable distribution requires a consistent Developer ID signature.
+The development build uses the installed Apple toolchain and creates `dist/WaveDock.app` with a separate development bundle identifier. `zsh build.sh --commercial` creates `dist/WaveDock-Commercial.app` with activation enforced; configure only the public license-server URL, verification public key and key ID as described in the build script. An unconfigured commercial build fails closed. It generates the app icon from the included drawing script. Build outputs are excluded from version control. Ad-hoc rebuilds may require you to re-enable macOS privacy permissions; stable distribution requires a consistent Developer ID signature.
 
 ## First setup
 
 1. Open Settings from the wave icon in your menu bar or the sliders button in WaveDock.
-2. Choose icon size and an accent: White, None (neutral), Mint, Blue, Lilac, Coral, Rose, Gold, or any custom color. Rich widget cards show live details directly on the Dock; turn them off for compact tiles.
-3. Pin apps with **Pin apps…** or the search widget. Drag pinned icons over another pinned icon to reorder them. Right-click for pin, unpin, move, reveal, and quit actions.
+2. New installations use **Automatic** appearance, following the Mac. Explicit existing themes are preserved. Choose icon size and an accent: White, None (neutral), Mint, Blue, Lilac, Coral, Rose, Gold, or any custom color. Rich widget cards show live details directly on the Dock; turn them off for compact tiles.
+3. Use **+** or **Pin apps…** for the searchable installed-app picker. Right-click an app and choose **Replace app…** to preserve its position. Undo is available for app changes. Drag tiles to reorder them.
 4. Choose a display. Replacement mode stays at the bottom. Enable automatic hiding or hide-on-overlap if you prefer; hold the pointer at the physical bottom edge for a quarter second to reveal it.
 5. Enable your widgets in **Widget library**. A full Dock uses whole-card pages; navigation and Settings remain visible.
-6. **Use WaveDock as my Dock** is enabled by default for the new replacement workflow. Apple’s Dock is hidden and its edge reveal is delayed while WaveDock runs. Disable replacement to use a separate top or bottom bar. Your original Apple Dock preferences return when you disable replacement or quit.
+6. Enable **Use WaveDock as my Dock** when you want replacement mode. Fresh development settings leave it off until you choose it. Apple’s Dock is hidden and its edge reveal is delayed while WaveDock runs. Disable replacement to use a separate top or bottom bar. Your original Apple Dock preferences return when you disable replacement or quit.
 7. Save a named layout to switch between app collections, widgets, icon sizes, and accent colors. Export/import layout JSON to move those layouts to another Mac. App paths must exist on the destination Mac.
 
 The menu-bar wave always gives access to Settings, show/hide, usage refresh, Apple Dock restoration, and Quit. **Done** closes Settings. ⌘W closes Settings and ⌘Q quits while WaveDock is active.
@@ -57,8 +62,8 @@ The menu-bar wave always gives access to Settings, show/hide, usage refresh, App
 | Feature | Available now |
 | --- | --- |
 | Native glass Dock | Bottom replacement; top/bottom companion mode; selected display; full-screen/session/sleep suppression; true auto-hide; optional hide-on-overlap; icon sizes, accents, whole-card pages |
-| App management | Pinned apps, optional unpinned running apps, running indicators, hover animation, drag reorder, contextual actions |
-| App search | Searches installed apps in Applications and System Applications; open or pin from results |
+| App management | Searchable Add/Replace picker, position-preserving replacement, Undo, pinned/running apps, running indicators, drag reorder and contextual actions |
+| App search | Installed-app discovery, filtering and location disambiguation; refresh for installed, moved or removed apps |
 | Saved layouts | Save/apply/remove layouts; JSON export and import |
 | ChatGPT plan usage | Actual returned Codex allowance buckets, percentages remaining, reset times, manual or five-minute refresh |
 | Focus timer | 5, 15, 25, and 50 minute presets; pause, resume, reset, completion sound |
@@ -68,7 +73,7 @@ The menu-bar wave always gives access to Settings, show/hide, usage refresh, App
 | System information | Live CPU sparkline, active/wired/compressed memory use, network throughput, battery/charging state, installed RAM and available disk space |
 | Calendar | Opt-in access to the next seven days of Mac calendar events; manual refresh |
 | Clipboard | Opt-in text history, up to 20 entries in memory, click to copy, clear history |
-| Weather | Manual city lookup and refresh, current and feels-like temperature in Fahrenheit, Open-Meteo attribution |
+| Weather | Legacy/development manual city weather; unavailable in the commercial candidate pending an approved provider configuration |
 | GitHub | Public repositories or existing `gh` sign-in; stars/forks, open issues and PRs, latest Actions run, optional five-minute refresh, stale/error states |
 | Bookmarks | Local named HTTP/HTTPS links; add, open, remove |
 | Folders & Downloads | Choose a folder, navigate up/into subfolders, search, sort by name or newest, open, reveal, drag files out |
@@ -94,7 +99,7 @@ The menu-bar wave always gives access to Settings, show/hide, usage refresh, App
 - **Music:** Spotify artwork and local Apple Music artwork, with an optional subdued background sampled from the album. A neutral fallback keeps transport usable when art is unavailable. Spotify artwork requests go to its image CDN; images are bounded, downsampled and held in memory.
 - **Companion cat:** Enable Companion cat, name your cat, feed, play or rest. Completed WaveDock focus sessions grant joy and levels. Needs do not decay for time spent away; no application or keystroke tracking is used.
 
-The website source lives in [`website/`](website/). Its free Cloudflare preview is **[wavedock-preview.limit-dylanlasensky.workers.dev](https://wavedock-preview.limit-dylanlasensky.workers.dev/)**. No custom domain or paid service is required. Deployment instructions are in [website/README.md](website/README.md).
+The website candidate lives in [`website/`](website/), with a separate test-commerce Worker configuration. The [public website](https://wavedock-preview.limit-dylanlasensky.workers.dev/) presents the candidate with checkout unavailable until configured. Read [website setup](website/README.md) before testing; live sales require separate owner configuration and approval.
 
 ## New in 0.6
 
@@ -160,7 +165,7 @@ Latest build status distinguishes queued/running/completed states. A failed refr
 - **Calendar:** requested only when you press Connect / refresh calendar. Events are read into memory; WaveDock does not edit them.
 - **Music:** macOS asks for Automation permission for your chosen player. Open Spotify or Music and play a track before connecting. Disconnect stops polling.
 - **Clipboard:** disabled on every launch until explicitly enabled. Text history stays in memory and clears when you quit. Copies marked concealed, transient, or automatically generated are skipped. Apps do not all mark sensitive text, so disable capture when copying sensitive information.
-- **Weather:** sends your typed city to Open-Meteo's geocoding API, then the matching coordinates to its forecast API only when you refresh. No GPS/location permission. The public API is intended for noncommercial use; commercial distributors should review [Open-Meteo's terms](https://open-meteo.com/en/terms).
+- **Weather:** development builds send your typed city to Open-Meteo's geocoding API, then the matching coordinates to its forecast API when you refresh. No GPS/location permission. Weather is disabled in commercial builds pending an approved provider configuration because the free hosted API is restricted to noncommercial use. See [Open-Meteo's terms](https://open-meteo.com/en/terms).
 - **Notes, tasks, shelf paths, layouts, preferences:** stored locally in WaveDock's macOS preferences. Layout exports contain app paths and appearance settings, not notes, tasks, credentials, or clipboard history.
 - **File shelf:** stores shortcuts to originals. Removing a shelf item does not delete the file. Moved/deleted original files need to be re-added.
 - **Telemetry:** no WaveDock analytics or tracking server.
@@ -196,13 +201,13 @@ The fixture runs locally without credentials or network calls. It checks the act
 
 This is a substantial early-access app, not a complete CoolDock clone. In particular:
 
-- One Dock on one selected display at a time. No per-display simultaneous docks, left/right layout, or automatic profile switching yet.
+- Up to four independent docks, each selecting a display. Left/right vertical layout and automatic profile switching are not implemented.
 - Connected calendars refresh every minute and on Calendar changes. Weather refreshes manually and currently uses the first matching city and Fahrenheit.
 - Tasks are WaveDock-local; Apple Reminders is a separate opt-in widget. Focus sessions and stopwatch laps do not survive quitting the app.
 - System monitoring samples while enabled; CPU history is limited to the current session. Hardware temperature and peripheral battery telemetry are not implemented.
-- No window thumbnails, minimized-window tiles, custom app-icon packs, folder groups, or full native Dock drag/drop semantics.
+- No native minimized-window tiles, arbitrary third-party notification badges, Handoff, or system-wide workspace reservation. Public-API window controls and document drops improve everyday use but do not provide full native Dock parity.
 - No automatic update service, Apple notarization, or App Store distribution yet. Login startup needs an installed app and may require macOS approval.
-- Codex allowances, supported Claude Code allowance windows, Gemini CLI session tokens, GitHub, OpenAI/Claude API usage, and Cursor team analytics are supported. Gemini consumer-chat quotas, ordinary ChatGPT message counts, and commerce/mail integrations remain unimplemented. API metrics and session tokens do not represent consumer-plan limits.
+- Codex allowances, supported Claude Code allowance windows, Gemini CLI session tokens, GitHub, OpenAI/Claude API usage, and Cursor team analytics are supported. Gemini consumer-chat quotas, ordinary ChatGPT message counts, and mail integrations remain unimplemented. Commerce is a local/test candidate and has not been validated with live provider credentials. API metrics and session tokens do not represent consumer-plan limits.
 - Screenshots, unit/currency conversion, color picking, voice memos and app groups are supported. Wallpaper services, per-app audio mixing and window thumbnails remain unimplemented.
 - Music and calendar need end-to-end validation across OS versions and real permission states. Multi-display placement needs testing on more hardware.
 
@@ -234,6 +239,6 @@ build.sh                Universal app build and local signing
 
 Issues and pull requests are welcome. For bugs, include macOS version, processor type, app version, reproduction steps, and expected behavior. Do not attach credentials, private calendar data, or clipboard contents. Keep optional permissions and integrations opt-in, and include checks appropriate to changed behavior.
 
-## License
+## License and proposed commercial transition
 
-[MIT](LICENSE). Use, modify, and share freely. Apple, Spotify, OpenAI, and other product names belong to their respective owners.
+The existing [MIT license](LICENSE) and required notices are preserved. Legacy copies retain their permissions. The 1.0 paid offer does not itself retroactively close the source or revoke MIT rights. Proposed commercial terms and the file/release boundary require owner approval before live sales; see [the transition document](docs/COMMERCIAL-LICENSE-TRANSITION.md). Apple, Spotify, OpenAI, and other product names belong to their respective owners.
