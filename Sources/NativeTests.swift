@@ -53,6 +53,23 @@ import SwiftUI
             view.setFrameSize(size); view.layoutSubtreeIfNeeded()
             if let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) { view.cacheDisplay(in: view.bounds, to: bitmap); if let data = bitmap.representation(using: .png, properties: [:]) { try data.write(to: output.appendingPathComponent(provider.rawValue + "-populated.png")) } }
         }
+        // Inspect every illustrated animal and all six poses on contrasting surfaces.
+        for animal in Companion.animals {
+            let frames = CompanionArtwork.frames(animal)
+            let portrait = NSHostingView(rootView: VStack(spacing:12) {
+                Text(animal).font(.title2.bold())
+                ForEach(0..<2) { row in
+                    HStack { ForEach(0..<3) { col in
+                        Image(nsImage:frames[row*3+col]).resizable().scaledToFit().frame(width:160,height:160).scaleEffect(animal == "Fox" ? 2 : 1)
+                    } }
+                }
+            }.padding(18).background(animal == "Black cat" ? Color(white:0.85) : Color(white:0.12)).foregroundStyle(.orange))
+            portrait.setFrameSize(portrait.fittingSize); portrait.layoutSubtreeIfNeeded()
+            if let bitmap = portrait.bitmapImageRepForCachingDisplay(in:portrait.bounds) {
+                portrait.cacheDisplay(in:portrait.bounds,to:bitmap)
+                if let data = bitmap.representation(using:.png,properties:[:]) { try data.write(to:output.appendingPathComponent("companion-"+animal+".png")) }
+            }
+        }
         model.toolkit.enabled = ToolKind.allCases.map(\.rawValue)
         for iconSize in [32.0, 48, 64] {
             model.iconSize = iconSize

@@ -1,5 +1,11 @@
 # WaveDock validation
 
+## Version 0.8 coverage
+
+The page-drag timer covers initial dwell, stationary repeat, reverse direction, leaving an arrow, cancellation and first/last-page bounds. The stable Dock owns the gesture while tile views change. Live QA performed two rounds moving Chrome and the companion forward and backward by dropping on arrows (eight successful drags). All nine animal choices were selected twice; rest/wake was exercised twice. The computer-use drag API releases immediately at the destination, so a sustained physical hover-and-hold is not claimed as manually verified. Its timing is covered by production-state tests.
+
+All nine bundled six-pose sheets are checked for dimensions, sprite-boundary bleed, valid frame sequences and Reduce Motion. Native captures render all poses on contrasting backgrounds as well as every widget. The full local suite runs twice, and CI builds and tests independently twice. The final PR records exact-commit results.
+
 ## Version 0.7 coverage
 
 Regression tests add all edge and corner snap zones on negative-coordinate screens, edge dwell/cancellation, per-edge window reservations, small custom Dock widths, theme persistence, companion needs/levels and exactly-once focus rewards, and artwork source/format validation. Native tests exercise four independent Dock models, separate content/themes, screen containment, session/sleep suppression, removal, and all 39 functional widget views. Live Accessibility acceptance depends on macOS granting this rebuilt app access; offline geometry tests are not proof of a live gesture.

@@ -26,6 +26,9 @@ enum DockEntry: Identifiable {
     var id: String {
         switch self { case .app(let a): return "app:" + a.id; case .add: return "add"; case .usage: return "usage"; case .tool(let k): return k.rawValue; case .clock: return "clock" }
     }
+    var title: String {
+        switch self { case .app(let a): return a.name; case .add: return "Add app"; case .usage: return "Codex usage"; case .tool(let k): return k.title; case .clock: return "Clock" }
+    }
     func width(iconSize: Double, rich: Bool = true) -> CGFloat {
         switch self { case .app: return iconSize + 8; case .add: return 28; case .usage: return rich ? 202 : 177; case .clock: return rich ? 136 : 100
         case .tool(let kind):
