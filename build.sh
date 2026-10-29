@@ -10,7 +10,8 @@ for arch in arm64 x86_64; do
 done
 lipo -create .build/WaveDock-arm64 .build/WaveDock-x86_64 -output dist/WaveDock.app/Contents/MacOS/WaveDock
 cp Info.plist dist/WaveDock.app/Contents/Info.plist
-mkdir -p dist/WaveDock.app/Contents/Resources
+mkdir -p dist/WaveDock.app/Contents/Resources/Companions
+cp Assets/Companions/*.png dist/WaveDock.app/Contents/Resources/Companions/
 xcrun swiftc -module-cache-path .build/cache -framework AppKit Scripts/MakeIcon.swift -o .build/make-icon
 .build/make-icon .build/WaveDock.iconset dist/WaveDock.app/Contents/Resources/WaveDock.icns
 codesign --force --sign - dist/WaveDock.app

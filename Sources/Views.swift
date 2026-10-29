@@ -12,6 +12,14 @@ struct DockView: View {
     @ObservedObject var model: DockModel
     @State private var page = 0
     @State private var lastDrag = CGSize.zero
+    @State private var draggedID: String?
+    @State private var dragPoint = CGPoint.zero
+    @State private var dwell = DragPageDwell()
+    @State private var arrowFrames: [Int: CGRect] = [:]
+    @State private var dropTarget: String?
+    @State private var turnedDuringDrag = false
+    @GestureState private var dragging = false
+    private let dragClock = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
     var entries: [DockEntry] { model.orderedEntries }
     var body: some View {
         let screen = model.selectedScreen
@@ -22,21 +30,65 @@ struct DockView: View {
         let current = min(page, pages.count - 1)
         HStack(spacing: 8) {
             Button { page = max(0, current - 1) } label: { Image(systemName: "chevron.left").frame(width: 24, height: 46) }
-                .disabled(current == 0).help("Previous Dock page").accessibilityLabel("Previous Dock page")
+                .background(arrowGeometry(-1))
+                .foregroundStyle(dwell.direction == -1 ? model.color : .primary)
+                .disabled(current == 0).help("Previous Dock page; hold a dragged tile here to turn pages").accessibilityLabel("Previous Dock page")
             HStack(spacing: DockPageLayout.gap) {
                 ForEach(pages[current].map { entries[$0] }) { item in
-                    UnifiedDockTile(item:item,model:model) { entry(item) }.frame(width:item.width(iconSize:model.iconSize,rich:model.toolkit.richWidgets),height:max(64,model.iconSize+20))
+                    tile(item)
                 }
                 Spacer(minLength: 0)
             }.frame(width: max(1, width - DockPageLayout.chrome), height: max(64, model.iconSize + 20)).clipped()
             VStack(spacing: 3) {
                 Button { page = min(pages.count - 1, current + 1) } label: { Image(systemName: "chevron.right").frame(width: 24, height: 26) }
-                    .disabled(current == pages.count - 1).help("Next Dock page").accessibilityLabel("Next Dock page")
+                    .background(arrowGeometry(1))
+                    .foregroundStyle(dwell.direction == 1 ? model.color : .primary)
+                    .disabled(current == pages.count - 1).help("Next Dock page; hold a dragged tile here to turn pages").accessibilityLabel("Next Dock page")
                 Text("\(current + 1)/\(pages.count)").font(.system(size: 9)).monospacedDigit().foregroundStyle(.secondary)
             }.frame(width: 32)
             Button { model.settingsAction?() } label: { Image(systemName: "slider.horizontal.3").frame(width: 26, height: 46) }
                 .help("WaveDock settings").accessibilityLabel("WaveDock settings")
         }
+        .contentShape(Rectangle())
+        // This recognizer belongs to the stable Dock, not a tile removed by paging.
+        .highPriorityGesture(DragGesture(minimumDistance:8,coordinateSpace:.global)
+            .updating($dragging) { _, active, _ in active = true }
+            .onChanged { value in
+                if draggedID == nil {
+                    draggedID = model.tileFrames.first(where: { $0.value.contains(value.startLocation) })?.key
+                }
+                guard draggedID != nil else { return }
+                dragPoint = value.location
+                dropTarget = model.tileFrames.first(where: { $0.key != draggedID && $0.value.contains(value.location) })?.key
+            }
+            .onEnded { value in
+                defer { clearDrag() }
+                guard let source = draggedID else { return }
+                if let target = model.tileFrames.first(where: { $0.key != source && $0.value.contains(value.location) })?.key {
+                    withAnimation(.easeInOut(duration:0.18)) { model.moveEntry(source,onto:target) }
+                } else if let direction = arrowFrames.first(where: { $0.value.insetBy(dx:-5,dy:-8).contains(value.location) })?.key {
+                    let destination = turnedDuringDrag ? current : current + direction
+                    guard pages.indices.contains(destination), destination != current || turnedDuringDrag else { return }
+                    let candidates = pages[destination].map { entries[$0].id }.filter { $0 != source }
+                    guard let target = direction > 0 ? candidates.first : candidates.last else { return }
+                    model.moveEntry(source,onto:target)
+                    let moved = model.orderedEntries
+                    let updated = DockPageLayout.pages(widths:moved.map { $0.width(iconSize:model.iconSize,rich:model.toolkit.richWidgets) },available:width-DockPageLayout.chrome)
+                    if let index = moved.firstIndex(where: { $0.id == source }), let destinationPage = updated.firstIndex(where: { $0.contains(index) }) { page = destinationPage }
+                }
+            })
+        .onReceive(dragClock) { date in
+            guard draggedID != nil, dragging else { return }
+            let direction = arrowFrames.first(where: { $0.value.insetBy(dx:-5,dy:-8).contains(dragPoint) })?.key ?? 0
+            if let next = dwell.update(direction:direction,page:current,count:pages.count,now:date.timeIntervalSinceReferenceDate) {
+                dropTarget = nil
+                model.tileFrames.removeAll()
+                turnedDuringDrag = true
+                page = next
+            }
+        }
+        .onChange(of:dragging) { active in if !active { clearDrag() } }
+        .onDisappear { clearDrag() }
         .buttonStyle(.plain).padding(.horizontal, 16).padding(.vertical, 10)
         .frame(width: width, height: max(64, model.iconSize + 20) + 24)
         .background { DockPlate(theme: model.theme) }
@@ -57,8 +109,25 @@ struct DockView: View {
         .overlay(RoundedRectangle(cornerRadius: 27).stroke(.white.opacity(0.2), lineWidth: 0.7))
         .clipShape(RoundedRectangle(cornerRadius: 27))
         .padding(.horizontal, 12).padding(.top, 16).padding(.bottom, 4)
+        .overlay(alignment:.top) {
+            if let source = entries.first(where: { $0.id == draggedID }) {
+                Text("Moving " + source.title).font(.system(size:9,weight:.medium)).padding(.horizontal,8).padding(.vertical,2)
+                    .background(.regularMaterial,in:Capsule()).allowsHitTesting(false)
+            }
+        }
         .foregroundStyle(.primary).preferredColorScheme(model.scheme)
         .onChange(of: entries.map(\.id)) { page = min(page, pages.count - 1) }
+    }
+    private func tile(_ item: DockEntry) -> some View {
+        UnifiedDockTile(item:item,model:model,targeted:dropTarget == item.id,dragged:draggedID == item.id,content:{ entry(item) })
+            .frame(width:item.width(iconSize:model.iconSize,rich:model.toolkit.richWidgets),height:max(64,model.iconSize+20))
+    }
+    private func clearDrag() { draggedID = nil; dropTarget = nil; turnedDuringDrag = false; dwell.reset() }
+    private func arrowGeometry(_ direction: Int) -> some View {
+        GeometryReader { geometry in
+            Color.clear.onAppear { arrowFrames[direction] = geometry.frame(in:.global) }
+                .onChange(of:geometry.frame(in:.global)) { arrowFrames[direction] = $0 }
+        }
     }
     @ViewBuilder private func entry(_ item: DockEntry) -> some View {
         switch item {
@@ -303,8 +372,9 @@ struct SettingsView: View {
 struct UnifiedDockTile<Content:View>: View {
     let item:DockEntry
     @ObservedObject var model:DockModel
+    var targeted: Bool
+    var dragged: Bool
     @ViewBuilder var content:()->Content
-    @State private var targeted=false
     var body:some View {
         content().contentShape(Rectangle())
             .overlay(RoundedRectangle(cornerRadius:14).stroke(targeted ? model.color : .clear,lineWidth:2))
@@ -312,14 +382,7 @@ struct UnifiedDockTile<Content:View>: View {
                 Color.clear.onAppear { model.tileFrames[item.id]=geometry.frame(in:.global) }
                     .onChange(of:geometry.frame(in:.global)) { model.tileFrames[item.id]=$0 }
             })
-            .highPriorityGesture(DragGesture(minimumDistance:8,coordinateSpace:.global)
-                .onChanged { _ in targeted=true }
-                .onEnded { value in
-                    targeted=false
-                    let available=Set(model.orderedEntries.map(\.id))
-                    guard let target=model.tileFrames.first(where: { $0.key != item.id && available.contains($0.key) && $0.value.contains(value.location) })?.key else { return }
-                    withAnimation(.easeInOut(duration:0.18)) { model.moveEntry(item.id,onto:target) }
-                })
+            .opacity(dragged ? 0.45 : 1)
             .onDisappear { model.tileFrames.removeValue(forKey:item.id) }
 
     }

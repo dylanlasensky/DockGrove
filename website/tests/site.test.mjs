@@ -23,5 +23,5 @@ const config=JSON.parse(fs.readFileSync(path.resolve(root,'../wrangler.jsonc'),'
 assert(!config.main&&!config.assets.run_worker_first&&!config.routes&&!config.d1_databases&&!config.r2_buckets,'No dynamic/paid service configuration');
 assert.equal(config.assets.directory,'./public');
 const headers=fs.readFileSync(path.join(root,'_headers'),'utf8');assert(headers.includes("frame-ancestors 'none'"));
-if(process.argv.includes('--release')){const zip=fs.readFileSync(path.join(root,'downloads/WaveDock-0.7.0.zip'));assert(zip.length>1_000_000&&zip.length<25_000_000);assert.equal(zip.readUInt32LE(0),0x04034b50);}
+if(process.argv.includes('--release')){const zip=fs.readFileSync(path.join(root,'downloads/WaveDock-0.8.0.zip'));assert(zip.length>1_000_000&&zip.length<25_000_000);assert.equal(zip.readUInt32LE(0),0x04034b50);}
 console.log('PASS: site syntax, all local links/assets, unique IDs, controls, sample labels, motion/accessibility safeguards, static-only free-hosting configuration'+(process.argv.includes('--release')?', release ZIP':''));

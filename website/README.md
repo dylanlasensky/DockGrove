@@ -9,7 +9,7 @@ Static asset requests and storage are free under Cloudflare's published pricing.
 No custom domain, paid subscription, or existing application is modified.
 
 Before deployment, build and validate WaveDock twice, then copy the packaged app to
-`public/downloads/WaveDock-0.7.0.zip`. Downloads are generated artifacts and ignored
+`public/downloads/WaveDock-0.8.0.zip`. Downloads are generated artifacts and ignored
 by Git. Run `node tests/site.test.mjs` twice; use `--release` to also validate the ZIP.
 
 Design references studied October 28, 2026:

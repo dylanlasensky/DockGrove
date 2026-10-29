@@ -44,50 +44,72 @@ struct CompanionState: Codable, Equatable {
     func rename(_ name: String) { let name = name.trimmingCharacters(in: .whitespacesAndNewlines); if !name.isEmpty { state.name = String(name.prefix(24)) } }
 }
 
-/// Original vector illustration, drawn at any Dock scale without downloaded artwork.
-struct CatPortrait: View {
-    var isCat: Bool { ["Miso","Black cat","Orange cat"].contains(animal) }
-    var fur: Color {
-        switch animal {
-        case "Black cat": return Color(white:0.22)
-        case "Orange cat","Fox": return Color(red:0.9,green:0.48,blue:0.18)
-        case "Golden dog": return Color(red:0.85,green:0.65,blue:0.32)
-        case "Husky": return Color(red:0.42,green:0.49,blue:0.58)
-        case "Dragon": return Color(red:0.32,green:0.7,blue:0.5)
-        case "Cow","Rabbit": return Color(red:0.9,green:0.87,blue:0.82)
-        default: return Color(red:0.83,green:0.77,blue:0.69)
+/// Six individually illustrated poses per animal, decoded once and shared by all docks.
+@MainActor enum CompanionArtwork {
+    static let names = ["Miso":"miso", "Black cat":"black-cat", "Orange cat":"orange-cat", "Golden dog":"golden-dog", "Husky":"husky", "Dragon":"dragon", "Cow":"cow", "Rabbit":"rabbit", "Fox":"fox"]
+    private static var cache: [String:[NSImage]] = [:]
+    static func frames(_ animal: String) -> [NSImage] {
+        let key = names[animal] ?? "miso"
+        if let cached = cache[key] { return cached }
+        guard let url = Bundle.main.url(forResource:key,withExtension:"png",subdirectory:"Companions"),
+              let source = NSImage(contentsOf:url), let sheet = source.cgImage(forProposedRect:nil,context:nil,hints:nil),
+              sheet.width % 3 == 0, sheet.height % 2 == 0 else { return [] }
+        let w = sheet.width/3, h = sheet.height/2
+        let result = (0..<6).compactMap { index -> NSImage? in
+            guard let frame = sheet.cropping(to:CGRect(x:(index%3)*w,y:(index/3)*h,width:w,height:h)) else { return nil }
+            return NSImage(cgImage:frame,size:NSSize(width:w,height:h))
         }
+        cache[key] = result
+        return result
     }
+}
+
+struct CompanionPose: Equatable {
+    var frame: Int
+    var x: Double = 0
+    var y: Double = 0
+    var breath: Double = 1
+    static func at(_ time: TimeInterval, animal: String, resting: Bool, reduceMotion: Bool) -> Self {
+        if reduceMotion { return Self(frame:resting ? 5 : 1) }
+        if resting { return Self(frame:5,breath:1+sin(time*1.6)*0.012) }
+        let t = abs(time.truncatingRemainder(dividingBy:18))
+        let sequence: [Int]; let speed: Double
+        switch animal {
+        case "Dragon": sequence=[0,1,2,3,2,4]; speed=0.18
+        case "Rabbit": sequence=[0,0,1,2,2,3,3,4,4]; speed=0.3
+        case "Cow": sequence=[0,1,1,2,1,1,3,3,4,1]; speed=0.6
+        case "Golden dog": sequence=[0,1,2,1,0,2,3,3,4,4]; speed=0.32
+        case "Husky": sequence=[0,1,2,1,0,2,3,3,3,4]; speed=0.4
+        case "Fox": sequence=[0,1,2,1,0,2,3,3,4,2]; speed=0.3
+        case "Black cat": sequence=[0,1,2,1,0,2,3,3,3,4,4]; speed=0.45
+        case "Orange cat": sequence=[0,1,2,1,0,2,3,3,4,4]; speed=0.5
+        default: sequence=[0,1,2,1,0,2,3,3,4,4,1]; speed=0.4
+        }
+        let frame = sequence[Int(t/speed)%sequence.count]
+        let x = sin(t*0.6)*0.035
+        let y = animal == "Dragon" ? sin(t*2)*0.055 : animal == "Rabbit" && frame == 1 ? -0.06 : 0
+        return Self(frame:frame,x:x,y:y)
+    }
+}
+
+struct CatPortrait: View {
     var resting: Bool
     var animal: String = "Miso"
     var accent: Color
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
-        TimelineView(.animation(minimumInterval: reduceMotion ? 60 : 0.15, paused: reduceMotion)) { context in
-            let phase = context.date.timeIntervalSinceReferenceDate
-            let blink = !reduceMotion && !resting && phase.truncatingRemainder(dividingBy:5) < 0.18
-            let wag = reduceMotion || resting ? 0 : sin(phase*3)*0.03
-            let breath = reduceMotion ? 1 : 1 + sin(context.date.timeIntervalSinceReferenceDate * 1.7) * 0.015
-            Canvas { c, s in
-                func ellipse(_ x: Double, _ y: Double, _ w: Double, _ h: Double, _ color: Color) { c.fill(Path(ellipseIn: CGRect(x: x*s.width, y: y*s.height, width:w*s.width,height:h*s.height)), with:.color(color)) }
-                ellipse(0.05,0.65,0.9,0.28,accent.opacity(0.3)); ellipse(0.12,0.67,0.76,0.17,accent.opacity(0.22))
-                if animal == "Dragon" {
-                    var wing=Path(); wing.move(to:CGPoint(x:s.width*0.6,y:s.height*0.53)); wing.addLine(to:CGPoint(x:s.width*0.93,y:s.height*0.16)); wing.addLine(to:CGPoint(x:s.width*0.88,y:s.height*0.57)); wing.closeSubpath(); c.fill(wing,with:.color(fur.opacity(0.7)))
+        TimelineView(.animation(minimumInterval:0.08,paused:reduceMotion)) { context in
+            let pose = CompanionPose.at(context.date.timeIntervalSinceReferenceDate,animal:animal,resting:resting,reduceMotion:reduceMotion)
+            let frames = CompanionArtwork.frames(animal)
+            GeometryReader { geometry in
+                if frames.indices.contains(pose.frame) {
+                    Image(nsImage:frames[pose.frame]).resizable().interpolation(.high).scaledToFit()
+                        .padding(geometry.size.height*0.065)
+                        .scaleEffect(x:1,y:pose.breath,anchor:.bottom)
+                        .offset(x:geometry.size.width*pose.x,y:geometry.size.height*pose.y)
                 }
-                ellipse(0.22,0.36,0.61,0.39,fur)
-                var ears = Path(); ears.move(to:CGPoint(x:s.width*0.25,y:s.height*0.48)); ears.addLine(to:CGPoint(x:s.width*0.26,y:s.height*0.14)); ears.addLine(to:CGPoint(x:s.width*0.45,y:s.height*0.35)); ears.move(to:CGPoint(x:s.width*0.48,y:s.height*0.34)); ears.addLine(to:CGPoint(x:s.width*0.67,y:s.height*0.14)); ears.addLine(to:CGPoint(x:s.width*0.68,y:s.height*0.5)); c.fill(ears,with:.color(fur))
-                if animal == "Rabbit" { for x in [0.29,0.52] { ellipse(x,0.01,0.12,0.4,fur); ellipse(x+0.03,0.04,0.06,0.3,Color.pink.opacity(0.4)) } }
-                if animal == "Golden dog" { for x in [0.18,0.62] { ellipse(x,0.3,0.17,0.39,Color.brown) } }
-                if animal == "Cow" || animal == "Dragon" { for x in [0.27,0.6] { ellipse(x,0.18,0.075,0.17,Color(red:0.92,green:0.77,blue:0.45)) } }
-                ellipse(0.24,0.29,0.46,0.4,fur)
-                if animal == "Cow" { ellipse(0.28,0.31,0.17,0.18,Color(white:0.25)); ellipse(0.66,0.44,0.13,0.17,Color(white:0.25)) }
-                if ["Husky","Fox","Golden dog","Cow"].contains(animal) { ellipse(0.34,0.48,0.29,0.18,animal == "Cow" ? Color.pink.opacity(0.65) : Color(white:0.94)) }
-                for x in [0.36,0.56] { ellipse(x,0.46,0.045,resting || blink ? 0.014 : 0.055,animal == "Black cat" ? Color.yellow : Color(white:0.15)) }
-                ellipse(0.46,0.54,0.04,0.025,Color(red:0.57,green:0.37,blue:0.36))
-                var tail = Path(); tail.move(to:CGPoint(x:s.width*0.79,y:s.height*0.58)); tail.addCurve(to:CGPoint(x:s.width*0.58,y:s.height*0.73),control1:CGPoint(x:s.width*0.98,y:s.height*(0.69+wag)),control2:CGPoint(x:s.width*0.77,y:s.height*0.85)); c.stroke(tail,with:.color(fur.opacity(0.85)),style:StrokeStyle(lineWidth:s.width*0.075,lineCap:.round))
             }
-            .scaleEffect(x: 1, y: breath, anchor: .bottom)
-        }.accessibilityLabel(animal + (resting ? " asleep in a bed" : " awake in a bed"))
+        }.accessibilityLabel(animal + (resting ? " sleeping" : " animated companion"))
     }
 }
 struct CompanionView: View {
@@ -96,7 +118,7 @@ struct CompanionView: View {
     @State private var name = ""
     var body: some View {
         VStack(spacing: 14) {
-            CatPortrait(resting: pet.state.resting, animal: pet.animal, accent: accent).frame(width:175, height:125)
+            CatPortrait(resting: pet.state.resting, animal: pet.animal, accent: accent).frame(width:250, height:180)
             Picker("Companion", selection:$pet.animal) { ForEach(Companion.animals,id: \.self) { Text($0) } }
             Text(pet.state.name).font(.title2.bold())
             Text(pet.state.mood).foregroundStyle(.secondary)
@@ -104,7 +126,7 @@ struct CompanionView: View {
             VStack(alignment: .leading) { meter("Fullness", pet.state.fullness); meter("Energy", pet.state.energy); meter("Joy", pet.state.joy) }
             Text("Level \(pet.state.level) · \(pet.state.sessions) completed focus sessions").font(.caption)
             HStack { TextField("Companion name", text: $name).textFieldStyle(.roundedBorder); Button("Rename") { pet.rename(name) }.disabled(name.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty) }
-            Text("Finish a WaveDock focus session to earn a little joy. Your cat is safe while you’re away. No app or keyboard activity is tracked.").font(.caption).foregroundStyle(.secondary)
+            Text("Finish a WaveDock focus session to earn a little joy. Your companion is safe while you’re away. No app or keyboard activity is tracked.").font(.caption).foregroundStyle(.secondary)
         }.onAppear { name = pet.state.name }
     }
     private func meter(_ name: String, _ value: Double) -> some View { HStack { Text(name).frame(width:65,alignment:.leading); ProgressView(value:value,total:100).tint(accent); Text("\(Int(value))").monospacedDigit().frame(width:28) }.font(.caption) }

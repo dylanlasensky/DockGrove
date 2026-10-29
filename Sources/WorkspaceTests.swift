@@ -24,6 +24,29 @@ import SwiftUI
         let capacity=DockPageLayout.bodyWidth(screenWidth:configured,naturalWidth:10000)-DockPageLayout.chrome
         for page in DockPageLayout.pages(widths:widths,available:capacity) { precondition(page.map { widths[$0] }.reduce(0,+)+CGFloat(max(0,page.count-1))*DockPageLayout.gap <= capacity) }
     } }
+    var pager = DragPageDwell()
+    precondition(pager.update(direction:1,page:0,count:3,now:0) == nil)
+    precondition(pager.update(direction:1,page:0,count:3,now:0.54) == nil)
+    precondition(pager.update(direction:1,page:0,count:3,now:0.56) == 1)
+    precondition(pager.update(direction:1,page:1,count:3,now:0.8) == nil)
+    precondition(pager.update(direction:1,page:1,count:3,now:1.12) == 2)
+    precondition(pager.update(direction:1,page:2,count:3,now:2) == nil)
+    precondition(pager.update(direction:-1,page:2,count:3,now:2.1) == nil)
+    precondition(pager.update(direction:-1,page:2,count:3,now:2.7) == 1)
+    precondition(pager.update(direction:0,page:1,count:3,now:2.8) == nil)
+    precondition(pager.update(direction:-1,page:1,count:3,now:3) == nil)
+    pager.reset()
+    precondition(pager.update(direction:-1,page:1,count:3,now:4) == nil)
+    precondition(pager.update(direction:-1,page:0,count:3,now:5) == nil)
+    for animal in Companion.animals {
+        let frames = CompanionArtwork.frames(animal)
+        precondition(frames.count == 6 && frames.allSatisfy { $0.size == NSSize(width:512,height:512) }, "Missing or malformed companion sheet: \(animal)")
+        let poses = stride(from:0.0,to:18.0,by:0.1).map { CompanionPose.at($0,animal:animal,resting:false,reduceMotion:false) }
+        precondition(Set(poses.map(\.frame)).count == 5 && poses.allSatisfy { (0..<5).contains($0.frame) })
+        precondition(CompanionPose.at(3,animal:animal,resting:true,reduceMotion:false).frame == 5)
+        precondition(CompanionPose.at(1,animal:animal,resting:false,reduceMotion:true) == CompanionPose.at(10,animal:animal,resting:false,reduceMotion:true))
+    }
+    print("PASS: cross-page dwell, repeat, reverse, cancellation, bounds; nine bundled six-pose illustrations and Reduce Motion")
     var pet=CompanionState(); let baseline=pet.fullness; pet.advance(to:pet.lastUpdate.addingTimeInterval(86400*30)); precondition(pet.fullness >= baseline-0.4)
     for _ in 0..<20 { pet.feed(); pet.play() }; precondition(pet.fullness==100 && pet.joy==100 && pet.energy >= 25)
     pet.resting=true; let energy=pet.energy; pet.play(); precondition(pet.energy==energy)
