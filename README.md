@@ -4,11 +4,9 @@
 
 **Your apps, useful widgets, and AI usage in one native Mac Dock.**
 
-WaveDock is a free, open-source Mac app created by Dylan Lasensky. It gives you a customizable glass Dock with app launchers, a widget library, saved layouts, and a tile for the usage limits returned by your ChatGPT account's Codex service.
+WaveDock is a free, open-source Mac app. It gives you a customizable glass Dock with app launchers, a widget library, saved layouts, and a tile for the usage limits returned by your ChatGPT account's Codex service.
 
 Built with Swift, SwiftUI, and AppKit. No Electron, web wrapper, subscription, account with WaveDock, or third-party package dependencies.
-
-> **Early access, v0.8.0.** WaveDock is inspired by the usefulness of widget docks. It is an independent project, not affiliated with CoolDock or OpenAI. It does not yet match CoolDock's full catalog or production maturity. See the feature matrix and limitations below.
 
 [Visit the WaveDock website](https://wavedock-preview.limit-dylanlasensky.workers.dev/)
 
