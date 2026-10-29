@@ -38,6 +38,7 @@ enum WindowPlacement: String, CaseIterable, Identifiable {
     @Published var selectedID = ""
     @Published var displayIndex = 0
     private var undo: [String: CGRect] = [:]
+    var usableFrameProvider: ((NSScreen)->CGRect)?
     var trusted: Bool { AXIsProcessTrusted() }
     var selected: ManagedWindow? { windows.first { $0.id == selectedID } }
     func requestAccess() {
@@ -97,9 +98,14 @@ enum WindowPlacement: String, CaseIterable, Identifiable {
         AXUIElementCopyAttributeValue(selected.element, "AXFullScreen" as CFString, &full)
         guard (full as? Bool) != true else { status = "Leave native full screen before arranging this window."; return }
         let screen = NSScreen.screens[min(max(0, displayIndex), NSScreen.screens.count - 1)]
-        let target = placement.frame(in: Self.usableFrame(screen: screen, dockHeight: dockHeight), current: current)
+        let target = placement.frame(in: usableFrameProvider?(screen) ?? Self.usableFrame(screen: screen, dockHeight: dockHeight), current: current)
         undo[selected.id] = current // Preserve recovery even if the app accepts only part of the resize.
         arrange(target, selected: selected)
+    }
+    func snap(_ window: ManagedWindow, target: CGRect, original: CGRect) {
+        guard trusted, !loading else { return }
+        if !windows.contains(where: { $0.id == window.id }) { windows.append(window) }
+        selectedID=window.id; undo[window.id]=original; arrange(target,selected:window)
     }
     private func arrange(_ frame: CGRect, selected: ManagedWindow, undoing: Bool = false) {
         guard !loading else { return }

@@ -48,10 +48,12 @@ enum AccentPalette {
     }
 }
 struct WidgetSurface: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceTransparency) private var opaque
     var radius: CGFloat = 18
     func body(content: Content) -> some View {
-        content.background(LinearGradient(colors: [Color.white.opacity(0.075), Color.white.opacity(0.035)], startPoint: .top, endPoint: .bottom), in: RoundedRectangle(cornerRadius: radius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(.white.opacity(0.10), lineWidth: 0.7))
+        content.background(LinearGradient(colors: [Color.primary.opacity(opaque ? 0.14 : 0.075), Color.primary.opacity(opaque ? 0.12 : 0.035)], startPoint: .top, endPoint: .bottom), in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(Color.primary.opacity(0.12), lineWidth: 0.7))
     }
 }
 struct Sparkline: View {
@@ -75,7 +77,7 @@ struct RingMetric: View {
     var color: Color
     var body: some View {
         ZStack {
-            Circle().stroke(.white.opacity(0.09), lineWidth: 4)
+            Circle().stroke(Color.primary.opacity(0.09), lineWidth: 4)
             Circle().trim(from: 0, to: min(1, max(0, value))).stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round)).rotationEffect(.degrees(-90))
             Text(label).font(.system(size: 17, weight: .semibold)).monospacedDigit().minimumScaleFactor(0.7)
         }.padding(4)
@@ -93,5 +95,17 @@ extension BrandIcon {
                 path.curve(to: NSPoint(x: 18, y: 10 + offset), controlPoint1: NSPoint(x: 14, y: 2 + offset), controlPoint2: NSPoint(x: 15, y: 7 + offset)); path.stroke()
             }; return true
         }; image.isTemplate = true; image.accessibilityDescription = "WaveDock"; return image
+    }
+}
+
+struct DockPlate: View {
+    var theme: String
+    @Environment(\.accessibilityReduceTransparency) private var opaque
+    @Environment(\.colorSchemeContrast) private var contrast
+    var body: some View {
+        RoundedRectangle(cornerRadius: 27).fill(.ultraThinMaterial)
+            .overlay { if theme == "Glass" { RoundedRectangle(cornerRadius:27).fill(Color.black.opacity(0.4)) } }
+            .overlay { if theme == "Graphite" || opaque { RoundedRectangle(cornerRadius:27).fill(Color(nsColor:.windowBackgroundColor)) } }
+            .overlay(RoundedRectangle(cornerRadius:27).stroke(Color.primary.opacity(contrast == .increased ? 0.6 : 0.12)))
     }
 }

@@ -12,14 +12,14 @@ struct DockView: View {
     @ObservedObject var model: DockModel
     @State private var page = 0
     var entries: [DockEntry] {
-        model.apps.map(DockEntry.app) + model.runningApps.map(DockEntry.app) + [.add, .usage] +
+        model.apps.map(DockEntry.app) + model.runningApps.map(DockEntry.app) + [.add] + (model.showUsageCard ? [.usage] : []) +
         model.toolkit.enabled.compactMap(ToolKind.init(rawValue:)).map(DockEntry.tool) + (model.showClock ? [.clock] : [])
     }
     var body: some View {
-        let screen = NSScreen.screens.isEmpty ? nil : NSScreen.screens[min(max(0, model.toolkit.screenIndex), NSScreen.screens.count - 1)]
+        let screen = model.selectedScreen
         let widths = entries.map { $0.width(iconSize: model.iconSize, rich: model.toolkit.richWidgets) }
         let natural = widths.reduce(0, +) + Double(max(0, widths.count - 1)) * DockPageLayout.gap
-        let width = DockPageLayout.bodyWidth(screenWidth: screen?.frame.width ?? 1440, naturalWidth: natural)
+        let width = DockPageLayout.bodyWidth(screenWidth: min(screen?.frame.width ?? 1440, max((widths.max() ?? 236) + DockPageLayout.chrome + 44, (screen?.frame.width ?? 1440) * model.widthFraction)), naturalWidth: natural)
         let pages = DockPageLayout.pages(widths: widths, available: width - DockPageLayout.chrome)
         let current = min(page, pages.count - 1)
         HStack(spacing: 8) {
@@ -41,11 +41,11 @@ struct DockView: View {
         }
         .buttonStyle(.plain).padding(.horizontal, 16).padding(.vertical, 10)
         .frame(width: width, height: max(64, model.iconSize + 20) + 24)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 27, style: .continuous))
+        .background { DockPlate(theme: model.theme) }
         .overlay(RoundedRectangle(cornerRadius: 27).stroke(.white.opacity(0.2), lineWidth: 0.7))
         .clipShape(RoundedRectangle(cornerRadius: 27))
         .padding(.horizontal, 12).padding(.top, 16).padding(.bottom, 4)
-        .foregroundStyle(.white).preferredColorScheme(.dark)
+        .foregroundStyle(.primary).preferredColorScheme(model.scheme)
         .onChange(of: entries.map(\.id)) { page = min(page, pages.count - 1) }
     }
     @ViewBuilder private func entry(_ item: DockEntry) -> some View {
@@ -209,11 +209,12 @@ struct SettingsView: View {
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 8) {
-                        Text("VERSION 0.6 · PREVIEW").font(.system(size: 9, weight: .bold)).tracking(1).foregroundStyle(.secondary)
+                        Text("VERSION 0.7 · PREVIEW").font(.system(size: 9, weight: .bold)).tracking(1).foregroundStyle(.secondary)
                         Button("Done") { model.closeSettingsAction?() }
                     }
                 }
                 card("Make it yours", icon: "paintpalette") {
+                    DockAppearanceSettings(model: model)
                     HStack {
                         Text("Icon size")
                         Slider(value: $model.iconSize, in: 32...64, step: 2).frame(width: 210)
@@ -240,7 +241,7 @@ struct SettingsView: View {
                     }
                 }
                 WorkspaceSettings(model: model, kit: model.toolkit)
-                card("Your Mac Dock", icon: "dock.rectangle") {
+                if !model.isAdditionalDock { card("Your Mac Dock", icon: "dock.rectangle") {
                     Toggle("Use WaveDock as my Dock", isOn: Binding(get: { model.replacingDock }, set: { model.changeDockAction?($0) }))
                     Text("Replaces Apple’s Dock at the bottom edge while WaveDock runs. Hides during full screen and restores your original Dock preferences when you quit.")
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
@@ -250,6 +251,8 @@ struct SettingsView: View {
                         Button("Restore Apple Dock") { model.changeDockAction?(false) }
                     }
                 }
+                }
+                if !model.isAdditionalDock { SnapSettings(model: model) }
                 card("ChatGPT plan usage", icon: "sparkles") {
                     Text("Connect your existing ChatGPT sign-in through Codex. WaveDock reads the reported limits and reset times every five minutes. It does not count your chat messages.")
                         .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)

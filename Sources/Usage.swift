@@ -100,7 +100,7 @@ enum UsageClient {
             data.append(10)
             try input.fileHandleForWriting.write(contentsOf: data)
         }
-        try send(["id": 0, "method": "initialize", "params": ["clientInfo": ["name": "wavedock", "title": "WaveDock", "version": "0.6.0"]]])
+        try send(["id": 0, "method": "initialize", "params": ["clientInfo": ["name": "wavedock", "title": "WaveDock", "version": "0.7.0"]]])
         var buffer = Data()
         let deadline = Date().addingTimeInterval(25)
         let fd = output.fileHandleForReading.fileDescriptor

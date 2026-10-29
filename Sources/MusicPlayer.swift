@@ -16,11 +16,12 @@ struct TrackSnapshot: Equatable {
     let title: String
     let artist: String
     let playing: Bool
+    var artworkReference = ""
     static func decode(_ data: Data) throws -> TrackSnapshot {
         let lines = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .newlines).components(separatedBy: "\u{1e}")
         if lines.first == "error", lines.count > 1, let code = Int(lines[1]) { throw MusicReadFailure.automation(code) }
-        guard lines.count == 3, ["playing", "paused", "stopped"].contains(lines[0]) else { throw UsageError.service }
-        return TrackSnapshot(title: lines[1], artist: lines[2], playing: lines[0] == "playing")
+        guard [3,4].contains(lines.count), ["playing", "paused", "stopped"].contains(lines[0]) else { throw UsageError.service }
+        return TrackSnapshot(title: lines[1], artist: lines[2], playing: lines[0] == "playing", artworkReference: lines.count == 4 ? lines[3] : "")
     }
 }
 enum MusicCommand: String, CaseIterable { case previous = "previous track", toggle = "playpause", next = "next track" }
@@ -28,6 +29,10 @@ enum MusicCommand: String, CaseIterable { case previous = "previous track", togg
     let name: String
     let bundleID: String
     @Published var track: TrackSnapshot?
+    @Published var artwork: NSImage?
+    @Published var artworkTint = Color(white:0.12)
+    private var artworkKey = ""
+    private var artworkTask: Task<Void,Never>?
     @Published var connected = false
     @Published var busy = false
     @Published var status = "Connect to your running music player. macOS may ask for Automation permission."
@@ -37,15 +42,15 @@ enum MusicCommand: String, CaseIterable { case previous = "previous track", togg
         self.name = name; self.bundleID = bundleID
         timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in Task { @MainActor in if self?.connected == true { self?.refresh() } } }
     }
-    deinit { timer?.invalidate() }
+    deinit { timer?.invalidate(); artworkTask?.cancel() }
     func openPlayer() {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { status = "\(name) is not installed on this Mac."; return }
         NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, _ in }
     }
-    func disconnect() { generation += 1; connected = false; track = nil; busy = false; status = "Disconnected." }
+    func disconnect() { generation += 1; connected = false; track = nil; clearArtwork(); busy = false; status = "Disconnected." }
     func refresh(command: MusicCommand? = nil) {
         guard !busy else { return }
-        guard NSWorkspace.shared.runningApplications.contains(where: { $0.bundleIdentifier == bundleID }) else { connected = false; track = nil; status = "Open \(name), then Connect."; return }
+        guard NSWorkspace.shared.runningApplications.contains(where: { $0.bundleIdentifier == bundleID }) else { connected = false; track = nil; clearArtwork(); status = "Open \(name), then Connect."; return }
         busy = true; let requestID = generation, bundle = bundleID
         // Only fixed application IDs and enumerated transport commands enter the script.
         let script = """
@@ -56,7 +61,11 @@ enum MusicCommand: String, CaseIterable { case previous = "previous track", togg
               set playback to player state as text
               if playback is "stopped" then return "stopped" & (ASCII character 30) & "Nothing playing" & (ASCII character 30) & " "
               \(bundle == "com.apple.Music" ? "if not (exists current track) then return \"stopped\" & (ASCII character 30) & \"Nothing playing\" & (ASCII character 30) & \" \"" : "")
-              return playback & (ASCII character 30) & (name of current track) & (ASCII character 30) & (artist of current track)
+              set imageReference to ""
+              try
+                \(bundle == "com.spotify.client" ? "set imageReference to artwork url of current track" : "set imageReference to persistent ID of current track")
+              end try
+              return playback & (ASCII character 30) & (name of current track) & (ASCII character 30) & (artist of current track) & (ASCII character 30) & imageReference
             end tell
           end timeout
         on error number errorNumber
@@ -68,15 +77,37 @@ enum MusicCommand: String, CaseIterable { case previous = "previous track", togg
             guard requestID == generation else { return }; busy = false
             switch result {
             case .success(let data):
-                do { track = try TrackSnapshot.decode(data); connected = true; status = "Connected to \(name)" }
-                catch let failure as MusicReadFailure { connected = false; track = nil; status = failure.message }
-                catch { connected = false; track = nil; status = "No readable track. Open the player and select music, then reconnect." }
+                do { track = try TrackSnapshot.decode(data); connected = true; status = "Connected to \(name)"; refreshArtwork() }
+                catch let failure as MusicReadFailure { connected = false; track = nil; clearArtwork(); status = failure.message }
+                catch { connected = false; track = nil; clearArtwork(); status = "No readable track. Open the player and select music, then reconnect." }
             case .failure:
-                connected = false; track = nil
+                connected = false; track = nil; clearArtwork()
                 status = "Could not read \(name). Allow WaveDock in Privacy & Security > Automation, or select a track and retry."
             }
         }
     }
+    func clearArtwork() { artworkTask?.cancel(); artworkTask=nil; artworkKey=""; artwork=nil; artworkTint=Color(white:0.12) }
+    private func refreshArtwork() {
+        guard let track, !track.artworkReference.isEmpty else { clearArtwork(); return }
+        let key=track.title + "\u{1f}" + track.artist + "\u{1f}" + track.artworkReference
+        guard key != artworkKey else { return }
+        clearArtwork(); artworkKey=key
+        let reference=track.artworkReference, bundle=bundleID
+        artworkTask=Task { @MainActor [weak self] in
+            do {
+                let data:Data
+                if bundle == "com.spotify.client" {
+                    guard let url=URL(string:reference) else { return }; data=try await AlbumArtwork.fetch(url)
+                } else {
+                    let output=try await Task.detached(priority:.utility) { try BoundedProcess.run("/usr/bin/osascript",arguments:["-e", "tell application id \"com.apple.Music\" to get raw data of artwork 1 of current track"],timeout:6) }.value
+                    guard let decoded=AlbumArtwork.appleData(output) else { return }; data=decoded
+                }
+                guard !Task.isCancelled, let self, self.artworkKey == key, let image=AlbumArtwork.decode(data) else { return }
+                self.artwork=image; self.artworkTint=AlbumArtwork.tint(image)
+            } catch { /* Missing artwork keeps the readable neutral fallback and transport controls. */ }
+        }
+    }
+
 }
 /// Bounded subprocess reads keep denied or hung Automation requests off the main thread.
 enum BoundedProcess {
@@ -116,7 +147,7 @@ struct MusicPlayerView: View {
     @ObservedObject var player: MusicPlayer
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(player.track?.title ?? player.name).font(.headline).lineLimit(3)
+            HStack(spacing:12) { MusicArtworkView(player:player,size:64); Text(player.track?.title ?? player.name).font(.headline).lineLimit(3) }
             if let track = player.track { Text(track.artist).foregroundStyle(.secondary); Text(track.playing ? "Playing" : "Paused / stopped").font(.caption) }
             Text(player.status).font(.caption).fixedSize(horizontal: false, vertical: true)
             HStack {

@@ -23,7 +23,30 @@ struct DockApp: Identifiable, Equatable {
     @Published var fetching = false
     @Published var refreshed: Date?
     @Published var replacingDock = false
-    @Published var visible = true
+    @Published var visible = true { didSet { defaults.set(visible, forKey: "dockVisible") } }
+    @Published var dockName: String { didSet { defaults.set(String(dockName.prefix(40)), forKey: "dockName") } }
+    @Published var theme: String { didSet { defaults.set(theme, forKey: "theme") } }
+    @Published var widthFraction: Double { didSet { defaults.set(widthFraction, forKey: "widthFraction") } }
+    @Published var alignment: Double { didSet { defaults.set(alignment, forKey: "alignment") } }
+    @Published var elevation: Double { didSet { defaults.set(elevation, forKey: "elevation") } }
+    @Published var albumColors: Bool { didSet { defaults.set(albumColors, forKey: "albumColors") } }
+    @Published var showUsageCard: Bool { didSet { defaults.set(showUsageCard, forKey: "showUsageCard") } }
+    @Published var snappingEnabled: Bool { didSet { defaults.set(snappingEnabled, forKey: "snappingEnabled") } }
+    @Published var snapRequiresOption: Bool { didSet { defaults.set(snapRequiresOption, forKey: "snapRequiresOption") } }
+    var isAdditionalDock = false
+    var manageDocksAction: (() -> Void)?
+    var screenID: String { get { defaults.string(forKey: "screenID") ?? "" } set { defaults.set(newValue, forKey: "screenID") } }
+    var selectedScreen: NSScreen? {
+        if let found = NSScreen.screens.first(where: { Self.displayID($0) == screenID }) { return found }
+        return NSScreen.screens.isEmpty ? nil : NSScreen.screens[min(max(0, toolkit.screenIndex), NSScreen.screens.count-1)]
+    }
+    static func displayID(_ screen: NSScreen) -> String {
+        guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber,
+              let uuid = CGDisplayCreateUUIDFromDisplayID(number.uint32Value)?.takeRetainedValue() else { return screen.localizedName }
+        return CFUUIDCreateString(nil, uuid) as String
+    }
+    var scheme: ColorScheme? { theme == "System" ? nil : theme == "Pearl" ? .light : .dark }
+
     @Published var systemError: String?
     let toolkit: Toolkit
     let defaults: UserDefaults
@@ -36,6 +59,16 @@ struct DockApp: Identifiable, Equatable {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        dockName = defaults.string(forKey: "dockName") ?? "Main Dock"
+        theme = defaults.string(forKey: "theme") ?? "Glass"
+        widthFraction = min(1,max(0.35,defaults.object(forKey: "widthFraction") as? Double ?? 1))
+        alignment = min(1,max(0,defaults.object(forKey: "alignment") as? Double ?? 0.5))
+        elevation = min(1,max(0,defaults.object(forKey: "elevation") as? Double ?? 0.5))
+        albumColors = defaults.object(forKey: "albumColors") as? Bool ?? true
+        showUsageCard = defaults.object(forKey: "showUsageCard") as? Bool ?? true
+        snappingEnabled = defaults.bool(forKey: "snappingEnabled")
+        snapRequiresOption = defaults.object(forKey: "snapRequiresOption") as? Bool ?? true
+        visible = defaults.object(forKey: "dockVisible") as? Bool ?? true
         toolkit = Toolkit(store: defaults)
         defaults.register(defaults: ["iconSize": 48.0, "accent": "White", "showClock": true, "usageEnabled": false])
         iconSize = defaults.double(forKey: "iconSize")
@@ -67,7 +100,7 @@ struct DockApp: Identifiable, Equatable {
     }
 
     var dockHeight: Double { max(64, iconSize + 20) + 44 }
-    var color: Color { AccentPalette.color(accent) }
+    var color: Color { (theme == "Pearl" || theme == "System") && accent == "White" ? .primary : AccentPalette.color(accent) }
     var activeBucket: LimitBucket? { usage?.buckets.first { $0.0 == selectedBucket }?.1 ?? usage?.buckets.first?.1 }
     func persistApps() { defaults.set(apps.map(\.id), forKey: "apps") }
     func open(_ app: DockApp) {
@@ -104,9 +137,15 @@ struct DockApp: Identifiable, Equatable {
     func saveProfile() {
         let name = toolkit.profileName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
-        toolkit.profiles.append(DockProfile(name: name, apps: apps.map(\.id), widgets: toolkit.enabled, accent: accent, size: iconSize, richWidgets: toolkit.richWidgets)); toolkit.profileName = ""
+        toolkit.profiles.append(DockProfile(name: name, apps: apps.map(\.id), widgets: toolkit.enabled, accent: accent, size: iconSize, richWidgets: toolkit.richWidgets, theme: theme, widthFraction: widthFraction, alignment: alignment, elevation: elevation, edge: toolkit.edge, albumColors: albumColors)); toolkit.profileName = ""
     }
     func applyProfile(_ profile: DockProfile) {
+        if let value=profile.theme, ["Glass","Graphite","Pearl","System"].contains(value) { theme=value }
+        if let value=profile.widthFraction,value.isFinite { widthFraction=min(1,max(0.35,value)) }
+        if let value=profile.alignment,value.isFinite { alignment=min(1,max(0,value)) }
+        if let value=profile.elevation,value.isFinite { elevation=min(1,max(0,value)) }
+        if let value=profile.edge,["Top","Bottom","Floating"].contains(value), !replacingDock { toolkit.edge=value }
+        if let value=profile.albumColors { albumColors=value }
         if let rich = profile.richWidgets { toolkit.richWidgets = rich }
         var seen = Set<String>()
         apps = profile.apps.filter { seen.insert($0).inserted && FileManager.default.fileExists(atPath: $0) && $0.hasSuffix(".app") }.map { DockApp(url: URL(fileURLWithPath: $0)) }

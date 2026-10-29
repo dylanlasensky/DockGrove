@@ -2,6 +2,7 @@ import AppKit
 
 @MainActor func runIntegrationTests() async throws {
     try runLocalAIUsageTests()
+    try runWorkspaceTests()
     // Validate whole-tile paging at laptop, external-display and narrow resolutions.
     for screenWidth in [640.0, 800, 1024, 1280, 1440, 1920, 2560, 3840] {
         for iconSize in [36.0, 48, 64] {

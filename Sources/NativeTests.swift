@@ -10,6 +10,7 @@ import SwiftUI
         precondition(edit?.items.contains(where: { $0.action == Selector(("selectAll:")) && $0.keyEquivalent == "a" }) == true)
         precondition(edit?.items.contains(where: { $0.action == Selector(("paste:")) && $0.keyEquivalent == "v" }) == true)
         let model = delegate.model!
+        model.widthFraction=1; model.alignment=0.5; model.theme="Glass"; model.toolkit.edge="Bottom"
         model.toolkit.showRunning = false
         model.toolkit.autoHide = false
         model.toolkit.hideOnOverlap = false
@@ -63,6 +64,23 @@ import SwiftUI
             precondition(delegate.panel.frame.minX >= screen.frame.minX)
             precondition(delegate.panel.frame.maxX <= screen.frame.maxX)
         }
+        // Independent panels retain separate layouts and all obey suppression.
+        delegate.workspace.add(); delegate.workspace.add(); delegate.workspace.add(); delegate.workspace.add()
+        precondition(delegate.workspace.docks.count == 3)
+        for (index,dock) in delegate.workspace.docks.enumerated() {
+            dock.model.widthFraction=0.35; dock.model.theme=index == 0 ? "Pearl" : "Graphite"
+            dock.model.toolkit.enabled=["pet","spotify","focus"]; dock.model.alignment=Double(index)/2
+            dock.panel.contentView=NSHostingView(rootView:DockView(model:dock.model)); delegate.layout(dock.panel,model:dock.model)
+            precondition(screen.frame.contains(dock.panel.frame)); precondition(dock.panel.collectionBehavior.contains(.fullScreenNone))
+            precondition(dock.model !== model && dock.model.toolkit !== model.toolkit)
+        }
+        delegate.sessionActive=false; delegate.checkAutoHide(); precondition(delegate.workspace.docks.allSatisfy { !$0.panel.isVisible })
+        delegate.sessionActive=true; delegate.screenAwake=false; delegate.checkAutoHide(); precondition(delegate.workspace.docks.allSatisfy { !$0.panel.isVisible })
+        delegate.screenAwake=true
+        let ids=delegate.workspace.docks.map(\.id)
+        for id in ids { delegate.workspace.remove(id); UserDefaults(suiteName:delegate.workspace.prefix+id)?.removePersistentDomain(forName:delegate.workspace.prefix+id) }
+        precondition(delegate.workspace.docks.isEmpty)
+        print("PASS: four simultaneous dock models, independent themes/content, bounded positioning, session/sleep suppression and removal")
         // Capture the real card components with clearly synthetic display data for visual QA.
         model.accent = "White"; model.toolkit.note = "Ideas for a quieter workspace"; model.toolkit.tasks = [TaskItem(title: "Review the new design"), TaskItem(title: "Take a short break")]
         model.toolkit.monitor.cpu = 34; model.toolkit.monitor.available = true; model.toolkit.monitor.history = [5, 12, 9, 22, 18, 34, 26, 19, 28, 14, 20, 34]
@@ -71,7 +89,7 @@ import SwiftUI
         model.toolkit.spotify.connected = true
         let gallery = NSHostingView(rootView: VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 12) { BrandIcon().frame(width: 48, height: 48); VStack(alignment: .leading) { Text("WaveDock").font(.system(size: 25, weight: .semibold)); Text("Thoughtfully at hand.").foregroundStyle(.secondary) }; Spacer(); Text("DESIGN PREVIEW · SAMPLE DATA").font(.system(size: 9, weight: .medium)).foregroundStyle(.secondary) }
-            ForEach([[ToolKind.focus, .weather, .spotify], [.system, .tasks, .notes], [.water, .progress, .appGroups]], id: \.self) { row in
+            ForEach([[ToolKind.focus, .weather, .spotify], [.system, .tasks, .notes], [.water, .pet, .appGroups]], id: \.self) { row in
                 HStack(spacing: 12) { ForEach(row) { kind in RichWidgetCard(kind: kind, model: model, kit: model.toolkit, open: {}).frame(width: 236, height: 80) } }
             }
         }.padding(26).background(Color(white: 0.075)).foregroundStyle(.white).preferredColorScheme(.dark))

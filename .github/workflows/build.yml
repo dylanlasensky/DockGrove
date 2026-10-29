@@ -33,7 +33,7 @@ jobs:
         run: |
           ditto -c -k --sequesterRsrc --keepParent dist/WaveDock.app dist/WaveDock.zip
           mkdir -p website/public/downloads
-          cp dist/WaveDock.zip website/public/downloads/WaveDock-0.6.0.zip
+          cp dist/WaveDock.zip website/public/downloads/WaveDock-0.7.0.zip
           node website/tests/site.test.mjs --release
       - uses: actions/upload-artifact@v4
         with:
