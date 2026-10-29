@@ -21,7 +21,7 @@ struct RichWidgetCard: View {
     @ViewBuilder var summary: some View {
         switch kind {
         case .pet:
-            HStack(spacing: 5) { CatPortrait(resting: kit.pet.state.resting, accent: model.color).frame(width:65,height:58); VStack(alignment:.leading,spacing:4) { Text(kit.pet.state.name).font(.system(size:12,weight:.semibold)).lineLimit(1); Text(kit.pet.state.mood).font(.system(size:9)).foregroundStyle(.secondary).lineLimit(2) } }
+            HStack(spacing: 5) { CatPortrait(resting: kit.pet.state.resting, animal: kit.pet.animal, accent: model.color).frame(width:65,height:58); VStack(alignment:.leading,spacing:4) { Text(kit.pet.state.name).font(.system(size:12,weight:.semibold)).lineLimit(1); Text(kit.pet.state.mood).font(.system(size:9)).foregroundStyle(.secondary).lineLimit(2) } }
 
         case .focus:
             VStack(alignment: .leading, spacing: 3) {
