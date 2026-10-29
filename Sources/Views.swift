@@ -12,10 +12,7 @@ struct DockView: View {
     @ObservedObject var model: DockModel
     @State private var page = 0
     @State private var lastDrag = CGSize.zero
-    var entries: [DockEntry] {
-        model.apps.map(DockEntry.app) + model.runningApps.map(DockEntry.app) + [.add] + (model.showUsageCard ? [.usage] : []) +
-        model.toolkit.enabled.compactMap(ToolKind.init(rawValue:)).map(DockEntry.tool) + (model.showClock ? [.clock] : [])
-    }
+    var entries: [DockEntry] { model.orderedEntries }
     var body: some View {
         let screen = model.selectedScreen
         let widths = entries.map { $0.width(iconSize: model.iconSize, rich: model.toolkit.richWidgets) }
@@ -27,8 +24,8 @@ struct DockView: View {
             Button { page = max(0, current - 1) } label: { Image(systemName: "chevron.left").frame(width: 24, height: 46) }
                 .disabled(current == 0).help("Previous Dock page").accessibilityLabel("Previous Dock page")
             HStack(spacing: DockPageLayout.gap) {
-                ForEach(pages[current], id: \.self) { i in
-                    entry(entries[i]).frame(width: widths[i], height: max(64, model.iconSize + 20))
+                ForEach(pages[current].map { entries[$0] }) { item in
+                    UnifiedDockTile(item:item,model:model) { entry(item) }.frame(width:item.width(iconSize:model.iconSize,rich:model.toolkit.richWidgets),height:max(64,model.iconSize+20))
                 }
                 Spacer(minLength: 0)
             }.frame(width: max(1, width - DockPageLayout.chrome), height: max(64, model.iconSize + 20)).clipped()
@@ -71,20 +68,7 @@ struct DockView: View {
         case .tool(let kind):
             if kind == .spacer { Color.clear }
             else if kind == .separator { Divider().frame(height: 40) }
-            else { ToolTile(kind: kind, model: model, kit: model.toolkit)
-                .onDrag { NSItemProvider(object: ("wavedock-widget:"+kind.rawValue) as NSString) }
-                .onDrop(of:[.text],isTargeted:nil) { providers in
-                    guard let provider=providers.first else { return false }
-                    _ = provider.loadObject(ofClass:String.self) { text,_ in
-                        guard let text, text.hasPrefix("wavedock-widget:") else { return }
-                        let id=String(text.dropFirst(16))
-                        Task { @MainActor in
-                            guard let from=model.toolkit.enabled.firstIndex(of:id), let to=model.toolkit.enabled.firstIndex(of:kind.rawValue), from != to else { return }
-                            withAnimation(.easeInOut(duration:0.18)) { let item=model.toolkit.enabled.remove(at:from); model.toolkit.enabled.insert(item,at:to) }
-                        }
-                    }; return true
-                }
-            }
+            else { ToolTile(kind: kind, model: model, kit: model.toolkit) }
         case .clock:
             TimelineView(.periodic(from: .now, by: 30)) { context in
                 VStack(alignment: .leading, spacing: 3) {
@@ -108,12 +92,6 @@ struct AppTile: View {
                     .scaleEffect(interaction.hovered ? 1.13 : 1).offset(y: interaction.hovered ? -4 : 0)
             }.buttonStyle(.plain).help(app.name)
             Circle().fill(app.isRunning ? model.color : .clear).frame(width: 4, height: 4)
-        }
-        .onDrag { NSItemProvider(object: app.id as NSString) }
-        .overlay(RoundedRectangle(cornerRadius:12).stroke(dropTarget ? model.color : .clear,lineWidth:2))
-        .onDrop(of: [.text], isTargeted: $dropTarget) { providers in
-            guard let provider = providers.first else { return false }
-            _ = provider.loadObject(ofClass: String.self) { text, _ in if let text = text { Task { @MainActor in withAnimation(.easeInOut(duration:0.18)) { model.dropApp(text, onto: app) } } } }; return true
         }
         .onHover { interaction.hovered = $0 }
         .animation(.spring(response: 0.23, dampingFraction: 0.65), value: interaction.hovered)
@@ -319,5 +297,30 @@ struct SettingsView: View {
     private func chooseCLI() {
         let picker = NSOpenPanel(); picker.title = "Choose the Codex executable"; picker.canChooseDirectories = false
         if picker.runModal() == .OK, let url = picker.url { model.customCLI = url.path }
+    }
+}
+
+struct UnifiedDockTile<Content:View>: View {
+    let item:DockEntry
+    @ObservedObject var model:DockModel
+    @ViewBuilder var content:()->Content
+    @State private var targeted=false
+    var body:some View {
+        content().contentShape(Rectangle())
+            .overlay(RoundedRectangle(cornerRadius:14).stroke(targeted ? model.color : .clear,lineWidth:2))
+            .background(GeometryReader { geometry in
+                Color.clear.onAppear { model.tileFrames[item.id]=geometry.frame(in:.global) }
+                    .onChange(of:geometry.frame(in:.global)) { model.tileFrames[item.id]=$0 }
+            })
+            .highPriorityGesture(DragGesture(minimumDistance:8,coordinateSpace:.global)
+                .onChanged { _ in targeted=true }
+                .onEnded { value in
+                    targeted=false
+                    let available=Set(model.orderedEntries.map(\.id))
+                    guard let target=model.tileFrames.first(where: { $0.key != item.id && available.contains($0.key) && $0.value.contains(value.location) })?.key else { return }
+                    withAnimation(.easeInOut(duration:0.18)) { model.moveEntry(item.id,onto:target) }
+                })
+            .onDisappear { model.tileFrames.removeValue(forKey:item.id) }
+
     }
 }

@@ -33,6 +33,17 @@ import SwiftUI
     defer { defaults.removePersistentDomain(forName:suite) }
     let model=DockModel(defaults:defaults); model.theme="Pearl"; model.widthFraction=0.5; model.alignment=0; model.showUsageCard=false
     let restored=DockModel(defaults:defaults); precondition(restored.theme=="Pearl" && restored.widthFraction==0.5 && restored.alignment==0 && !restored.showUsageCard)
+    model.apps=[DockApp(url:URL(fileURLWithPath:"/Applications/Google Chrome.app")),DockApp(url:URL(fileURLWithPath:"/Applications/Safari.app"))]
+    model.toolkit.showRunning=false; model.toolkit.enabled=["pet","focus"]
+    let chrome=model.apps[0]; let safari=model.apps[1]
+    model.moveEntry("app:"+chrome.id,onto:"pet")
+    precondition(model.orderedEntries.map(\.id).firstIndex(of:"pet")! < model.orderedEntries.map(\.id).firstIndex(of:"app:"+chrome.id)!)
+    model.moveEntry("focus",onto:"app:"+safari.id)
+    precondition(model.orderedEntries.first?.id == "focus")
+    precondition(DockModel(defaults:defaults).entryOrder == model.entryOrder)
+    let savedOrder=model.entryOrder; model.moveEntry("foreign",onto:"pet"); precondition(model.entryOrder==savedOrder)
+    for animal in Companion.animals { model.toolkit.pet.animal=animal; precondition(Companion(defaults:defaults).animal==animal) }
+    print("PASS unified app/widget movement, persistence, invalid drops and all animal choices")
     let kit=model.toolkit; let sessions=kit.pet.state.sessions; kit.focusEnd=Date().addingTimeInterval(-1); kit.tickNow(); kit.tickNow(); precondition(kit.pet.state.sessions==sessions+1,"Reward exactly once")
     precondition(AlbumArtwork.allowed(URL(string:"https://i.scdn.co/image/sample")!))
     for url in ["http://i.scdn.co/image/sample","https://localhost/private","https://i.scdn.co.evil.example/x","file:///private/file"] { precondition(!AlbumArtwork.allowed(URL(string:url)!)) }
