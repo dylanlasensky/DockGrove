@@ -14,7 +14,7 @@ Built with Swift, SwiftUI, and AppKit. No Electron, web wrapper, subscription, a
 
 ## Companion and personalization
 
-Choose Miso, Black cat, Orange cat, Golden dog, Husky, Dragon, Cow, Rabbit or Fox in the companion widget. Care and focus progress are retained when switching animals. Non-cat companions currently use native emoji illustrations. Drag a pinned app onto another pinned app to take its position; a colored border marks the drop target. Drag widgets onto other widgets to reorder their section. Grab the small accent-colored handle at the top of a Dock to move it; replacement docks remain at the bottom while companion docks can float. Themes and arbitrary accent colors are independent for each Dock under Settings.
+Choose Miso, Black cat, Orange cat, Golden dog, Husky, Dragon, Cow, Rabbit or Fox in the companion widget. Care and focus progress are retained when switching animals. All companions use original animated vector artwork, with breathing, blinking and tail motion; Reduce Motion disables animation. Drag any app or widget onto another tile to take its position; apps, widgets, clock and usage tiles share one saved order. A colored border marks the drop target. Grab the small accent-colored handle at the top of a Dock to move it; replacement docks remain at the bottom while companion docks can float. Themes and arbitrary accent colors are independent for each Dock under Settings.
 
 ## Requirements
 

@@ -6,7 +6,7 @@ import IOKit.ps
 
 struct TaskItem: Codable, Identifiable { var id = UUID(); var title: String; var done = false }
 struct DockProfile: Codable, Identifiable {
-    var id = UUID(); var name: String; var apps: [String]; var widgets: [String]; var accent: String; var size: Double; var richWidgets: Bool? = nil; var theme: String? = nil; var widthFraction: Double? = nil; var alignment: Double? = nil; var elevation: Double? = nil; var edge: String? = nil; var albumColors: Bool? = nil
+    var id = UUID(); var name: String; var apps: [String]; var widgets: [String]; var accent: String; var size: Double; var richWidgets: Bool? = nil; var theme: String? = nil; var widthFraction: Double? = nil; var alignment: Double? = nil; var elevation: Double? = nil; var edge: String? = nil; var albumColors: Bool? = nil; var entryOrder: [String]? = nil
 }
 enum ToolKind: String, CaseIterable, Identifiable {
     case pet, claudeCodeUsage, geminiUsage

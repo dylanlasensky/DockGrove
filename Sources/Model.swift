@@ -12,6 +12,7 @@ struct DockApp: Identifiable, Equatable {
 
 @MainActor final class DockModel: ObservableObject {
     @Published var apps: [DockApp] = []
+    @Published var entryOrder: [String] = [] { didSet { defaults.set(entryOrder, forKey:"entryOrder") } }
     @Published var iconSize: Double { didSet { defaults.set(iconSize, forKey: "iconSize") } }
     @Published var accent: String { didSet { defaults.set(accent, forKey: "accent") } }
     @Published var showClock: Bool { didSet { defaults.set(showClock, forKey: "showClock") } }
@@ -33,6 +34,7 @@ struct DockApp: Identifiable, Equatable {
     @Published var showUsageCard: Bool { didSet { defaults.set(showUsageCard, forKey: "showUsageCard") } }
     @Published var snappingEnabled: Bool { didSet { defaults.set(snappingEnabled, forKey: "snappingEnabled") } }
     @Published var snapRequiresOption: Bool { didSet { defaults.set(snapRequiresOption, forKey: "snapRequiresOption") } }
+    var tileFrames: [String:CGRect] = [:]
     var isAdditionalDock = false
     var manageDocksAction: (() -> Void)?
     var screenID: String { get { defaults.string(forKey: "screenID") ?? "" } set { defaults.set(newValue, forKey: "screenID") } }
@@ -59,6 +61,7 @@ struct DockApp: Identifiable, Equatable {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        entryOrder = defaults.stringArray(forKey:"entryOrder") ?? []
         dockName = defaults.string(forKey: "dockName") ?? "Main Dock"
         theme = defaults.string(forKey: "theme") ?? "Glass"
         widthFraction = min(1,max(0.35,defaults.object(forKey: "widthFraction") as? Double ?? 1))
@@ -130,6 +133,20 @@ struct DockApp: Identifiable, Equatable {
         return NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }.compactMap { $0.bundleURL.map { DockApp(url: $0) } }.filter { !apps.contains($0) && $0.url.lastPathComponent != "WaveDock.app" }
     }
     func pin(_ app: DockApp) { if !apps.contains(app) { apps.append(app); persistApps() } }
+    var orderedEntries: [DockEntry] {
+        let available = apps.map(DockEntry.app) + runningApps.map(DockEntry.app) + [.add] + (showUsageCard ? [.usage] : []) + toolkit.enabled.compactMap(ToolKind.init(rawValue:)).map(DockEntry.tool) + (showClock ? [.clock] : [])
+        var seen=Set<String>()
+        let unique=available.filter { seen.insert($0.id).inserted }
+        let lookup=Dictionary(uniqueKeysWithValues:unique.map { ($0.id,$0) })
+        var ordered=Set<String>()
+        return entryOrder.compactMap { ordered.insert($0).inserted ? lookup[$0] : nil } + unique.filter { !ordered.contains($0.id) }
+    }
+    func moveEntry(_ source:String, onto target:String) {
+        var ids=orderedEntries.map(\.id)
+        guard let from=ids.firstIndex(of:source),let to=ids.firstIndex(of:target),from != to else { return }
+        let item=ids.remove(at:from); ids.insert(item,at:to)
+        entryOrder=ids + entryOrder.filter { !ids.contains($0) }
+    }
     func dropApp(_ path: String, onto target: DockApp) {
         guard let source = apps.firstIndex(where: { $0.id == path }), let destination = apps.firstIndex(of: target), source != destination else { return }
         let item = apps.remove(at: source); apps.insert(item, at: destination); persistApps()
@@ -141,9 +158,10 @@ struct DockApp: Identifiable, Equatable {
     func saveProfile() {
         let name = toolkit.profileName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
-        toolkit.profiles.append(DockProfile(name: name, apps: apps.map(\.id), widgets: toolkit.enabled, accent: accent, size: iconSize, richWidgets: toolkit.richWidgets, theme: theme, widthFraction: widthFraction, alignment: alignment, elevation: elevation, edge: toolkit.edge, albumColors: albumColors)); toolkit.profileName = ""
+        toolkit.profiles.append(DockProfile(name: name, apps: apps.map(\.id), widgets: toolkit.enabled, accent: accent, size: iconSize, richWidgets: toolkit.richWidgets, theme: theme, widthFraction: widthFraction, alignment: alignment, elevation: elevation, edge: toolkit.edge, albumColors: albumColors, entryOrder: entryOrder)); toolkit.profileName = ""
     }
     func applyProfile(_ profile: DockProfile) {
+        if let order=profile.entryOrder { entryOrder=Array(order.prefix(1000)) }
         if let value=profile.theme, ["Glass","Graphite","Pearl","System"].contains(value) { theme=value }
         if let value=profile.widthFraction,value.isFinite { widthFraction=min(1,max(0.35,value)) }
         if let value=profile.alignment,value.isFinite { alignment=min(1,max(0,value)) }
