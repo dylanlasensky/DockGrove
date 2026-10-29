@@ -132,7 +132,16 @@ enum WindowPlacement: String, CaseIterable, Identifiable {
         guard !loading, let selected, let frame = undo[selected.id] else { status = "No previous layout for this window."; return }
         arrange(frame, selected: selected, undoing: true)
     }
-    func focus() { guard let selected else { return }; _ = AXUIElementSetAttributeValue(selected.element, kAXMinimizedAttribute as CFString, kCFBooleanFalse); selected.owner.activate(options: []); AXUIElementPerformAction(selected.element, kAXRaiseAction as CFString) }
+    func focus() {
+        guard trusted else { status = "Allow Accessibility to select and restore windows."; return }
+        guard let selected else { status = "Select a window first."; return }
+        let restored = AXUIElementSetAttributeValue(selected.element, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+        selected.owner.activate(options: [])
+        let raised = AXUIElementPerformAction(selected.element, kAXRaiseAction as CFString)
+        status = raised == .success && (restored == .success || restored == .attributeUnsupported)
+            ? "Window brought forward."
+            : "This app could not restore or focus the window. Refresh and check Accessibility access."
+    }
     func minimize() { guard let selected else { return }; if AXUIElementSetAttributeValue(selected.element, kAXMinimizedAttribute as CFString, kCFBooleanTrue) != .success { status = "This window cannot be minimized." } }
 }
 struct WindowManagerView: View {

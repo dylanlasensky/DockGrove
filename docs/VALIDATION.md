@@ -1,5 +1,13 @@
 # WaveDock validation
 
+## Version 1.0 non-pet publication — October 29, 2026
+
+This publication excludes the local pet redesign. `Sources/Companion.swift`, `Sources/WidgetCards.swift`, `Sources/WorkspaceTests.swift` and the entire `Assets/` tree remain identical to baseline `97c9fed`; no new companion motion/drawing modules or generated rigs are included. The existing six-pose companions remain in the native app. The public website omits the pet gallery and new pet artwork.
+
+The changes cover app search/replacement/Undo, adaptive appearance, native window actions, separate development identity, fail-closed commercial activation, the static website, and test-only commerce infrastructure. Provider credentials, deployed commerce, actual payments, Apple signing and installed-app replacement are outside this publication.
+
+The isolated publication checkout passed a universal Apple Silicon/Intel development build, strict ad-hoc signature verification, plist validation, the complete fixture self/integration suite, and native rendering/window-state tests. Native checks rendered all 39 widgets plus Automatic light/dark Dock, settings and app-picker views. Existing companion six-pose checks passed unchanged. No installed app or system Dock preferences were changed. Local evidence is `/tmp/wavedock-non-pet-{build,selftest,native}.log` and `.build/non-pet-native/`. These are local tests, not Intel hardware or every supported macOS version certification. Historical versioned evidence remains separate.
+
 ## Version 0.8 coverage
 
 The page-drag timer covers initial dwell, stationary repeat, reverse direction, leaving an arrow, cancellation and first/last-page bounds. The stable Dock owns the gesture while tile views change. Live QA performed two rounds moving Chrome and the companion forward and backward by dropping on arrows (eight successful drags). All nine animal choices were selected twice; rest/wake was exercised twice. The computer-use drag API releases immediately at the destination, so a sustained physical hover-and-hold is not claimed as manually verified. Its timing is covered by production-state tests.

@@ -122,6 +122,7 @@ import SwiftUI
         model.visible = true
         print("PASS: \(ToolKind.allCases.count - 2) widget views rendered, bottom replacement geometry, fullscreen collection policy, session/sleep/manual hiding")
         fflush(stdout)
+        try renderReleaseViews(model: model, output: output)
         // Give timers a chance to run before checking the ordinary desktop presentation.
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             delegate.checkAutoHide()

@@ -1,0 +1,10 @@
+{
+  "name": "WaveDock",
+  "amount": 999,
+  "currency": "usd",
+  "majorVersion": 1,
+  "deviceLimit": 3,
+  "mode": "test",
+  "offlineDays": 30,
+  "available": false
+}

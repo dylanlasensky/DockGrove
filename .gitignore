@@ -4,3 +4,13 @@ dist/
 *.zip
 *.dmg
 *.xcuserstate
+.dev.vars
+.dev.vars.*
+.env
+.env.*
+!.env.example
+.wrangler/
+license-secrets/
+*.p12
+*.p8
+*.key

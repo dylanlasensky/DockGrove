@@ -4,6 +4,8 @@ import Foundation
     let modern = #"{"rateLimits":{"limitId":"codex","primary":{"usedPercent":70,"windowDurationMins":300,"resetsAt":2000000000}},"rateLimitsByLimitId":{"codex":{"limitId":"codex","primary":{"usedPercent":30.5,"windowDurationMins":300,"resetsAt":2000000000},"secondary":{"usedPercent":10,"windowDurationMins":10080}},"other":{"limitId":"other","limitName":"Other model","primary":{"usedPercent":100,"windowDurationMins":60}}}}"#
     do {
         try runBehaviorTests()
+        try runAppManagementTests()
+        try runLicensingTests()
         let response = try JSONDecoder().decode(UsageResponse.self, from: Data(modern.utf8))
         precondition(response.buckets.count == 2)
         precondition(response.buckets.first?.0 == "codex")
