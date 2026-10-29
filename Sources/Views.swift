@@ -209,7 +209,7 @@ struct SettingsView: View {
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 8) {
-                        Text("VERSION 0.5 · PREVIEW").font(.system(size: 9, weight: .bold)).tracking(1).foregroundStyle(.secondary)
+                        Text("VERSION 0.6 · PREVIEW").font(.system(size: 9, weight: .bold)).tracking(1).foregroundStyle(.secondary)
                         Button("Done") { model.closeSettingsAction?() }
                     }
                 }

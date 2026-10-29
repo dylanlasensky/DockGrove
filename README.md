@@ -8,7 +8,7 @@ WaveDock is a free, open-source Mac app created by Dylan Lasensky. It gives you 
 
 Built with Swift, SwiftUI, and AppKit. No Electron, web wrapper, subscription, account with WaveDock, or third-party package dependencies.
 
-> **Early access, v0.5.0.** WaveDock is inspired by the usefulness of widget docks. It is an independent project, not affiliated with CoolDock or OpenAI. It does not yet match CoolDock's full catalog or production maturity. See the feature matrix and limitations below.
+> **Early access, v0.6.0.** WaveDock is inspired by the usefulness of widget docks. It is an independent project, not affiliated with CoolDock or OpenAI. It does not yet match CoolDock's full catalog or production maturity. See the feature matrix and limitations below.
 
 ## Requirements
 
@@ -81,6 +81,15 @@ The menu-bar wave always gives access to Settings, show/hide, usage refresh, App
 | Widget organization | Search library, move widgets earlier/later, remove by right-click, space and separator entries |
 | Login startup | Native macOS login item registration; approval status shown |
 | Music | Opt-in Spotify or Apple Music connection, track/artist, previous/play-pause/next, ten-second polling while connected |
+
+## New in 0.6
+
+- Claude Code allowance windows through its supported local status-line interface.
+- Gemini CLI session tokens and requests by model, imported locally without retaining prompts or responses.
+- A new static website with original WaveDock branding, scroll storytelling, interactive product demos, and reduced-motion support.
+- Separate free Cloudflare preview hosting with a direct universal-app download.
+
+See [AI connection instructions](docs/AI-CONNECTIONS.md) for setup, privacy, and provider limitations.
 
 ## New in 0.5
 
@@ -179,7 +188,7 @@ This is a substantial early-access app, not a complete CoolDock clone. In partic
 - System monitoring samples while enabled; CPU history is limited to the current session. Hardware temperature and peripheral battery telemetry are not implemented.
 - No window thumbnails, minimized-window tiles, custom app-icon packs, folder groups, or full native Dock drag/drop semantics.
 - No automatic update service, Apple notarization, or App Store distribution yet. Login startup needs an installed app and may require macOS approval.
-- Codex allowances, GitHub, OpenAI API token usage, Claude API token usage, and Cursor team analytics are supported. OpenAI/Claude consumer-plan allowances and commerce/mail integrations remain unimplemented. API metrics do not represent consumer-plan limits.
+- Codex allowances, supported Claude Code allowance windows, Gemini CLI session tokens, GitHub, OpenAI/Claude API usage, and Cursor team analytics are supported. Gemini consumer-chat quotas, ordinary ChatGPT message counts, and commerce/mail integrations remain unimplemented. API metrics and session tokens do not represent consumer-plan limits.
 - Screenshots, unit/currency conversion, color picking, voice memos and app groups are supported. Wallpaper services, per-app audio mixing and window thumbnails remain unimplemented.
 - Music and calendar need end-to-end validation across OS versions and real permission states. Multi-display placement needs testing on more hardware.
 

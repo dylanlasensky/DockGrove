@@ -50,6 +50,8 @@ struct ToolTile: View {
     }
     @ViewBuilder var contents: some View {
         switch kind {
+        case .claudeCodeUsage: LocalAIUsageView(widget: kit.claudeCodeUsage)
+        case .geminiUsage: LocalAIUsageView(widget: kit.geminiUsage)
         case .calculator: CalculatorView()
         case .currency: CurrencyView(widget: kit.currency)
         case .voiceMemo: VoiceMemoView(memo: kit.voiceMemo)

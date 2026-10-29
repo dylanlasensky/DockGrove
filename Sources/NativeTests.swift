@@ -39,6 +39,19 @@ import SwiftUI
             }
             window.orderOut(nil)
         }
+        // Populated AI states must fit too; long Gemini lists scroll inside the popover.
+        for provider in [LocalAIProvider.claude, .gemini] {
+            let widget = LocalAIWidget(provider)
+            widget.report = LocalAIReport(provider: provider.rawValue, observed: Date().addingTimeInterval(-3600),
+                windows: provider == .claude ? ["5-hour window", "Weekly window", "Gateway spend limit"].map { LocalAIWindow(name: $0, used: 24, resets: Date().addingTimeInterval(3600)) } : [],
+                models: provider == .gemini ? (0..<20).map { LocalAIModel(name: "gemini-sample-model-\($0)", total: 130, input: 60, output: 30, cached: 40, requests: 2) } : [], sessionCost: provider == .claude ? 0.12 : nil)
+            widget.status = "SAMPLE DATA · Last received an hour ago"
+            let view = NSHostingView(rootView: LocalAIUsageView(widget: widget, automaticallyRefresh: false).padding(22).frame(width: 350).preferredColorScheme(.dark))
+            let size = view.fittingSize
+            precondition(size.width <= 351 && size.height < screen.frame.height - 60, "Populated AI view does not fit")
+            view.setFrameSize(size); view.layoutSubtreeIfNeeded()
+            if let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) { view.cacheDisplay(in: view.bounds, to: bitmap); if let data = bitmap.representation(using: .png, properties: [:]) { try data.write(to: output.appendingPathComponent(provider.rawValue + "-populated.png")) } }
+        }
         model.toolkit.enabled = ToolKind.allCases.map(\.rawValue)
         for iconSize in [32.0, 48, 64] {
             model.iconSize = iconSize

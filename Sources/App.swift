@@ -170,6 +170,8 @@ final class DockPanel: NSPanel {
 
 @main struct WaveDockMain {
     @MainActor static func main() {
+        if CommandLine.arguments.contains("--claude-statusline") { exit(LocalAIStore.capture(.claude)) }
+        if CommandLine.arguments.contains("--gemini-report") { exit(LocalAIStore.capture(.gemini)) }
         if CommandLine.arguments.contains("--restore-dock") {
             do { try SystemDock.restore(); print("Apple Dock preferences restored.") } catch { print("Could not restore Apple Dock: \(error)"); exit(1) }
             return

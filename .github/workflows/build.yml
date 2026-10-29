@@ -16,6 +16,9 @@ jobs:
     runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Build universal app
         run: zsh build.sh
       - name: Test layout, windows, AI clients, music, calendar and existing regressions
@@ -27,7 +30,11 @@ jobs:
           lipo dist/WaveDock.app/Contents/MacOS/WaveDock -verify_arch arm64
           lipo dist/WaveDock.app/Contents/MacOS/WaveDock -verify_arch x86_64
       - name: Package
-        run: ditto -c -k --sequesterRsrc --keepParent dist/WaveDock.app dist/WaveDock.zip
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent dist/WaveDock.app dist/WaveDock.zip
+          mkdir -p website/public/downloads
+          cp dist/WaveDock.zip website/public/downloads/WaveDock-0.6.0.zip
+          node website/tests/site.test.mjs --release
       - uses: actions/upload-artifact@v4
         with:
           name: WaveDock-macOS-universal-pass-${{ matrix.validation-pass }}
