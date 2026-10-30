@@ -10,7 +10,7 @@ The historical 0.8 companion artwork README records image-generation prompts and
 
 ## Boundary
 
-- Previously distributed WaveDock 0.8 source and binaries retain their MIT permissions. Existing recipients may continue exercising those rights subject to the notice requirement.
+- Previously distributed DockGrove 0.8 source and binaries retain their MIT permissions. Existing recipients may continue exercising those rights subject to the notice requirement.
 - The root `LICENSE` is retained. No history is rewritten and no notices are removed.
 - The new payment service, activation flow, website changes and non-pet interaction work in this candidate are proposed additions. They have **not yet been placed under a final separate proprietary license**. Until the owner approves a legally coherent file/release boundary, do not claim that changing marketing text makes the checkout or its history closed source.
 - A future proprietary distribution may include MIT-derived material with the required notices, while separately licensing owned additions and the commercial distribution offer. The owner must approve which files and versions carry which terms, including contribution rights. A paid purchase does not itself revoke source-license rights.

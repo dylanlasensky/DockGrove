@@ -7,7 +7,7 @@ struct GitHubView: View {
             TextField("owner/repository", text: $github.repository).textFieldStyle(.roundedBorder).onSubmit { github.refresh() }
             Toggle("Use existing GitHub CLI sign-in", isOn: $github.useCLI)
             Toggle("Refresh every five minutes", isOn: $github.autoRefresh)
-            Text("Public mode reads api.github.com. CLI mode uses gh’s existing sign-in. WaveDock does not read or store your token.").font(.caption).foregroundStyle(.secondary)
+            Text("Public mode reads api.github.com. CLI mode uses gh’s existing sign-in. DockGrove does not read or store your token.").font(.caption).foregroundStyle(.secondary)
             if let snapshot = github.snapshot {
                 if let url = GitHubClient.safeURL(snapshot.repository.html_url) { Link(snapshot.repository.full_name, destination: url).font(.headline) }
                 Text("\(snapshot.repository.stargazers_count) stars · \(snapshot.repository.forks_count) forks · \(snapshot.repository.open_issues_count) open issues & PRs").font(.caption)

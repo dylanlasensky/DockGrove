@@ -1,6 +1,6 @@
 {
   // Local/test candidate only. Owner creates bindings and secrets before deployment.
-  "name": "wavedock-commerce-test",
+  "name": "dockgrove-commerce-test",
   "main": "backend/worker.mjs",
   "compatibility_date": "2026-10-28",
   "workers_dev": true,
@@ -12,13 +12,13 @@
   },
   "vars": {
     "SALES_MODE": "test",
-    "PUBLIC_ORIGIN": "https://wavedock-commerce-test.example.invalid",
+    "PUBLIC_ORIGIN": "https://dockgrove-commerce-test.example.invalid",
     "STRIPE_PRICE_ID": "",
     "STRIPE_PRODUCT_ID": "",
     "ENTITLEMENT_KEY_ID": "test-1",
-    "RELEASE_OBJECT": "WaveDock-1.zip"
+    "RELEASE_OBJECT": "DockGrove-1.zip"
   },
-  "d1_databases": [{ "binding": "DB", "database_name": "wavedock-commerce-test", "database_id": "OWNER_CONFIG_REQUIRED", "migrations_dir": "migrations" }],
-  "r2_buckets": [{ "binding": "RELEASES", "bucket_name": "wavedock-releases-test" }],
+  "d1_databases": [{ "binding": "DB", "database_name": "dockgrove-commerce-test", "database_id": "OWNER_CONFIG_REQUIRED", "migrations_dir": "migrations" }],
+  "r2_buckets": [{ "binding": "RELEASES", "bucket_name": "dockgrove-releases-test" }],
   "triggers": { "crons": ["*/5 * * * *"] }
 }

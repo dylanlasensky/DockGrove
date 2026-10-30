@@ -2,7 +2,7 @@
 
 ## Summary
 
-Rating after fixes: Good. This is a responsive HTML/CSS/JavaScript product website for Mac users exploring WaveDock and its test purchase flow. Its defining element is the illustrative Dock and the hands-on app replacement example; supporting controls stay quiet and legible. The pet redesign is explicitly excluded from this publication. The review applied web-relevant principles from the user-requested [Apple Design Skill](https://github.com/dickwu/apple-design-skill/blob/main/SKILL.md), not native menu-bar or mobile-tab conventions.
+Rating after fixes: Good. This is a responsive HTML/CSS/JavaScript product website for Mac users exploring DockGrove and its test purchase flow. Its defining element is the illustrative Dock and the hands-on app replacement example; supporting controls stay quiet and legible. The pet redesign is explicitly excluded from this publication. The review applied web-relevant principles from the user-requested [Apple Design Skill](https://github.com/dickwu/apple-design-skill/blob/main/SKILL.md), not native menu-bar or mobile-tab conventions.
 
 Read ten references: accessibility, layout, typography, color, writing, buttons, text-fields, dark-mode, motion, and cross-platform. No scripts or dependencies from that repository were executed.
 
@@ -38,7 +38,7 @@ At 320 × 740, normal and 200% root-font layouts remain 320px wide. The enlarged
 
 Published October 29, 2026 to https://wavedock-preview.limit-dylanlasensky.workers.dev using the existing Worker and zero bindings. Cloudflare version: `d0ff1466-eb19-49cb-abc9-2b180fd9606c`. Uploaded 14 packaged static files (10 changed assets). No commerce Worker, database, storage bucket or live payments were deployed.
 
-Post-deploy browser review confirmed the app-focused page and disabled checkout. Live `product.json` reports amount 999 USD cents, test mode, `available:false`; both `/downloads/WaveDock-0.8.0.zip` and `/assets/companions/dragon.png` return HTTP 404. Local release checks, eight frontend behavior checks and eleven test-backend cases passed. Desktop dark and 390px light layouts, keyboard app replacement and Undo were verified.
+Post-deploy browser review confirmed the app-focused page and disabled checkout. Live `product.json` reports amount 999 USD cents, test mode, `available:false`; both `/downloads/DockGrove-0.8.0.zip` and `/assets/companions/dragon.png` return HTTP 404. Local release checks, eight frontend behavior checks and eleven test-backend cases passed. Desktop dark and 390px light layouts, keyboard app replacement and Undo were verified.
 
 ## Final visual correction: original identity restored
 

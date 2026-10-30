@@ -2,7 +2,7 @@
 
 The 1.0 purchase does not include provider subscriptions, API credits, or access to private usage data. App license activation is separate from each provider connection. Swift is not an API-access limitation; supported interfaces and provider permissions determine availability.
 
-WaveDock labels each source separately. A token count is not a subscription allowance.
+DockGrove labels each source separately. A token count is not a subscription allowance.
 No integration generates AI requests simply to refresh usage.
 
 | Widget | What it measures | Setup |
@@ -16,20 +16,20 @@ No integration generates AI requests simply to refresh usage.
 
 ## Claude Code
 
-1. Put WaveDock in its permanent location, normally Applications.
+1. Put DockGrove in its permanent location, normally Applications.
 2. Enable **Claude Code limits** in the widget library.
 3. Open it and choose **Connect Claude Code status line**.
 4. Start a new Claude Code session. After an API response, a supported Claude
-   version supplies allowance windows to WaveDock's helper.
+   version supplies allowance windows to DockGrove's helper.
 
 The connection adds `statusLine` to `~/.claude/settings.json` and preserves all other
-settings. If you already have a custom status line, WaveDock refuses to overwrite it.
+settings. If you already have a custom status line, DockGrove refuses to overwrite it.
 You can integrate the capture command into your own script, passing the original JSON
-stdin to `'/Applications/WaveDock.app/Contents/MacOS/WaveDock' --claude-statusline`.
+stdin to `'/Applications/DockGrove.app/Contents/MacOS/DockGrove' --claude-statusline`.
 The command prints a compact status line. Consult Claude's documentation before editing
-an existing script; WaveDock does not execute or rewrite your custom command.
+an existing script; DockGrove does not execute or rewrite your custom command.
 
-**Remove WaveDock status line** removes only the exact command this app owns. If the
+**Remove DockGrove status line** removes only the exact command this app owns. If the
 setting was changed elsewhere, it is preserved. Reconnect after moving the app.
 
 Missing windows display as unknown, never 0% used. Expired windows are removed.
@@ -42,10 +42,10 @@ The optional session cost is API-equivalent usage, not your subscription bill.
 Enable **Gemini CLI usage**. Run Gemini yourself with `--output-format json`, save its
 JSON output, and choose **Import Gemini session JSON…**. Alternatively, use **Copy CLI
 capture command** and replace `YOUR PROMPT` with your intended prompt. That run may
-consume your normal Gemini allowance; WaveDock itself never starts it.
+consume your normal Gemini allowance; DockGrove itself never starts it.
 
 ```sh
-gemini --output-format json -p 'YOUR PROMPT' | '/Applications/WaveDock.app/Contents/MacOS/WaveDock' --gemini-report
+gemini --output-format json -p 'YOUR PROMPT' | '/Applications/DockGrove.app/Contents/MacOS/DockGrove' --gemini-report
 ```
 
 This captures the ordinary JSON output format, not `stream-json` or a telemetry log.
@@ -58,7 +58,7 @@ No remaining Gemini web-chat or consumer-plan quota is inferred from these stati
 ## Privacy and testing
 
 CLI helpers retain only allowlisted usage numbers and model identifiers under
-`~/Library/Application Support/WaveDock/AI Usage/`. Files use mode 0600 in a private
+`~/Library/Application Support/DockGrove/AI Usage/`. Files use mode 0600 in a private
 directory. Prompts, response text, transcript paths, session IDs and credentials are
 discarded. Imports are bounded to 20 MB. **Clear local snapshot** deletes the stored
 metrics; future CLI reports can create a new snapshot if the bridge remains enabled.

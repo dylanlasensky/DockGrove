@@ -51,7 +51,7 @@ import AppKit
     for json in [#"{"date":"2026-10-28","base":"USD","quote":"EUR","rate":-1}"#, #"{"date":"2026-10-28","base":"GBP","quote":"EUR","rate":1}"#] {
         do { _ = try CurrencyWidget.decode(Data(json.utf8), base: "USD", quote: "EUR"); preconditionFailure("Bad rate accepted") } catch { }
     }
-    let groupSuite = "WaveDockGroups." + UUID().uuidString, groupDefaults = UserDefaults(suiteName: groupSuite)!
+    let groupSuite = "DockGroveGroups." + UUID().uuidString, groupDefaults = UserDefaults(suiteName: groupSuite)!
     defer { groupDefaults.removePersistentDomain(forName: groupSuite) }
     let groups = AppGroups(defaults: groupDefaults)
     groups.add(name: " Work ", paths: ["/Applications/Test.app", "/Applications/Test.app", "/tmp/file"])
@@ -73,11 +73,11 @@ import AppKit
     let began = Date()
     do { _ = try await Task.detached { try BoundedProcess.run("/bin/sleep", arguments: ["5"], timeout: 0.2) }.value; preconditionFailure("Timeout accepted") } catch { }
     precondition(Date().timeIntervalSince(began) < 2)
-    let music = MusicPlayer(name: "Test player", bundleID: "invalid.wavedock.test.player")
+    let music = MusicPlayer(name: "Test player", bundleID: "invalid.dockgrove.test.player")
     music.track = track; music.connected = true; music.refresh(); precondition(!music.connected && music.track == nil)
     music.disconnect(); precondition(!music.busy && music.track == nil)
     print("PASS: music states, empty artist, multiline titles, invalid responses, bounded process timeout, exited player clears stale track")
-    let suite = "WaveDockCalendarTests." + UUID().uuidString, defaults: UserDefaults
+    let suite = "DockGroveCalendarTests." + UUID().uuidString, defaults: UserDefaults
     defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }
     let google = CalendarWidget(store: defaults, google: true), calendar = CalendarWidget(store: defaults)

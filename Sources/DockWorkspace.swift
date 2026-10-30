@@ -54,7 +54,7 @@ enum DockGeometry {
     let prefix: String
     var configure: ((ExtraDock)->Void)?
     init(defaults:UserDefaults, testing:Bool) {
-        self.defaults = defaults; prefix = testing ? "WaveDockUITests.dock." : (LicenseConfiguration.commercial ? "com.wavedock.extra." : "com.wavedock.development.extra.")
+        self.defaults = defaults; prefix = testing ? "DockGroveUITests.dock." : (LicenseConfiguration.commercial ? "com.wavedock.extra." : "com.wavedock.development.extra.")
     }
     func restore() {
         let ids = defaults.stringArray(forKey:"additionalDocks") ?? []

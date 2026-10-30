@@ -146,8 +146,8 @@ struct UnitConversion {
     func setLogin(_ enabled: Bool) {
         do { if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
             loginEnabled = SMAppService.mainApp.status == .enabled
-            status = SMAppService.mainApp.status == .requiresApproval ? "Approve WaveDock in System Settings > General > Login Items." : nil
-        } catch { status = "Could not change login startup. Install WaveDock in Applications and try again." }
+            status = SMAppService.mainApp.status == .requiresApproval ? "Approve DockGrove in System Settings > General > Login Items." : nil
+        } catch { status = "Could not change login startup. Install DockGrove in Applications and try again." }
     }
     func loadReminders() {
         Task { @MainActor [self] in

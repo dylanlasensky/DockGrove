@@ -53,14 +53,14 @@ import SwiftUI
             view.setFrameSize(size); view.layoutSubtreeIfNeeded()
             if let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) { view.cacheDisplay(in: view.bounds, to: bitmap); if let data = bitmap.representation(using: .png, properties: [:]) { try data.write(to: output.appendingPathComponent(provider.rawValue + "-populated.png")) } }
         }
-        // Inspect every illustrated animal and all six poses on contrasting surfaces.
+        // Inspect every illustrated animal and all sixteen complete pixel poses on contrasting surfaces.
         for animal in Companion.animals {
-            let frames = CompanionArtwork.frames(animal)
+            let frames = CompanionDrawing.sheet(animal)!.frames
             let portrait = NSHostingView(rootView: VStack(spacing:12) {
                 Text(animal).font(.title2.bold())
-                ForEach(0..<2) { row in
-                    HStack { ForEach(0..<3) { col in
-                        Image(nsImage:frames[row*3+col]).resizable().scaledToFit().frame(width:160,height:160).scaleEffect(animal == "Fox" ? 2 : 1)
+                ForEach(0..<4) { row in
+                    HStack { ForEach(0..<4) { col in
+                        Image(nsImage:frames[row*4+col]).interpolation(.none).resizable().scaledToFit().frame(width:120,height:120)
                     } }
                 }
             }.padding(18).background(animal == "Black cat" ? Color(white:0.85) : Color(white:0.12)).foregroundStyle(.orange))
@@ -105,7 +105,7 @@ import SwiftUI
         model.toolkit.spotify.track = TrackSnapshot(title: "A little room to breathe", artist: "Sample music", playing: false)
         model.toolkit.spotify.connected = true
         let gallery = NSHostingView(rootView: VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 12) { BrandIcon().frame(width: 48, height: 48); VStack(alignment: .leading) { Text("WaveDock").font(.system(size: 25, weight: .semibold)); Text("Thoughtfully at hand.").foregroundStyle(.secondary) }; Spacer(); Text("DESIGN PREVIEW · SAMPLE DATA").font(.system(size: 9, weight: .medium)).foregroundStyle(.secondary) }
+            HStack(spacing: 12) { BrandIcon().frame(width: 48, height: 48); VStack(alignment: .leading) { Text("DockGrove").font(.system(size: 25, weight: .semibold)); Text("Thoughtfully at hand.").foregroundStyle(.secondary) }; Spacer(); Text("DESIGN PREVIEW · SAMPLE DATA").font(.system(size: 9, weight: .medium)).foregroundStyle(.secondary) }
             ForEach([[ToolKind.focus, .weather, .spotify], [.system, .tasks, .notes], [.water, .pet, .appGroups]], id: \.self) { row in
                 HStack(spacing: 12) { ForEach(row) { kind in RichWidgetCard(kind: kind, model: model, kit: model.toolkit, open: {}).frame(width: 236, height: 80) } }
             }

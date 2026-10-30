@@ -71,7 +71,7 @@ test('complete purchase, activation cap, verified entitlement, deactivation and 
  assert.equal((await f.call('/api/recover/complete',{token})).status,401);
  const unknown=await f.call('/api/recover',{email:'unknown@example.test'});assert.equal((await unknown.json()).accepted,true);
  assert.equal((await f.call('/api/download',{licenseKey})).status,200);
- assert.equal((await f.call('/downloads/WaveDock.zip')).status,403);
+ assert.equal((await f.call('/downloads/DockGrove.zip')).status,403);
  assert.equal((await f.call('/api/download',{licenseKey:'invented'})).status,401);
  assert.equal((await f.call('/api/purchase',undefined,{Cookie:cookie})).status,200);
 });

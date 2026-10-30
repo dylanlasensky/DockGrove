@@ -24,7 +24,13 @@ import Foundation
         let decodedTask = try JSONDecoder().decode(TaskItem.self, from: JSONEncoder().encode(task))
         precondition(decodedTask.done)
         precondition(Set(ToolKind.allCases.map(\.rawValue)).count == ToolKind.allCases.count)
-        let suite = "WaveDockTests." + UUID().uuidString
+        let supportProbe = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: supportProbe, withIntermediateDirectories: true)
+        precondition(BrandStorage.supportDirectory(in: supportProbe).lastPathComponent == "DockGrove")
+        try FileManager.default.createDirectory(at: supportProbe.appendingPathComponent("WaveDock"), withIntermediateDirectories: true)
+        precondition(BrandStorage.supportDirectory(in: supportProbe).lastPathComponent == "WaveDock")
+        try FileManager.default.removeItem(at: supportProbe)
+        let suite = "DockGroveTests." + UUID().uuidString
         let isolated = UserDefaults(suiteName: suite)!
         defer { isolated.removePersistentDomain(forName: suite) }
         let model = DockModel(defaults: isolated)

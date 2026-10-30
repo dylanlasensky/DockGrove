@@ -1,4 +1,4 @@
-# WaveDock validation
+# DockGrove validation
 
 ## Version 1.0 non-pet publication — October 29, 2026
 
@@ -6,7 +6,7 @@ This publication excludes the local pet redesign. `Sources/Companion.swift`, `So
 
 The changes cover app search/replacement/Undo, adaptive appearance, native window actions, separate development identity, fail-closed commercial activation, the static website, and test-only commerce infrastructure. Provider credentials, deployed commerce, actual payments, Apple signing and installed-app replacement are outside this publication.
 
-The isolated publication checkout passed a universal Apple Silicon/Intel development build, strict ad-hoc signature verification, plist validation, the complete fixture self/integration suite, and native rendering/window-state tests. Native checks rendered all 39 widgets plus Automatic light/dark Dock, settings and app-picker views. Existing companion six-pose checks passed unchanged. No installed app or system Dock preferences were changed. Local evidence is `/tmp/wavedock-non-pet-{build,selftest,native}.log` and `.build/non-pet-native/`. These are local tests, not Intel hardware or every supported macOS version certification. Historical versioned evidence remains separate.
+The isolated publication checkout passed a universal Apple Silicon/Intel development build, strict ad-hoc signature verification, plist validation, the complete fixture self/integration suite, and native rendering/window-state tests. Native checks rendered all 39 widgets plus Automatic light/dark Dock, settings and app-picker views. Existing companion six-pose checks passed unchanged. No installed app or system Dock preferences were changed. Local evidence is `/tmp/dockgrove-non-pet-{build,selftest,native}.log` and `.build/non-pet-native/`. These are local tests, not Intel hardware or every supported macOS version certification. Historical versioned evidence remains separate.
 
 ## Version 0.8 coverage
 
@@ -46,7 +46,7 @@ This performs two complete universal builds with offline regression tests, signa
 
 Both full passes of `zsh Tests/validate.sh --native --live` passed for 0.4. Each built arm64 and x86_64, ran all offline regressions, checked signature/plist/architectures, rendered all 30 functional widgets, checked native window states, and successfully read live public GitHub and Codex allowances.
 
-The prior CI run 40750383530 was cancelled before either job ran: GitHub reported that no hosted runner acquired the jobs and cited macOS ARM capacity constraints. The workflow now uses the documented `macos-15-intel` standard runner, still builds both architectures, and runs two independent test jobs. The first Intel run built the app and passed every regression, then exposed an Xcode 16 `lipo` argument-order incompatibility. Both CI and the local validation script now place the input binary before `-verify_arch`. CI run [40756654494](https://github.com/dylanlasensky/WaveDock/actions/runs/40756654494) then passed both Intel jobs, including builds, every regression, architecture checks and artifact uploads. Runtime refinement commit e7cb66e also passed both jobs in run [40758439489](https://github.com/dylanlasensky/WaveDock/actions/runs/40758439489). Subsequent changes must pass CI on their own commit; see the PR for the latest exact-commit results.
+The prior CI run 40750383530 was cancelled before either job ran: GitHub reported that no hosted runner acquired the jobs and cited macOS ARM capacity constraints. The workflow now uses the documented `macos-15-intel` standard runner, still builds both architectures, and runs two independent test jobs. The first Intel run built the app and passed every regression, then exposed an Xcode 16 `lipo` argument-order incompatibility. Both CI and the local validation script now place the input binary before `-verify_arch`. CI run [40756654494](https://github.com/dylanlasensky/DockGrove/actions/runs/40756654494) then passed both Intel jobs, including builds, every regression, architecture checks and artifact uploads. Runtime refinement commit e7cb66e also passed both jobs in run [40758439489](https://github.com/dylanlasensky/DockGrove/actions/runs/40758439489). Subsequent changes must pass CI on their own commit; see the PR for the latest exact-commit results.
 
 ## Automated coverage
 
@@ -75,7 +75,7 @@ The 0.3 baseline manual checks exercised native full-screen entry/exit twice, Gi
 ## Live integration evidence for 0.4
 
 - The full library fits across three Dock pages on the development display. First/last pages and persistent Settings/page navigation were inspected visually.
-- Spotify successfully returned track/artist and changed from paused to playing and back to paused through WaveDock. Disconnect cleared the track.
+- Spotify successfully returned track/artist and changed from paused to playing and back to paused through DockGrove. Disconnect cleared the track.
 - Apple Music read a loaded local track and completed two play/pause cycles, returning to paused. Disconnect cleared its track. The follow-up Spotify check found that Spotify rejects the Apple Music `exists current track` event; that guard is now emitted only for Apple Music.
 - Calendar permission was granted in macOS and the final widget successfully listed available iCloud, birthday and subscribed calendars. Disconnect cleared them. Only iCloud was configured in Internet Accounts; Google synchronization requires adding the user's Google account before it can be validated.
 - The ad-hoc rebuilt app can require renewed macOS permissions. Initial window discovery showed incomplete results; discovery was moved off the main thread with a longer timeout and standard-window filtering. The stale permission entry was replaced with the exact app path, after which standard-window discovery worked. Live placement/Undo actions were exercised on the blank host; macOS constrained requested sizes, and the widget reported that limitation. Unrestricted resizing across arbitrary apps is not certified.

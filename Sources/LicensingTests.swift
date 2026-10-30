@@ -4,7 +4,7 @@ import CryptoKit
 func runLicensingTests() throws {
         let key = P256.Signing.PrivateKey()
         let device = UUID().uuidString, now = Date()
-        let claims = LicenseClaims(iss: "wavedock", aud: "com.dylan.wavedock", licenseId: "test-license", deviceHash: LicenseVerifier.deviceHash(device), majorVersion: 1, environment: "test", iat: now.timeIntervalSince1970, exp: now.timeIntervalSince1970 + 30*86400)
+        let claims = LicenseClaims(iss: "dockgrove", aud: "com.dylan.wavedock", licenseId: "test-license", deviceHash: LicenseVerifier.deviceHash(device), majorVersion: 1, environment: "test", iat: now.timeIntervalSince1970, exp: now.timeIntervalSince1970 + 30*86400)
         func sign(_ claims: LicenseClaims) throws -> SignedLicense {
             let payload = try JSONEncoder().encode(claims).base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
             let signature = try key.signature(for: Data(payload.utf8)).rawRepresentation.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")

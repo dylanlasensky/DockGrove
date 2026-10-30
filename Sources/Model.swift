@@ -128,7 +128,7 @@ struct DockApp: Identifiable, Equatable {
     }
     var runningApps: [DockApp] {
         guard toolkit.showRunning else { return [] }
-        return NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }.compactMap { $0.bundleURL.map { DockApp(url: $0) } }.filter { !apps.contains($0) && $0.url.lastPathComponent != "WaveDock.app" }
+        return NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }.compactMap { $0.bundleURL.map { DockApp(url: $0) } }.filter { !apps.contains($0) && !["DockGrove.app", "WaveDock.app"].contains($0.url.lastPathComponent) }
     }
     func pin(_ app: DockApp) { _ = chooseApp(app, replacing: nil) }
     var orderedEntries: [DockEntry] {
@@ -173,7 +173,7 @@ struct DockApp: Identifiable, Equatable {
         toolkit.enabled = profile.widgets.filter { ToolKind(rawValue: $0) != nil && seen.insert($0).inserted }; accent = profile.accent; iconSize = max(32, min(64, profile.size)); persistApps()
     }
     func exportProfiles() {
-        let panel = NSSavePanel(); panel.nameFieldStringValue = "WaveDock-layouts.json"
+        let panel = NSSavePanel(); panel.nameFieldStringValue = "DockGrove-layouts.json"
         if panel.runModal() == .OK, let url = panel.url {
             do { try JSONEncoder().encode(toolkit.profiles).write(to: url, options: .atomic) } catch { systemError = "Could not export layouts." }
         }
@@ -187,7 +187,7 @@ struct DockApp: Identifiable, Equatable {
                 let data = try Data(contentsOf: url); guard data.count <= 1_000_000 else { throw UsageError.service }
                 let imported = try JSONDecoder().decode([DockProfile].self, from: data)
                 for var profile in imported.prefix(100) { profile.id = UUID(); toolkit.profiles.append(profile) }
-            } catch { systemError = "This file is not a valid WaveDock layout export." }
+            } catch { systemError = "This file is not a valid DockGrove layout export." }
         }
     }
     func refreshUsage() {

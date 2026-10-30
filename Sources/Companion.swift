@@ -27,6 +27,8 @@ struct CompanionState: Codable, Equatable {
     @Published var animal: String { didSet { defaults.set(animal, forKey: "companionAnimal") } }
     static let animals = ["Miso", "Black cat", "Orange cat", "Golden dog", "Husky", "Dragon", "Cow", "Rabbit", "Fox"]
     @Published var state: CompanionState { didSet { save() } }
+    @Published private(set) var playRequest = 0
+    func play() { guard !state.resting else { return }; state.play(); playRequest &+= 1 }
     private let defaults: UserDefaults
     init(defaults: UserDefaults) {
         self.defaults = defaults
@@ -64,54 +66,52 @@ struct CompanionState: Codable, Equatable {
     }
 }
 
-struct CompanionPose: Equatable {
-    var frame: Int
-    var x: Double = 0
-    var y: Double = 0
-    var breath: Double = 1
-    static func at(_ time: TimeInterval, animal: String, resting: Bool, reduceMotion: Bool) -> Self {
-        if reduceMotion { return Self(frame:resting ? 5 : 1) }
-        if resting { return Self(frame:5,breath:1+sin(time*1.6)*0.012) }
-        let t = abs(time.truncatingRemainder(dividingBy:18))
-        let sequence: [Int]; let speed: Double
-        switch animal {
-        case "Dragon": sequence=[0,1,2,3,2,4]; speed=0.18
-        case "Rabbit": sequence=[0,0,1,2,2,3,3,4,4]; speed=0.3
-        case "Cow": sequence=[0,1,1,2,1,1,3,3,4,1]; speed=0.6
-        case "Golden dog": sequence=[0,1,2,1,0,2,3,3,4,4]; speed=0.32
-        case "Husky": sequence=[0,1,2,1,0,2,3,3,3,4]; speed=0.4
-        case "Fox": sequence=[0,1,2,1,0,2,3,3,4,2]; speed=0.3
-        case "Black cat": sequence=[0,1,2,1,0,2,3,3,3,4,4]; speed=0.45
-        case "Orange cat": sequence=[0,1,2,1,0,2,3,3,4,4]; speed=0.5
-        default: sequence=[0,1,2,1,0,2,3,3,4,4,1]; speed=0.4
-        }
-        let frame = sequence[Int(t/speed)%sequence.count]
-        let x = sin(t*0.6)*0.035
-        let y = animal == "Dragon" ? sin(t*2)*0.055 : animal == "Rabbit" && frame == 1 ? -0.06 : 0
-        return Self(frame:frame,x:x,y:y)
-    }
-}
-
-struct CatPortrait: View {
+/// The AppKit view owns its simulation so SwiftUI redraws do not reset behavior.
+struct CatPortrait: NSViewRepresentable {
     var resting: Bool
     var animal: String = "Miso"
     var accent: Color
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    var body: some View {
-        TimelineView(.animation(minimumInterval:0.08,paused:reduceMotion)) { context in
-            let pose = CompanionPose.at(context.date.timeIntervalSinceReferenceDate,animal:animal,resting:resting,reduceMotion:reduceMotion)
-            let frames = CompanionArtwork.frames(animal)
-            GeometryReader { geometry in
-                if frames.indices.contains(pose.frame) {
-                    Image(nsImage:frames[pose.frame]).resizable().interpolation(.high).scaledToFit()
-                        .padding(geometry.size.height*0.065)
-                        // Fox uses extra transparent gutters; normalize its on-screen size.
-                        .scaleEffect(animal == "Fox" ? 2 : 1)
-                        .scaleEffect(x:1,y:pose.breath,anchor:.bottom)
-                        .offset(x:geometry.size.width*pose.x,y:geometry.size.height*pose.y)
-                }
-            }
-        }.accessibilityLabel(animal + (resting ? " sleeping" : " animated companion"))
+    var playRequest = 0
+    func makeNSView(context: Context) -> CompanionStage { CompanionStage() }
+    func updateNSView(_ view: CompanionStage, context: Context) {
+        view.animal = animal; view.resting = resting
+        view.receivePlay(playRequest)
+        view.setAccessibilityLabel(animal + (resting ? " sleeping" : " autonomous companion"))
+        view.needsDisplay = true
+    }
+}
+final class CompanionStage: NSView {
+    var animal = "Miso" { didSet { if animal != oldValue { motion = CompanionMotion(seed: Self.seed(animal)) } } }
+    var resting = false
+    private var motion = CompanionMotion()
+    private var lastPlayRequest: Int?
+    func receivePlay(_ request:Int) { defer { lastPlayRequest=request }; if let lastPlayRequest, request != lastPlayRequest, !resting { motion.play() } }
+    private var timer: Timer?
+    private var lastTick = ProcessInfo.processInfo.systemUptime
+    static func seed(_ name: String) -> UInt64 { name.utf8.reduce(1469598103934665603) { ($0 ^ UInt64($1)) &* 1099511628211 } }
+    override init(frame: NSRect) { super.init(frame:frame); setAccessibilityElement(true); setAccessibilityRole(.image) }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    deinit { timer?.invalidate() }
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow(); timer?.invalidate(); timer = nil
+        guard window != nil else { return }
+        lastTick = ProcessInfo.processInfo.systemUptime
+        timer = Timer.scheduledTimer(withTimeInterval:1.0/60, repeats:true) { [weak self] _ in
+            guard let self else { return }
+            let now = ProcessInfo.processInfo.systemUptime
+            let delta = now - self.lastTick; self.lastTick = now
+            guard let window = self.window, window.isVisible, window.occlusionState.contains(.visible), !self.isHiddenOrHasHiddenAncestor else { return }
+            let reduced = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            self.motion.advance(delta, animal:self.animal, resting:self.resting, reducedMotion:reduced)
+            if !reduced || self.needsDisplay { self.needsDisplay = true }
+        }
+        if let timer { RunLoop.main.add(timer, forMode: .common) }
+    }
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        // Reflect manual rest immediately even when Reduce Motion suppresses timer redraws.
+        motion.advance(0, animal:animal, resting:resting, reducedMotion:NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
+        CompanionDrawing.draw(animal:animal,motion:motion,in:bounds,reducedMotion:NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
     }
 }
 struct CompanionView: View {
@@ -120,15 +120,15 @@ struct CompanionView: View {
     @State private var name = ""
     var body: some View {
         VStack(spacing: 14) {
-            CatPortrait(resting: pet.state.resting, animal: pet.animal, accent: accent).frame(width:250, height:180)
+            CatPortrait(resting: pet.state.resting, animal: pet.animal, accent: accent, playRequest: pet.playRequest).frame(width:250, height:180)
             Picker("Companion", selection:$pet.animal) { ForEach(Companion.animals,id: \.self) { Text($0) } }
             Text(pet.state.name).font(.title2.bold())
             Text(pet.state.mood).foregroundStyle(.secondary)
-            HStack { Button("Feed") { pet.state.feed() }; Button("Play") { pet.state.play() }.disabled(pet.state.resting); Button(pet.state.resting ? "Wake up" : "Rest") { pet.state.resting.toggle() } }
+            HStack { Button("Feed") { pet.state.feed() }; Button("Play") { pet.play() }.disabled(pet.state.resting); Button(pet.state.resting ? "Wake up" : "Rest") { pet.state.resting.toggle() } }
             VStack(alignment: .leading) { meter("Fullness", pet.state.fullness); meter("Energy", pet.state.energy); meter("Joy", pet.state.joy) }
             Text("Level \(pet.state.level) · \(pet.state.sessions) completed focus sessions").font(.caption)
             HStack { TextField("Companion name", text: $name).textFieldStyle(.roundedBorder); Button("Rename") { pet.rename(name) }.disabled(name.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty) }
-            Text("Finish a WaveDock focus session to earn a little joy. Your companion is safe while you’re away. No app or keyboard activity is tracked.").font(.caption).foregroundStyle(.secondary)
+            Text("Finish a DockGrove focus session to earn a little joy. Your companion is safe while you’re away. No app or keyboard activity is tracked.").font(.caption).foregroundStyle(.secondary)
         }.onAppear { name = pet.state.name }
     }
     private func meter(_ name: String, _ value: Double) -> some View { HStack { Text(name).frame(width:65,alignment:.leading); ProgressView(value:value,total:100).tint(accent); Text("\(Int(value))").monospacedDigit().frame(width:28) }.font(.caption) }

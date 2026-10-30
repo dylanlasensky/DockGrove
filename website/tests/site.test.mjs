@@ -24,12 +24,12 @@ for(const page of pages){
  for(const match of source.matchAll(/aria-controls="([^"]+)"/g))assert(ids.includes(match[1]));
  assert(!source.includes('sk_test_')&&!source.includes('sk_live_')&&!source.includes('whsec_'));
 }
-assert(!fs.existsSync(path.join(root,'assets/companions')),'Pet redesign assets are excluded');
-assert(!html.includes('pet-grid')&&!html.includes('assets/companions')&&!js.includes('const pets ='),'No rejected pet gallery or rig claims');
+assert.equal(fs.readdirSync(path.join(root,'assets/companions')).length,9,'All nine approved pixel pets');
+assert.equal((html.match(/class="pixel-pet"/g)||[]).length,9,'All nine pets have visible previews');
 assert(html.includes('SAMPLE')&&html.includes('not a remaining subscription quota'));
 assert(html.includes('Coming soon')&&html.includes('Not yet Apple-notarized'));
 assert(html.includes('data-coming-soon="true"'),'Marketing CTA cannot initiate checkout');
-assert(html.includes('Companion redesign is in progress'));
+assert(html.includes('https://dockgrove.com/')&&html.includes('DockGrove-wordmark.png'));
 assert(css.includes('prefers-reduced-motion:reduce')&&css.includes('focus-visible'));
 assert(css.includes('prefers-color-scheme:dark')&&css.includes('prefers-contrast:more'));
 assert(fs.readFileSync(path.join(root,'recover.html'),'utf8').includes('method="post"'),'Recovery cannot fall back to email in URL');
@@ -46,14 +46,16 @@ if(process.argv.includes('--release')){
  const downloads=path.join(root,'downloads');
  assert(!fs.existsSync(downloads),'No app binaries in static deployment');
 }
-console.log('PASS: all public pages/assets, pet redesign exclusion, shared product configuration, payment safety guards, accessibility CSS, and protected-release policy.');
+console.log('PASS: all public pages/assets, approved pixel companion artwork, shared product configuration, payment safety guards, accessibility CSS, and protected-release policy.');
 
 const config=JSON.parse(fs.readFileSync(path.resolve(root,'../wrangler.jsonc'),'utf8'));
 assert.equal(config.name,'wavedock-preview');
-assert(!config.main&&!config.routes&&!config.d1_databases&&!config.r2_buckets,'Existing static Worker only, no paid service bindings');
+assert(!config.main&&!config.d1_databases&&!config.r2_buckets,'Existing static Worker only, no paid service bindings');
 
 new vm.Script(fs.readFileSync(path.join(root,"home.js"),"utf8"));
 const homeCSS=fs.readFileSync(path.join(root,"home.css"),"utf8");
 assert(homeCSS.includes("prefers-reduced-motion:reduce")&&homeCSS.includes("focus-visible")&&homeCSS.includes("min-height:44px"));
 for(const id of ["intelligence","widgets","workspace","personalize","download"])assert(html.includes(`id="${id}"`));
 assert(html.includes("Find your <em>flow.</em>")&&!html.includes("Get the free preview"));
+
+assert.deepEqual(config.routes,[{pattern:"dockgrove.com",custom_domain:true},{pattern:"www.dockgrove.com",custom_domain:true}]);

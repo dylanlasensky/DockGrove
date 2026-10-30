@@ -60,7 +60,7 @@ struct UtilityView: View {
             ProgressView(value: min(Double(utility.water), Double(utility.waterGoal)), total: Double(utility.waterGoal))
             HStack { Button("−1") { utility.drink(-1) }; Button("Drank a glass") { utility.drink(1) } }
             Stepper("Daily goal: \(utility.waterGoal)", value: $utility.waterGoal, in: 1...30)
-            Toggle("Hourly reminder while WaveDock is open", isOn: $utility.waterReminder)
+            Toggle("Hourly reminder while DockGrove is open", isOn: $utility.waterReminder)
             if utility.waterDue { Label("Time for a water break", systemImage: "drop.fill").foregroundStyle(.cyan) }
             Text("Choose your own goal. Count resets at local midnight.").font(.caption).foregroundStyle(.secondary)
         case .habits:

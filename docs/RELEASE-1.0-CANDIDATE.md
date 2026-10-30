@@ -1,4 +1,10 @@
-# WaveDock 1.0 app and website update
+# DockGrove branding and pixel-pet release
+
+This revision renames the product to DockGrove using exact crops of the owner-supplied brand sheet and includes all nine approved pixel companions with whole-body rendering and eased motion. The canonical website is https://dockgrove.com. Payment setup and Apple notarization remain pending; this is not a live paid-download launch.
+
+## Previous candidate record (superseded for branding and pets)
+
+# DockGrove 1.0 app and website update
 
 This update publishes app-management, appearance, native window interaction, commercial test infrastructure, and website improvements. All existing pet source and artwork remain at the 0.8 baseline. Rejected pet designs, generated rigs, the new animation engine, review movies and their scripts are excluded.
 

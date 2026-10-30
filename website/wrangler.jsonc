@@ -3,5 +3,18 @@
   "account_id": "222552fe7a46283461a3d7a48edca0e1",
   "compatibility_date": "2026-10-28",
   "workers_dev": true,
-  "assets": { "directory": "./public", "not_found_handling": "404-page" }
+  "assets": {
+    "directory": "./public",
+    "not_found_handling": "404-page"
+  },
+  "routes": [
+    {
+      "pattern": "dockgrove.com",
+      "custom_domain": true
+    },
+    {
+      "pattern": "www.dockgrove.com",
+      "custom_domain": true
+    }
+  ]
 }

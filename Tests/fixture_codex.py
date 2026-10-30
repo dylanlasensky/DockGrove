@@ -8,7 +8,7 @@ for line in sys.stdin:
     message = json.loads(line)
     method = message.get("method")
     if method == "initialize":
-        assert message["params"]["clientInfo"]["name"] == "wavedock"
+        assert message["params"]["clientInfo"]["name"] == "dockgrove"
         print(json.dumps({"id": 0, "result": {"userAgent": "fixture"}}), flush=True)
     elif method == "initialized":
         initialized = True

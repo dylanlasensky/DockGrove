@@ -1,3 +1,9 @@
+# DockGrove pixel companions
+
+The current runtime uses the nine `*-pixel.png` files: transparent 4×4 atlases with sixteen complete-body poses, eight walking/flight frames, idle/blink and settling/sleep frames. See [implementation](../../docs/COMPANION-REVIEW.md) and `PIXEL-PROMPTS*` for the exact generation prompts. The old six-pose sheets below are retained as historical source assets and are not the current renderer.
+
+## Historical artwork provenance
+
 # Companion artwork
 
 Generated individually with the built-in image generator, October 29, 2026. Transparent RGBA PNGs, 1536 × 1024; six 512 × 512 poses in row-major order. Runtime slices the original sheets once and caches them. The sixth frame is resting. No remote asset requests, common pad, emoji, or vector animal fallback.

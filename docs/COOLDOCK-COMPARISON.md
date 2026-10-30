@@ -1,10 +1,10 @@
 # CoolDock comparison, checked October 28, 2026
 
-This audit compares WaveDock's actual source with CoolDock's published documentation, rather than claiming parity from similar labels. CoolDock is an independent commercial product with a much larger catalog. WaveDock uses original native code and does not copy its artwork or implementation.
+This audit compares DockGrove's actual source with CoolDock's published documentation, rather than claiming parity from similar labels. CoolDock is an independent commercial product with a much larger catalog. DockGrove uses original native code and does not copy its artwork or implementation.
 
 Sources: [widget catalog](https://cooldock.app/docs/widgets), [layout behavior](https://cooldock.app/docs/layout), [connected widgets](https://cooldock.app/docs/integrations), [release notes](https://cooldock.app/updates).
 
-| Area | WaveDock 0.2 | WaveDock 0.3 |
+| Area | DockGrove 0.2 | DockGrove 0.3 |
 | --- | --- | --- |
 | Bottom replacement | Enabled Apple auto-hide, but Apple Dock could reveal underneath | Journals original hide/delay values, delays native reveal, restores on quit and recovers after interrupted sessions |
 | Full screen | Explicitly joined full-screen Spaces | Excludes full-screen Spaces; detects display-covering regular app windows; session/sleep suppression |
@@ -32,9 +32,9 @@ Claude Code can report supported Pro/Max allowance windows through the documente
 
 ## Added in 0.7
 
-Four independent dock layouts with per-dock paging, widgets, themes, physical display selection, width, alignment and floating height. Opt-in drag-to-edge snapping previews the target before release and uses the existing constrained-window writer and Undo. Album-derived music colors and a local focus companion are original WaveDock additions. Appearance now includes Glass, Graphite, Pearl and System rather than forcing dark text/surfaces everywhere.
+Four independent dock layouts with per-dock paging, widgets, themes, physical display selection, width, alignment and floating height. Opt-in drag-to-edge snapping previews the target before release and uses the existing constrained-window writer and Undo. Album-derived music colors and a local focus companion are original DockGrove additions. Appearance now includes Glass, Graphite, Pearl and System rather than forcing dark text/surfaces everywhere.
 
-References revisited: [CoolDock screens](https://cooldock.app/docs/screens), [appearance](https://cooldock.app/docs/appearance), [layout](https://cooldock.app/docs/layout), [Apple color](https://developer.apple.com/design/human-interface-guidelines/color), [materials](https://developer.apple.com/design/human-interface-guidelines/materials), and [motion](https://developer.apple.com/design/human-interface-guidelines/motion). CoolDock documents mirrored profiles across displays with independent interaction state; WaveDock chooses separately configured docks. Album-derived backgrounds and the cat are not claimed as CoolDock features.
+References revisited: [CoolDock screens](https://cooldock.app/docs/screens), [appearance](https://cooldock.app/docs/appearance), [layout](https://cooldock.app/docs/layout), [Apple color](https://developer.apple.com/design/human-interface-guidelines/color), [materials](https://developer.apple.com/design/human-interface-guidelines/materials), and [motion](https://developer.apple.com/design/human-interface-guidelines/motion). CoolDock documents mirrored profiles across displays with independent interaction state; DockGrove chooses separately configured docks. Album-derived backgrounds and the cat are not claimed as CoolDock features.
 
 ## Remaining gaps
 

@@ -21,14 +21,14 @@ enum LocalAIError: Error, LocalizedError {
     var errorDescription: String? { switch self {
     case .invalid: return "This is not a supported usage report. No new data was saved."
     case .tooLarge: return "This report is too large. The maximum is 20 MB."
-    case .existingStatusLine: return "Claude Code already has a custom status line. It has been preserved. Use the setup guide to integrate WaveDock’s capture command."
-    case .changedSettings: return "The status line changed outside WaveDock. It was preserved; remove the WaveDock command manually if needed."
+    case .existingStatusLine: return "Claude Code already has a custom status line. It has been preserved. Use the setup guide to integrate DockGrove’s capture command."
+    case .changedSettings: return "The status line changed outside DockGrove. It was preserved; remove the DockGrove command manually if needed."
     case .missing: return "No local report yet. Connect a status line or import a report to begin."
     } }
 }
 enum LocalAIStore {
     static let maxBytes = 20_000_000
-    static var folder: URL { FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("WaveDock/AI Usage") }
+    static var folder: URL { BrandStorage.supportDirectory.appendingPathComponent("AI Usage") }
     static func url(_ provider: LocalAIProvider, directory: URL = folder) -> URL { directory.appendingPathComponent(provider.rawValue + ".json") }
     static func number(_ value: Any?) throws -> Double {
         guard let n = value as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID(), n.doubleValue.isFinite, n.doubleValue >= 0 else { throw LocalAIError.invalid }; return n.doubleValue
@@ -107,10 +107,10 @@ enum LocalAIStore {
             let report = try decode(boundedInput(.standardInput), provider: provider)
             try save(report, provider: provider)
             if provider == .claude {
-                print(report.windows.isEmpty ? "Claude · WaveDock connected" : report.windows.map { "\($0.name): \(Int(100 - $0.used))% left" }.joined(separator: " · "))
-            } else { print("Gemini session saved to WaveDock: \(report.totalTokens) tokens. Response text was not retained.") }
+                print(report.windows.isEmpty ? "Claude · DockGrove connected" : report.windows.map { "\($0.name): \(Int(100 - $0.used))% left" }.joined(separator: " · "))
+            } else { print("Gemini session saved to DockGrove: \(report.totalTokens) tokens. Response text was not retained.") }
             return 0
-        } catch { fputs("WaveDock: usage capture failed; no new report saved.\n", stderr); return 1 }
+        } catch { fputs("DockGrove: usage capture failed; no new report saved.\n", stderr); return 1 }
     }
 }
 enum ClaudeStatusLineSetup {
@@ -160,7 +160,7 @@ enum ClaudeStatusLineSetup {
         catch { status = (error as? LocalAIError ?? .invalid).localizedDescription }
     }
     func disconnectClaude() {
-        do { try ClaudeStatusLineSetup.remove(); status = "WaveDock status line removed. Existing Claude settings preserved." }
+        do { try ClaudeStatusLineSetup.remove(); status = "DockGrove status line removed. Existing Claude settings preserved." }
         catch { status = (error as? LocalAIError ?? .invalid).localizedDescription }
     }
     func importReport() {
@@ -205,12 +205,12 @@ struct LocalAIUsageView: View {
             Text(widget.status).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             if widget.provider == .claude {
                 Button("Connect Claude Code status line", action: widget.connectClaude)
-                Button("Remove WaveDock status line", action: widget.disconnectClaude)
-                Text("Adds a command to ~/.claude/settings.json. Custom status lines are never overwritten. Keep WaveDock in the same location after connecting.").font(.caption2).foregroundStyle(.secondary)
+                Button("Remove DockGrove status line", action: widget.disconnectClaude)
+                Text("Adds a command to ~/.claude/settings.json. Custom status lines are never overwritten. Keep DockGrove in the same location after connecting.").font(.caption2).foregroundStyle(.secondary)
             } else {
                 Button("Import Gemini session JSON…", action: widget.importReport)
                 Button("Copy CLI capture command") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString("gemini --output-format json -p 'YOUR PROMPT' | " + ClaudeStatusLineSetup.quote(Bundle.main.executableURL!.path) + " --gemini-report", forType: .string) }
-                Text("Use with a run you choose to make. WaveDock never runs a prompt or charges your AI account to refresh.").font(.caption2).foregroundStyle(.secondary)
+                Text("Use with a run you choose to make. DockGrove never runs a prompt or charges your AI account to refresh.").font(.caption2).foregroundStyle(.secondary)
             }
             HStack { Button("Refresh", action: widget.refresh); Button("Clear local snapshot", action: widget.clear) }
             Link("Provider setup documentation", destination: widget.provider.documentation).font(.caption)

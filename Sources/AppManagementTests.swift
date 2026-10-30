@@ -1,7 +1,7 @@
 import AppKit
 
 @MainActor func runAppManagementTests() throws {
-    let suite = "WaveDockApps." + UUID().uuidString
+    let suite = "DockGroveApps." + UUID().uuidString
     let store = UserDefaults(suiteName: suite)!
     defer { store.removePersistentDomain(forName: suite) }
     let folder = FileManager.default.temporaryDirectory.appendingPathComponent(suite)
