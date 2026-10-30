@@ -1,0 +1,94 @@
+name: DockGrove
+options:
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    CODE_SIGN_IDENTITY: Apple Development
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: G563Q4D3XW
+    CODE_SIGN_ENTITLEMENTS: DockGrove.entitlements
+    ENABLE_APP_SANDBOX: NO
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+targets:
+  DockGrove:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+      - path: Tests
+        buildPhase: none
+      - path: Scripts
+        buildPhase: none
+      - path: Resources
+        buildPhase: resources
+      - path: Assets.xcassets
+        buildPhase: resources
+      - path: build.sh
+        buildPhase: none
+      - path: DockGrove.storekit
+        buildPhase: none
+      - path: DockGrove.entitlements
+        buildPhase: none
+    settings:
+      base:
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DOCKGROVE_STOREKIT"
+        PRODUCT_BUNDLE_IDENTIFIER: com.dylan.wavedock.development
+        PRODUCT_DISPLAY_NAME: DockGrove Development
+        INFOPLIST_FILE: Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        COMBINE_HIDPI_IMAGES: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+  PurchaseTestHost:
+    type: application
+    platform: macOS
+    sources:
+      - path: PurchaseTestHost
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dylan.wavedock.purchase-test-host
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_LSUIElement: YES
+        CODE_SIGN_ENTITLEMENTS: ""
+  PurchaseTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: PurchaseTests
+      - path: Sources/Purchases.swift
+      - path: Sources/WidgetCatalog.swift
+      - path: DockGrove.storekit
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dylan.wavedock.purchase-tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_ENTITLEMENTS: ""
+    dependencies:
+      - target: PurchaseTestHost
+      - sdk: StoreKitTest.framework
+        developer: true
+schemes:
+  DockGrove:
+    build:
+      targets:
+        DockGrove: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+  DockGrove StoreKit Testing:
+    build:
+      targets:
+        DockGrove: all
+        PurchaseTests: [test]
+    run:
+      config: Debug
+      storeKitConfiguration: DockGrove.storekit
+    test:
+      config: Debug
+      targets:
+        - name: PurchaseTests
+          parallelizable: false

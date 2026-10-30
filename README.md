@@ -1,6 +1,6 @@
 # DockGrove
 
-![DockGrove — Thoughtfully at hand.](Assets/Brand/DockGrove-wordmark.png)
+![DockGrove — Thoughtfully at hand.](app/Assets.xcassets/Brand/DockGrove-wordmark.imageset/DockGrove-wordmark.png)
 
 **Your apps, useful widgets, and AI usage in one native Mac Dock.**
 
@@ -8,13 +8,25 @@ DockGrove is a native Mac app. It gives you a customizable glass Dock with app l
 
 Built with Swift, SwiftUI, and AppKit. The 1.0 commercial candidate adds purchase and activation services while keeping notes, tasks, recordings and companion progress local.
 
-> **Version 1.0.0 app and website candidate.** Proposed offer: **US $9.99 once**, major version 1 and its maintenance updates, all nine companions, three personal Macs. No subscription. Stripe is test-only; live sales and Apple notarization are pending. Includes all nine new pixel-art companions. The legacy 0.8 edition retains its MIT permissions. See [commercial transition](docs/COMMERCIAL-LICENSE-TRANSITION.md), [commerce setup](docs/COMMERCE.md), and [validation evidence](docs/VALIDATION.md). DockGrove is independent and not affiliated with Apple, CoolDock or OpenAI.
+> **Native in-app purchases:** the Xcode app now offers **Plus at US $4.99 once** for everyday widgets and **Full Access at US $9.99 once** for all widgets, companions, GitHub, and AI usage. Basic Dock functions remain free. See [native purchases](docs/IN-APP-PURCHASES.md) for the exact split, StoreKit testing, and remaining App Store setup. These products are not live yet. The separate website Stripe candidate remains test-only; see [commerce setup](docs/COMMERCE.md). The legacy 0.8 edition retains its MIT permissions. DockGrove is independent and not affiliated with Apple, CoolDock or OpenAI.
 
 [DockGrove website](https://dockgrove.com/) · Website source and the test-commerce implementation are under `website/`. Checkout remains unavailable until the test services are configured.
 
+Compatible Macs can enable **Notch quick access** in Settings → Appearance. The resting notch matches the system camera housing. Hover or click to open a short horizontal strip. Home contains controls and searchable widgets; the second Files tab holds the file tray. Scroll sideways within either tab to explore. Appearance settings control the notch width, and Files has separate Tray and AirDrop drop zones. See [notch behavior and validation](docs/NOTCH.md).
+
+Toolbar dimensions are available in Settings → Appearance → Toolbar size. Drag a number badge left or right, or use its −/+ buttons, to adjust width, height, and icon size. Compact, Balanced, and Spacious previews apply presets; Fit width to content chooses between a content-sized bar and your chosen width. Changes save automatically and support Undo layout. Widget and display choices expand into searchable inline panels, and on/off settings use switches.
+
+## Repository layout
+
+- [`app/`](app/) contains the native macOS app, assets, build scripts, tests, and Xcode project.
+- [`website/`](website/) contains the website, commerce backend, and web tests.
+- [`docs/`](docs/) contains shared product and release documentation.
+
+Open `app/DockGrove.xcodeproj` in Xcode and select **DockGrove StoreKit Testing** to build and try local test purchases without charges. The **DockGrove** scheme uses the real StoreKit environment; products require App Store Connect setup. The checked-in project can be regenerated from `app/project.yml` with `cd app && xcodegen generate`.
+
 ## Companion and personalization
 
-Nine distinct pixel-art companions use complete-body frames, eased walking and turning, gentle idle blinks, settling and sleeping. The dragon flies. All sixteen poses per animal are checked for transparent margins and consistent scale. Care and focus progress remain local. Drag any app or widget onto another tile to take its position; apps, widgets, clock and usage tiles share one saved order. A colored border marks the drop target. Keep holding over a page arrow for just over half a second to turn the page; keep holding to continue through pages, then move onto a tile and release. Dropping directly on an arrow is a shortcut to move to the adjacent page. Releasing elsewhere outside the tiles cancels the move. Grab the small accent-colored handle at the top of a Dock to move it; replacement docks remain at the bottom while companion docks can float. Themes and arbitrary accent colors are independent for each Dock under Settings.
+Nine distinct SpriteKit pixel-art companions use shared GPU textures and complete-body frames, eased walking and turning, gentle idle blinks, settling and sleeping. The dragon flies. All sixteen poses per animal are checked for transparent margins and consistent scale. Care and focus progress remain local. Drag any app or widget onto another tile to take its position; apps, widgets, clock and usage tiles share one saved order. A colored border marks the drop target. Keep holding over a page arrow for just over half a second to turn the page; keep holding to continue through pages, then move onto a tile and release. Dropping directly on an arrow is a shortcut to move to the adjacent page. Releasing elsewhere outside the tiles cancels the move. Grab the small accent-colored handle at the top of a Dock to move it; replacement docks remain at the bottom while companion docks can float. Themes and arbitrary accent colors are independent for each Dock under Settings.
 
 ## Requirements
 
@@ -37,7 +49,7 @@ Builds are ad-hoc signed for local testing, **not Developer ID signed or notariz
 
 ```sh
 git clone https://github.com/dylanlasensky/DockGrove.git
-cd DockGrove
+cd DockGrove/app
 zsh build.sh --development
 # Open the development build only when ready to review:
 open dist/DockGrove.app
@@ -48,12 +60,12 @@ The development build uses the installed Apple toolchain and creates `dist/DockG
 ## First setup
 
 1. Open Settings from the DockGrove icon in your menu bar or the sliders button in DockGrove.
-2. New installations use **Automatic** appearance, following the Mac. Explicit existing themes are preserved. Choose icon size and an accent: White, None (neutral), Mint, Blue, Lilac, Coral, Rose, Gold, or any custom color. Rich widget cards show live details directly on the Dock; turn them off for compact tiles.
-3. Use **+** or **Pin apps…** for the searchable installed-app picker. Right-click an app and choose **Replace app…** to preserve its position. Undo is available for app changes. Drag tiles to reorder them.
-4. Choose a display. Replacement mode stays at the bottom. Enable automatic hiding or hide-on-overlap if you prefer; hold the pointer at the physical bottom edge for a quarter second to reveal it.
-5. Enable your widgets in **Widget library**. A full Dock uses whole-card pages; navigation and Settings remain visible.
-6. Enable **Use DockGrove as my Dock** when you want replacement mode. Fresh development settings leave it off until you choose it. Apple’s Dock is hidden and its edge reveal is delayed while DockGrove runs. Disable replacement to use a separate top or bottom bar. Your original Apple Dock preferences return when you disable replacement or quit.
-7. Save a named layout to switch between app collections, widgets, icon sizes, and accent colors. Export/import layout JSON to move those layouts to another Mac. App paths must exist on the destination Mac.
+2. In **Library**, browse visual widget previews or switch to **Apps**. Drag a card into **Your Dock** or directly onto the actual DockGrove bar. Drop on the left or right half of a tile to choose its position. Existing items move without duplicating.
+3. Use the preview’s left/right arrows and page counter to browse the whole layout. Drag tiles to reorder them, drop onto **Drop to remove**, or right-click for move/remove commands. **Undo layout** restores recent edits. Changes save immediately; widget preview content is illustrative.
+4. In **Appearance → Widget shapes**, choose a widget and select Card, Square, Circle, or Pill. You can mix shapes in one Dock; compact shapes open the complete widget controls when clicked. Shapes travel with dragged widgets, save with named layouts, and support Undo layout. Choose a theme preview in **Appearance**, then adjust icon size, accent, rich cards, width, and position. Browse **16 color packs and 92 accents**, grouped into Essentials, Nature, Soft, Vivid, Earth, and Seasonal collections. Pack cards preview their swatches; select a pack, then choose its accent. New packs include light/dark variants. New installations follow the Mac’s appearance; existing themes are preserved.
+5. In **Behavior**, choose a display, automatic hiding, hide-on-overlap, clock, and window snapping. Enable **Use DockGrove as my Dock** for replacement mode. Your original Apple Dock preferences return when you turn replacement off or quit.
+6. Save or import named layouts under **Behavior**, and manage extra docks from the sidebar. App paths must exist on the destination Mac.
+7. **Purchases** contains the one-time Plus and Full Access offers and Restore Purchases. Locked library cards show their required tier and open these offers when clicked.
 
 The DockGrove menu-bar icon always gives access to Settings, show/hide, usage refresh, Apple Dock restoration, and Quit. **Done** closes Settings. ⌘W closes Settings and ⌘Q quits while DockGrove is active.
 
@@ -73,7 +85,7 @@ The DockGrove menu-bar icon always gives access to Settings, show/hide, usage re
 | System information | Live CPU sparkline, active/wired/compressed memory use, network throughput, battery/charging state, installed RAM and available disk space |
 | Calendar | Opt-in access to the next seven days of Mac calendar events; manual refresh |
 | Clipboard | Opt-in text history, up to 20 entries in memory, click to copy, clear history |
-| Weather | Legacy/development manual city weather; unavailable in the commercial candidate pending an approved provider configuration |
+| Weather | Apple WeatherKit current conditions, feels-like temperature, and manual city search |
 | GitHub | Public repositories or existing `gh` sign-in; stars/forks, open issues and PRs, latest Actions run, optional five-minute refresh, stale/error states |
 | Bookmarks | Local named HTTP/HTTPS links; add, open, remove |
 | Folders & Downloads | Choose a folder, navigate up/into subfolders, search, sort by name or newest, open, reveal, drag files out |
@@ -165,7 +177,7 @@ Latest build status distinguishes queued/running/completed states. A failed refr
 - **Calendar:** requested only when you press Connect / refresh calendar. Events are read into memory; DockGrove does not edit them.
 - **Music:** macOS asks for Automation permission for your chosen player. Open Spotify or Music and play a track before connecting. Disconnect stops polling.
 - **Clipboard:** disabled on every launch until explicitly enabled. Text history stays in memory and clears when you quit. Copies marked concealed, transient, or automatically generated are skipped. Apps do not all mark sensitive text, so disable capture when copying sensitive information.
-- **Weather:** development builds send your typed city to Open-Meteo's geocoding API, then the matching coordinates to its forecast API when you refresh. No GPS/location permission. Weather is disabled in commercial builds pending an approved provider configuration because the free hosted API is restricted to noncommercial use. See [Open-Meteo's terms](https://open-meteo.com/en/terms).
+- **Weather:** city search uses Apple geocoding, then WeatherKit’s native Swift API for current conditions. Requests happen only when you refresh; the device’s location is not requested. Apple Weather attribution and data-source links appear with the results. Live access requires WeatherKit-enabled signing; see [WeatherKit setup](docs/WEATHERKIT.md).
 - **Notes, tasks, shelf paths, layouts, preferences:** stored locally in DockGrove's macOS preferences. Layout exports contain app paths and appearance settings, not notes, tasks, credentials, or clipboard history.
 - **File shelf:** stores shortcuts to originals. Removing a shelf item does not delete the file. Moved/deleted original files need to be re-added.
 - **Telemetry:** no DockGrove analytics or tracking server.
@@ -185,6 +197,8 @@ Quit a running DockGrove before using command-line recovery. If necessary, chang
 DockGrove excludes native full-screen Spaces and suppresses its panel when the active regular app covers the selected display, during session inactivity, and while displays sleep. Hidden means no visible panel and no interception of clicks. A quarter-second edge dwell reveals an auto-hidden Dock; it hides 0.7 seconds after leaving. Full-screen suppression takes precedence over popovers. Background utilities’ transparent overlays are excluded from full-screen detection. Window-bounds detection is conservative; unusual games/video players and more display configurations still need hardware validation.
 
 ## Tests
+
+Run these commands from `app/`:
 
 ```sh
 zsh build.sh
@@ -216,23 +230,23 @@ See [CoolDock comparison](docs/COOLDOCK-COMPARISON.md) for the sourced gap audit
 ## Project structure
 
 ```text
-Sources/App.swift        App lifecycle, windows, placement, auto-hide, menu
-Sources/DockBehavior.swift Visibility policy and transactional Apple Dock recovery
-Sources/Utilities.swift   Local utility models and native system integrations
-Sources/UtilityViews.swift Local utility popovers
-Sources/GitHubWidget.swift Read-only GitHub REST and CLI client
-Sources/GitHubView.swift  GitHub connection and activity UI
-Sources/BehaviorTests.swift Regression checks
-Sources/NativeTests.swift Opt-in native rendering/window checks
-Sources/Model.swift      Apps, layouts and settings
-Sources/Usage.swift      Read-only Codex usage client and data models
-Sources/Views.swift      Main Dock, app tiles, usage details, settings
-Sources/Toolkit.swift    Widget state, persistence, timers, integrations
-Sources/ToolViews.swift  Widget popovers and library settings
-Sources/SelfTests.swift  Decoding and persistence-format checks
-Tests/fixture_codex.py   Offline app-server protocol fixture
-Scripts/MakeIcon.swift   Exact-logo macOS icon packaging
-build.sh                Universal app build and local signing
+app/Sources/App.swift        App lifecycle, windows, placement, auto-hide, menu
+app/Sources/DockBehavior.swift Visibility policy and transactional Apple Dock recovery
+app/Sources/Utilities.swift   Local utility models and native system integrations
+app/Sources/UtilityViews.swift Local utility popovers
+app/Sources/GitHubWidget.swift Read-only GitHub REST and CLI client
+app/Sources/GitHubView.swift  GitHub connection and activity UI
+app/Sources/BehaviorTests.swift Regression checks
+app/Sources/NativeTests.swift Opt-in native rendering/window checks
+app/Sources/Model.swift      Apps, layouts and settings
+app/Sources/Usage.swift      Read-only Codex usage client and data models
+app/Sources/Views.swift      Main Dock, app tiles, usage details, settings
+app/Sources/Toolkit.swift    Widget state, persistence, timers, integrations
+app/Sources/ToolViews.swift  Widget popovers and library settings
+app/Sources/SelfTests.swift  Decoding and persistence-format checks
+app/Tests/fixture_codex.py   Offline app-server protocol fixture
+app/Scripts/MakeIcon.swift   Exact-logo macOS icon packaging
+app/build.sh                Universal app build and local signing
 ```
 
 ## Contributing
@@ -242,3 +256,5 @@ Issues and pull requests are welcome. For bugs, include macOS version, processor
 ## License and proposed commercial transition
 
 The existing [MIT license](LICENSE) and required notices are preserved. Legacy copies retain their permissions. The 1.0 paid offer does not itself retroactively close the source or revoke MIT rights. Proposed commercial terms and the file/release boundary require owner approval before live sales; see [the transition document](docs/COMMERCIAL-LICENSE-TRANSITION.md). Apple, Spotify, OpenAI, and other product names belong to their respective owners.
+
+Connection setup lives in **Settings → Connections**. Widget settings shortcuts open the relevant music, calendar, reminders, or usage integration. Provider apps and Internet Accounts handle sign-in; access switches and key setup remain in DockGrove Settings.
