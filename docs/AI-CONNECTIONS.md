@@ -18,7 +18,7 @@ No integration generates AI requests simply to refresh usage.
 
 1. Put DockGrove in its permanent location, normally Applications.
 2. Enable **Claude Code limits** in the widget library.
-3. Open **Settings → Connections → Claude Code limits**. Choose **Sign in with Claude Code** or **Use existing sign-in** to enable usage capture. You can also choose **Set up Claude Code status line** separately.
+3. Open **Settings → Connections → Claude**. Choose **Sign in** or **Use CLI** to enable usage capture. **Options → Enable usage capture** also sets up the bridge separately.
 4. Start a new Claude Code session. After an API response, a supported Claude
    version supplies allowance windows to DockGrove's helper.
 
@@ -102,3 +102,21 @@ References checked October 30, 2026:
 - https://geminicli.com/docs/get-started/authentication/
 - https://platform.claude.com/docs/en/manage-claude/usage-cost-api
 - https://cursor.com/docs/account/teams/admin-api
+
+
+## Compact provider setup
+
+Connections now groups AI setup into **OpenAI**, **Claude**, **Gemini** and **Cursor**,
+with inline **Sign in**, **API token** and **Use CLI** methods. Only the selected
+method's main action is shown. Refresh controls, installation links, cleanup and
+advanced setup are collapsed under **Options**. Existing widget shortcuts still
+route to their provider; API-widget shortcuts select the token method.
+
+- OpenAI: browser sign-in via Codex, organization admin token, or an existing Codex account.
+- Claude: browser sign-in via Claude Code, organization admin token, or an existing Claude Code account. CLI paths enable the status-line bridge; limits arrive after a supported session response.
+- Gemini: Google sign-in in Gemini CLI or importing an existing CLI session. The API-token method is disabled because that token does not expose the usage displayed by this integration.
+- Cursor: dashboard sign-in or a team admin token. Dashboard sign-in shows usage on Cursor; the token is required to display it in DockGrove. CLI usage is unavailable and disabled.
+
+Switching providers or leaving token entry clears the unsaved token field. Saved
+tokens continue to use Keychain. This presentation change does not add new OAuth
+clients, change provider permissions, or infer subscription limits from API totals.

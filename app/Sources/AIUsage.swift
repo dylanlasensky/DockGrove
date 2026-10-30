@@ -126,7 +126,7 @@ enum UsageKeychain {
     let provider: AIProvider
     @Published var snapshot: AIUsageSnapshot?
     @Published var busy = false
-    @Published var status = "Connect an organization admin key to read usage."
+    @Published var status = ""
     @Published var autoRefresh = false
     private var generation = 0
     private var timer: Timer?

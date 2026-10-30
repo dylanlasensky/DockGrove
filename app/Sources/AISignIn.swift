@@ -43,7 +43,8 @@ enum AICommand {
 
 @MainActor final class AISignIn: ObservableObject {
     @Published private(set) var busy = false
-    @Published private(set) var status = "Use an existing CLI account, or sign in below."
+    static let initialStatus = "Use an existing CLI account, or sign in below."
+    @Published private(set) var status = AISignIn.initialStatus
     @Published private(set) var authenticated = false
     private var process: Process?
     private var timeoutTask: Task<Void, Never>?
@@ -54,7 +55,7 @@ enum AICommand {
         guard !busy else { return }
         guard let path = provider.executable(custom: custom) else {
             authenticated = false
-            status = "Install \(provider.title), or choose its executable, then try again."
+            status = "Install \(provider.title) to continue."
             return
         }
         authenticated = false
@@ -76,7 +77,7 @@ enum AICommand {
                 self.timeoutTask?.cancel(); self.timeoutTask = nil
                 self.process = nil; self.busy = false; self.authenticated = successful
                 self.status = successful ? "CLI account signed in. Usage availability depends on your plan." :
-                    (checkOnly ? "No usable CLI sign-in found. Sign in to continue." : "Sign-in did not complete. Try again, or finish signing in through the provider’s CLI.")
+                    (checkOnly ? "No signed-in CLI account found." : "Sign-in did not complete. Try again.")
                 if successful { onSuccess() }
             }
         }
@@ -87,9 +88,9 @@ enum AICommand {
             timeoutTask = Task { [weak self] in
                 try? await Task.sleep(nanoseconds: UInt64((timeout ?? (checkOnly ? 20 : 300)) * 1_000_000_000))
                 guard !Task.isCancelled, let self, self.generation == request, self.busy else { return }
-                self.cancel(message: "Sign-in timed out. Try again when you are ready.")
+                self.cancel(message: "Sign-in timed out. Try again.")
             }
-        } catch { status = "Could not launch \(provider.title). Check the executable or install the latest CLI." }
+        } catch { status = "Could not open \(provider.title). Check CLI setup." }
     }
     func cancel(message: String = "Stopped waiting for sign-in. Your existing CLI account has not been signed out.") {
         generation += 1; timeoutTask?.cancel(); timeoutTask = nil
@@ -146,9 +147,19 @@ struct CodexConnectionView: View {
 }
 
 struct GeminiSignInControls: View {
+    var compact = false
+    var onImport: () -> Void = {}
+    @State private var opened = false
     @State private var status = "Google sign-in is managed by the Gemini CLI in Terminal."
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if compact {
+                Text(opened ? "Finish Google sign-in, then import a session report." : "Google sign-in through Gemini CLI in Terminal.").font(.callout).foregroundStyle(.secondary)
+                Button(action: opened ? onImport : openGemini) {
+                    FontAwesomeLabel(opened ? "Import usage" : "Sign in", icon: opened ? .code : .google)
+                }.buttonStyle(.bordered)
+                if status != "Google sign-in is managed by the Gemini CLI in Terminal." && !opened { Text(status).font(.caption).foregroundStyle(.secondary) }
+            } else {
             Text(status).font(.callout)
             HStack {
                 Button(action: openGemini) { FontAwesomeLabel("Sign in with Google in Gemini…", icon: .google) }.buttonStyle(.bordered)
@@ -156,6 +167,7 @@ struct GeminiSignInControls: View {
             }
             Text("Choose Sign in with Google, or /auth to change accounts. After signing in, import a session report below to show usage. Signing in alone does not provide a live remaining-quota feed.")
                 .font(.caption).foregroundStyle(.secondary)
+            }
         }
     }
     private func openGemini() {
@@ -167,7 +179,7 @@ struct GeminiSignInControls: View {
             try AICommand.geminiScript(executable: executable, directory: folder.path).write(to: script, atomically: true, encoding: .utf8)
             try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: script.path)
             NSWorkspace.shared.open([script], withApplicationAt: URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"), configuration: NSWorkspace.OpenConfiguration()) { _, error in
-                DispatchQueue.main.async { status = error == nil ? "Continue in Terminal, then import a usage report below." : "Could not open Terminal. Run gemini manually to sign in." }
+                DispatchQueue.main.async { opened = error == nil; status = error == nil ? "Continue in Terminal, then import a usage report below." : "Could not open Terminal. Run gemini manually to sign in." }
             }
         } catch { status = "Could not prepare Gemini sign-in. Run gemini in Terminal to sign in." }
     }

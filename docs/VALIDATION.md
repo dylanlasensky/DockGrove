@@ -192,3 +192,10 @@ These limits are retained rather than converting fixture or rendering evidence i
 - Replaced prominent filled action buttons with neutral native buttons and Font Awesome labels for AI sign-in, usage refresh, purchases, license activation and Focus. Provider cards also use bundled brand marks. Button labels, disabled states and purchase accessibility descriptions remain intact.
 - Added 13 upstream SVGs to the asset catalog with template rendering/vector preservation, plus the bundled upstream attribution/license. The asset test verifies all 13 compiled images and the license resource.
 - Signed Debug build, strict code-signature verification, shell-script syntax and the full existing asset/render suite passed. Native Connections inspection confirmed the provider marks, neutral sign-in buttons, key/external-link icons and refresh icon render correctly; no authorization or purchase behavior changed in this styling pass.
+
+
+## October 30, 2026: Compact AI connection methods
+
+- Consolidated the AI setup cards into four providers with inline Sign in / API token / Use CLI selectors, one main action per method and collapsed Options. Token entry remains secure and Save is disabled for empty input or an active fetch. Methods without a supported usage source are disabled with explanatory accessibility help.
+- Signed Debug build, strict signature verification and all four sign-in lifecycle checks passed. Native UI inspection covered OpenAI sign-in/token/CLI, Claude token setup, Gemini sign-in/import, Cursor dashboard/token, and inline Options expansion. The new Use CLI action successfully read the existing Codex account and refreshed live limits.
+- No new provider accounts, API tokens, OAuth permissions, purchases or AI inference requests were created during validation. Existing Claude/Gemini/API live-usage limits remain as documented in AI-CONNECTIONS.md.
