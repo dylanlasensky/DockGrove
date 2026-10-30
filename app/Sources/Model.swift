@@ -30,6 +30,13 @@ struct DockApp: Identifiable, Equatable {
     @Published var theme: String { didSet { defaults.set(theme, forKey: "theme") } }
     @Published var widthFraction: Double { didSet { defaults.set(widthFraction, forKey: "widthFraction") } }
     @Published var notchEnabled: Bool { didSet { defaults.set(notchEnabled, forKey: "notchEnabled") } }
+    @Published var notchWidth: Double {
+        didSet {
+            let normalized = NotchGeometry.normalizedWidth(notchWidth)
+            if notchWidth != normalized { notchWidth = normalized }
+            defaults.set(notchWidth, forKey: "notchWidth")
+        }
+    }
     var openNotchAction: (() -> Void)?
     @Published var toolbarHeight: Double { didSet { defaults.set(toolbarHeight, forKey: "toolbarHeight") } }
     @Published var fitToolbarToContent: Bool { didSet { defaults.set(fitToolbarToContent, forKey: "fitToolbarToContent") } }
@@ -60,6 +67,11 @@ struct DockApp: Identifiable, Equatable {
     @Published var systemError: String?
     let toolkit: Toolkit
     let defaults: UserDefaults
+    @Published var connectionSettingsKind: ToolKind?
+    func openConnectionSettings(_ kind: ToolKind) {
+        connectionSettingsKind = kind
+        settingsAction?()
+    }
     var settingsAction: (() -> Void)?
     var closeSettingsAction: (() -> Void)?
     var changeDockAction: ((Bool) -> Void)?
@@ -80,6 +92,7 @@ struct DockApp: Identifiable, Equatable {
         theme = defaults.string(forKey: "theme") ?? "Automatic"
         widthFraction = min(1,max(0.35,defaults.object(forKey: "widthFraction") as? Double ?? 1))
         notchEnabled = defaults.bool(forKey: "notchEnabled")
+        notchWidth = NotchGeometry.normalizedWidth(defaults.object(forKey: "notchWidth") as? Double ?? 760)
         let storedHeight = defaults.object(forKey: "toolbarHeight") as? Double ?? 92
         toolbarHeight = storedHeight.isFinite ? min(180, max(88, storedHeight)) : 92
         fitToolbarToContent = defaults.object(forKey: "fitToolbarToContent") as? Bool ?? true

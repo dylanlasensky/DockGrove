@@ -39,13 +39,87 @@ final class NotchDropHostingView: NSHostingView<NotchShelfView> {
     override func concludeDragOperation(_ sender: NSDraggingInfo?) { controller?.fileDragActive = false }
 }
 
+enum NotchDropDestination { case tray, airDrop }
+
+/// Native destinations distinguish the two zones while the parent handles the resting notch.
+struct NotchDropTarget: NSViewRepresentable {
+    let destination: NotchDropDestination
+    let controller: NotchController
+    func makeNSView(context: Context) -> NotchDropTargetView {
+        let view = NotchDropTargetView()
+        view.destination = destination; view.controller = controller
+        return view
+    }
+    func updateNSView(_ view: NotchDropTargetView, context: Context) {
+        view.destination = destination; view.controller = controller
+    }
+}
+
+final class NotchDropTargetView: NSView {
+    var destination: NotchDropDestination = .tray
+    weak var controller: NotchController?
+    override init(frame: NSRect) { super.init(frame: frame); registerForDraggedTypes([.fileURL]) }
+    required init?(coder: NSCoder) { fatalError() }
+    override func mouseDown(with event: NSEvent) { controller?.addFiles(to: destination) }
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard controller?.canAccept(destination) == true,
+              sender.draggingPasteboard.canReadObject(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) else { return [] }
+        controller?.beginFileDrag(); controller?.activeDropDestination = destination
+        return .copy
+    }
+    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+        guard controller?.canAccept(destination) == true else { return [] }
+        controller?.fileDragActive = true; controller?.activeDropDestination = destination
+        return .copy
+    }
+    override func draggingExited(_ sender: NSDraggingInfo?) { clearHighlight() }
+    override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool { controller?.canAccept(destination) == true }
+    func accept(_ pasteboard: NSPasteboard) -> Bool {
+        controller?.acceptDrop(NotchFileIntake.urls(from: pasteboard), to: destination) ?? false
+    }
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool { accept(sender.draggingPasteboard) }
+    override func concludeDragOperation(_ sender: NSDraggingInfo?) { clearHighlight() }
+    private func clearHighlight() {
+        if controller?.activeDropDestination == destination {
+            controller?.fileDragActive = false; controller?.activeDropDestination = nil
+        }
+    }
+}
+
+struct NotchDropZone: View {
+    let destination: NotchDropDestination
+    @ObservedObject var controller: NotchController
+    private var isTray: Bool { destination == .tray }
+    private var highlighted: Bool { controller.fileDragActive && controller.activeDropDestination == destination }
+    var body: some View {
+        HStack(spacing: 16) {
+            Image(systemName: isTray ? "tray.and.arrow.down" : "airplayaudio").font(.system(size: 27, weight: .light))
+            VStack(alignment: .leading, spacing: 5) {
+                Text(isTray ? "File tray" : "AirDrop").font(.headline)
+                Text(highlighted ? (isTray ? "Release to keep files" : "Release to choose a device") : (isTray ? "Drop files to keep them here" : controller.airDropMessage))
+                    .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                Text("or click to choose files").font(.system(size: 9)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }.padding(.horizontal, 16).frame(width: 280, height: 84)
+            .background(highlighted ? Color.accentColor.opacity(0.18) : .white.opacity(0.05), in: RoundedRectangle(cornerRadius: 13))
+            .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(highlighted ? Color.accentColor : .white.opacity(0.2), style: StrokeStyle(lineWidth: highlighted ? 2 : 1, dash: [5])))
+            .overlay(NotchDropTarget(destination: destination, controller: controller))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(isTray ? "File tray drop zone" : "AirDrop drop zone")
+            .accessibilityHint(isTray ? "Drop files to keep shortcuts, or activate to choose files" : "Drop files to choose an AirDrop recipient, or activate to choose files")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { controller.addFiles(to: destination) }
+    }
+}
+
 struct NotchHomeView: View {
     @ObservedObject var model: DockModel
     @ObservedObject var kit: Toolkit
     @ObservedObject var controller: NotchController
     var body: some View {
         HStack(spacing: 12) {
-            if model.canAccess(.music) { NotchMusicCard(player: kit.spotify.connected ? kit.spotify : kit.appleMusic).frame(width: 256) }
+            if model.canAccess(.music) { NotchMusicCard(player: kit.spotify.connected ? kit.spotify : kit.appleMusic, openSettings: { model.openConnectionSettings(kit.spotify.connected ? .spotify : .appleMusic) }).frame(width: 320) }
             else {
                 HStack(spacing: 12) {
                     Image(systemName: "sun.max").font(.title2)
@@ -54,7 +128,7 @@ struct NotchHomeView: View {
                         Text("Scroll for your widgets.").font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
-                }.frame(width: 236, height: 64).padding(10).background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
+                }.frame(width: 300, height: 64).padding(10).background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
             }
             HStack(spacing: 14) {
                 VStack(alignment: .leading, spacing: 4) {
@@ -63,13 +137,14 @@ struct NotchHomeView: View {
                 }
                 Button(action: kit.toggleTimer) { Image(systemName: kit.focusEnd == nil ? "play.fill" : "pause.fill").padding(4) }
                     .buttonStyle(.bordered).accessibilityLabel(kit.focusEnd == nil ? "Start focus" : "Pause focus")
-            }.frame(width: 128, height: 64).padding(10).background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
+            }.frame(width: 188, height: 64).padding(10).background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
         }
     }
 }
 
 private struct NotchMusicCard: View {
     @ObservedObject var player: MusicPlayer
+    let openSettings: () -> Void
     var body: some View {
         HStack(spacing: 12) {
             Group {
@@ -87,8 +162,8 @@ private struct NotchMusicCard: View {
                     Button { player.refresh(command: .next) } label: { Image(systemName: "forward.fill") }.accessibilityLabel("Next track")
                 }.disabled(player.busy)
             } else {
-                Button("Connect") { player.refresh() }.buttonStyle(.bordered).disabled(player.busy)
-                    .accessibilityLabel("Connect " + player.name)
+                Button(action: openSettings) { Image(systemName: "gearshape").padding(5) }.buttonStyle(.bordered)
+                    .accessibilityLabel("Open " + player.name + " connection settings")
             }
         }.frame(height: 64).padding(10).background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
     }
@@ -104,23 +179,15 @@ struct NotchTrayView: View {
                 Label("File tray · Plus", systemImage: "lock.fill")
                     .font(.caption).foregroundStyle(.secondary).frame(width: 220, height: 84)
             } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("File tray", systemImage: "tray.fill").font(.caption.weight(.semibold))
-                    Button("Add files…") { controller.addFiles() }.font(.caption)
-                    if !kit.files.isEmpty {
+                NotchDropZone(destination: .tray, controller: controller)
+                NotchDropZone(destination: .airDrop, controller: controller)
+                if !kit.files.isEmpty {
+                    VStack(spacing: 8) {
+                        Text("\(kit.files.count) file\(kit.files.count == 1 ? "" : "s")").font(.caption)
                         Button("Clear shortcuts") { kit.files.removeAll(); controller.trayMessage = "Original files are unchanged." }
                             .font(.system(size: 10)).foregroundStyle(.secondary)
-                    }
-                }.frame(width: 84, alignment: .leading)
-                if kit.files.isEmpty {
-                    HStack(spacing: 8) {
-                        Image(systemName: "square.and.arrow.down").font(.title2)
-                        Text(controller.fileDragActive ? "Release files" : "Drop files here").font(.caption)
-                    }.frame(width: 144, height: 80)
-                        .background(.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [5])))
-                } else {
-                    ForEach(kit.files, id: \.self) { path in trayItem(path).frame(width: 112) }
+                    }.frame(width: 100)
+                    ForEach(kit.files, id: \.self) { path in trayItem(path).frame(width: 180) }
                 }
             }
         }.frame(height: 84).help(controller.trayMessage ?? "File shortcuts: removing them leaves the originals unchanged.")

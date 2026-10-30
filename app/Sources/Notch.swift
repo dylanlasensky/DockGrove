@@ -16,9 +16,10 @@ struct NotchGeometry: Equatable {
     init?(display: NSScreen) {
         self.init(screen: display.frame, topInset: display.safeAreaInsets.top, left: display.auxiliaryTopLeftArea, right: display.auxiliaryTopRightArea)
     }
-    func panelFrame(expanded: Bool) -> CGRect {
+    static func normalizedWidth(_ value: Double) -> Double { value.isFinite ? min(1600, max(600, value)) : 760 }
+    func panelFrame(expanded: Bool, preferredWidth: Double = 760) -> CGRect {
         guard expanded else { return housing }
-        let width = min(screen.width - 32, max(760, housing.width + 120))
+        let width = min(screen.width - 32, max(CGFloat(Self.normalizedWidth(preferredWidth)), housing.width + 120))
         let height: CGFloat = housing.height + 112
         let x = min(screen.maxX - width - 16, max(screen.minX + 16, housing.midX - width / 2))
         return CGRect(x: x, y: screen.maxY - height, width: width, height: height)
@@ -61,20 +62,51 @@ extension DockModel {
     }
 }
 
-@MainActor final class NotchController: ObservableObject {
+@MainActor final class NotchController: NSObject, ObservableObject, NSSharingServiceDelegate {
     @Published var expanded = false
     @Published var selectedWidget: ToolKind?
     @Published var showingFiles = false
     @Published var fileDragActive = false
     @Published var trayMessage: String?
+    @Published var activeDropDestination: NotchDropDestination?
+    @Published var airDropMessage = "Drop files to share nearby"
+    private var airDropService: NSSharingService?
+    private let airDropAction: (([URL]) -> Bool)?
+    func canAccept(_ destination: NotchDropDestination) -> Bool {
+        canAcceptFiles && (destination == .tray || airDropService == nil)
+    }
+    @discardableResult func acceptDrop(_ urls: [URL], to destination: NotchDropDestination) -> Bool {
+        defer { fileDragActive = false; activeDropDestination = nil }
+        guard canAccept(destination) else { return false }
+        if destination == .tray { return acceptFiles(urls) }
+        let valid = NotchFileIntake.existingURLs(urls)
+        guard !valid.isEmpty else { airDropMessage = "Choose existing files or folders."; return false }
+        setExpanded(true); showingFiles = true
+        if let airDropAction { return airDropAction(valid) }
+        guard let service = NSSharingService(named: .sendViaAirDrop), service.canPerform(withItems: valid) else {
+            airDropMessage = "AirDrop is unavailable for these files."; return false
+        }
+        airDropService = service; service.delegate = self
+        airDropMessage = "Choose a device in AirDrop"
+        service.perform(withItems: valid)
+        return true
+    }
+    func sharingService(_ sharingService: NSSharingService, sourceWindowForShareItems items: [Any], sharingContentScope: UnsafeMutablePointer<NSSharingService.SharingContentScope>) -> NSWindow? { panel }
+    func sharingService(_ sharingService: NSSharingService, didShareItems items: [Any]) {
+        airDropService = nil; airDropMessage = "Shared with AirDrop"
+    }
+    func sharingService(_ sharingService: NSSharingService, didFailToShareItems items: [Any], error: Error) {
+        airDropService = nil
+        airDropMessage = (error as NSError).code == NSUserCancelledError ? "AirDrop cancelled. Drop to try again." : "AirDrop did not finish. Try again."
+    }
     private var choosingFiles = false
     var canAcceptFiles: Bool { model.canAccess(.files) }
     func beginFileDrag() {
         guard canAcceptFiles else { return }
-        setExpanded(true); showingFiles = true; fileDragActive = true
+        setExpanded(true); showingFiles = true; fileDragActive = true; activeDropDestination = .tray
     }
     @discardableResult func acceptFiles(_ urls: [URL]) -> Bool {
-        defer { fileDragActive = false }
+        defer { fileDragActive = false; activeDropDestination = nil }
         guard canAcceptFiles else { return false }
         let valid = NotchFileIntake.existingURLs(urls)
         guard !valid.isEmpty else { trayMessage = "Drop existing files or folders from Finder."; return false }
@@ -85,19 +117,22 @@ extension DockModel {
         trayMessage = added == 0 ? "These files are already in your tray." : "Added \(added) file shortcut\(added == 1 ? "" : "s")."
         return true
     }
-    func addFiles() {
-        guard canAcceptFiles else { return }
+    func addFiles(to destination: NotchDropDestination = .tray) {
+        guard canAccept(destination) else { return }
         choosingFiles = true
         let picker = NSOpenPanel(); picker.canChooseDirectories = true; picker.allowsMultipleSelection = true
-        if picker.runModal() == .OK { _ = acceptFiles(picker.urls) }
+        picker.message = destination == .tray ? "Choose files to keep in the tray." : "Choose files to share with AirDrop."
+        if picker.runModal() == .OK { _ = acceptDrop(picker.urls, to: destination) }
         choosingFiles = false
     }
     private(set) var panel: DockPanel!
     private let model: DockModel
     private var hover = NotchHoverState()
     @Published private(set) var geometry: NotchGeometry?
-    init(model: DockModel) {
+    init(model: DockModel, airDropAction: (([URL]) -> Bool)? = nil) {
         self.model = model
+        self.airDropAction = airDropAction
+        super.init()
         panel = DockPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.title = "DockGrove Notch"
         panel.isFloatingPanel = true; panel.level = .statusBar; panel.isOpaque = false
@@ -109,10 +144,10 @@ extension DockModel {
     func setExpanded(_ value: Bool, fromHover: Bool = false) {
         if !fromHover { hover.manualChange(expanded: value) }
         selectedWidget = nil; expanded = value
-        if let geometry { panel.setFrame(geometry.panelFrame(expanded: value), display: true) }
+        if let geometry { panel.setFrame(geometry.panelFrame(expanded: value, preferredWidth: model.notchWidth), display: true) }
     }
     func hide() {
-        hover = NotchHoverState(); fileDragActive = false
+        hover = NotchHoverState(); fileDragActive = false; activeDropDestination = nil
         selectedWidget = nil
         if expanded { expanded = false }
         panel.orderOut(nil); panel.ignoresMouseEvents = true
@@ -127,10 +162,10 @@ extension DockModel {
         if let expand = hover.update(now: Date.timeIntervalSinceReferenceDate,
                                      trigger: geometry.panelFrame(expanded: false).contains(mouse),
                                      inside: panel.frame.contains(mouse), expanded: expanded,
-                                     interacting: selectedWidget != nil || fileDragActive || choosingFiles) {
+                                     interacting: selectedWidget != nil || fileDragActive || choosingFiles || airDropService != nil) {
             setExpanded(expand, fromHover: true)
         }
-        let frame = geometry.panelFrame(expanded: expanded)
+        let frame = geometry.panelFrame(expanded: expanded, preferredWidth: model.notchWidth)
         if panel.frame != frame { panel.setFrame(frame, display: true) }
         panel.ignoresMouseEvents = false
         if !panel.isVisible { panel.orderFrontRegardless() }
@@ -237,7 +272,7 @@ struct NotchShelfView: View {
                 ScrollView(.vertical) {
                     ToolTile(kind: kind, model: model, kit: model.toolkit).contents
                         .frame(maxWidth: .infinity, alignment: .leading).padding(4)
-                }.frame(width: 360, height: 76)
+                }.frame(width: 460, height: 76)
             }.padding(8).background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
         } else {
             Button {
@@ -248,7 +283,7 @@ struct NotchShelfView: View {
                 VStack(spacing: 7) {
                     Image(systemName: kind.icon).font(.title3)
                     Text(kind.title).font(.caption).lineLimit(2).multilineTextAlignment(.center)
-                }.frame(width: 104, height: 84).background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+                }.frame(width: 160, height: 84).background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
             }.accessibilityLabel("Open " + kind.title + " from notch")
         }
     }
@@ -277,6 +312,14 @@ struct NotchSettingsView: View {
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     if model.notchEnabled && displayName != nil { Button("Open notch") { model.openNotchAction?() } }
                 }
+            }
+            StudioNumberControl(title: "Notch width", value: $model.notchWidth, range: 600...1600, step: 20, unit: "pt")
+            HStack(spacing: 12) {
+                Button("Compact") { model.notchWidth = 640 }
+                Button("Balanced") { model.notchWidth = 760 }
+                Button("Wide") { model.notchWidth = 1000 }
+                Spacer()
+                Text("Fits your display · height stays fixed").font(.caption).foregroundStyle(.secondary)
             }
             Text("The resting notch matches your system notch exactly. Hover or click to open a slim horizontal strip. Scroll sideways through Home controls and widgets. The second Files tab holds your tray; dragging files onto the notch opens it automatically. Hides in full screen, on lock, and during sleep.")
                 .font(.caption).foregroundStyle(.secondary)
@@ -311,12 +354,24 @@ struct NotchSettingsView: View {
             if !expanded { precondition(frame.minY == geometry.housing.minY, "Collapsed mode must stay entirely in the notch row") }
         }
     }
+    let sizing = NotchGeometry(screen: base, topInset: 32, left: left, right: right)!
+    for width in [Double.nan, -Double.infinity, 0, 600, 980, 1600, 10000] {
+        let expanded = sizing.panelFrame(expanded: true, preferredWidth: width)
+        precondition(expanded.width >= 600 && expanded.width <= base.width - 32)
+        precondition(expanded.height == 144)
+        precondition(sizing.panelFrame(expanded: false, preferredWidth: width) == sizing.housing)
+    }
     let suite = "DockGroveNotchTests." + UUID().uuidString
     let defaults = UserDefaults(suiteName: suite)!
     defer { defaults.removePersistentDomain(forName: suite) }
     defaults.set([], forKey: "apps"); defaults.set(false, forKey: "showRunning")
     defaults.set(["search", "focus", "tasks"], forKey: "widgets")
     let model = DockModel(defaults: defaults)
+    precondition(model.notchWidth == 760)
+    model.notchWidth = 980
+    precondition(DockModel(defaults: defaults).notchWidth == 980)
+    model.notchWidth = .nan
+    precondition(model.notchWidth == 760)
     precondition(!model.notchEnabled)
     model.notchEnabled = true
     precondition(DockModel(defaults: defaults).notchEnabled)
@@ -338,7 +393,8 @@ struct NotchSettingsView: View {
     _ = hover.update(now: 13, trigger: false, inside: false, expanded: false, interacting: false)
     _ = hover.update(now: 14, trigger: true, inside: true, expanded: false, interacting: false)
     precondition(hover.update(now: 14.2, trigger: true, inside: true, expanded: false, interacting: false) == true)
-    let controller = NotchController(model: model)
+    var airDropCalls: [[URL]] = []
+    let controller = NotchController(model: model, airDropAction: { airDropCalls.append($0); return true })
     precondition(!controller.showingFiles)
     controller.beginFileDrag()
     precondition(controller.showingFiles == model.canAccess(.files))
@@ -357,6 +413,19 @@ struct NotchSettingsView: View {
     pasteboard.writeObjects([fixture as NSURL, temporary as NSURL])
     precondition(NotchFileIntake.urls(from: pasteboard).map(\.standardizedFileURL) == [fixture.standardizedFileURL, temporary.standardizedFileURL])
     precondition(!controller.acceptFiles([missing, remote]))
+    precondition(!controller.acceptDrop([missing, remote], to: .airDrop))
+    precondition(airDropCalls.isEmpty)
+    let dropTarget = NotchDropTargetView()
+    dropTarget.controller = controller; dropTarget.destination = .airDrop
+    let sent = dropTarget.accept(pasteboard)
+    precondition(sent == model.canAccess(.files))
+    precondition(model.toolkit.files.isEmpty, "AirDrop must never add files to the tray")
+    if sent { precondition(airDropCalls.count == 1 && airDropCalls[0].count == 2) }
+    dropTarget.destination = .tray
+    let kept = dropTarget.accept(pasteboard)
+    precondition(kept == model.canAccess(.files))
+    precondition(airDropCalls.count == (sent ? 1 : 0), "Tray drops must not launch AirDrop")
+    model.toolkit.files.removeAll()
     if model.canAccess(.files) {
         precondition(controller.acceptFiles([fixture, fixture, temporary]))
         precondition(model.toolkit.files.count == 2 && controller.showingFiles)
@@ -381,7 +450,7 @@ struct NotchSettingsView: View {
             controller.showingFiles = name == "files"
             if detail { controller.selectedWidget = .focus }
             let view = controller.panel.contentView!
-            controller.panel.setFrame(geometry.panelFrame(expanded: expanded), display: true)
+            controller.panel.setFrame(geometry.panelFrame(expanded: expanded, preferredWidth: model.notchWidth), display: true)
             view.layoutSubtreeIfNeeded()
             RunLoop.main.run(until: Date().addingTimeInterval(0.1))
             guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { throw CocoaError(.fileWriteUnknown) }
@@ -390,5 +459,5 @@ struct NotchSettingsView: View {
         }
     }
     controller.hide()
-    print("PASS: notch compatibility, invalid/missing geometry, negative display origins, camera-safe frames, preference persistence, disabled/suppressed cleanup, hover dwell/leave/click behavior, complete access-gated widget catalog, fixed-height horizontal layout and automatic Files tab selection, file intake/deduplication/persistence/original preservation and workspace renders")
+    print("PASS: notch compatibility, invalid/missing geometry, negative display origins, camera-safe frames, preference persistence, disabled/suppressed cleanup, hover dwell/leave/click behavior, complete access-gated widget catalog, fixed-height horizontal layout, saved width and automatic Files tab selection, distinct tray/AirDrop native drop routing, file intake/deduplication/persistence/original preservation and workspace renders")
 }
