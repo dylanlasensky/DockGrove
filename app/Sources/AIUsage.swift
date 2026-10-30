@@ -6,6 +6,9 @@ enum AIProvider: String, CaseIterable {
     case openai, anthropic, cursor
     var title: String { switch self { case .openai: return "OpenAI API"; case .anthropic: return "Claude API"; case .cursor: return "Cursor team" } }
     var documentation: URL { URL(string: self == .openai ? "https://developers.openai.com/api/reference/resources/admin/subresources/organization/subresources/usage/methods/completions" : self == .anthropic ? "https://platform.claude.com/docs/en/manage-claude/usage-cost-api" : "https://cursor.com/docs/account/teams/admin-api")! }
+    var accountURL: URL {
+        URL(string: self == .openai ? "https://platform.openai.com/settings/organization/admin-keys" : self == .anthropic ? "https://platform.claude.com/settings/admin-keys" : "https://cursor.com/dashboard")!
+    }
     var labels: [String] { self == .cursor ? ["Agent requests", "Chat requests", "Composer requests", "Accepted tabs"] : ["Input tokens", "Output tokens"] }
     func request(key: String, start: Date, end: Date, page: String?) throws -> URLRequest {
         var components = URLComponents(string: self == .openai ? "https://api.openai.com/v1/organization/usage/completions" : self == .anthropic ? "https://api.anthropic.com/v1/organizations/usage_report/messages" : "https://api.cursor.com/teams/daily-usage-data")!
@@ -176,6 +179,8 @@ struct AIUsageView: View {
             }
             Text(widget.status).font(.caption).fixedSize(horizontal: false, vertical: true)
             if setupAllowed {
+            Link("Open account dashboard to sign in", destination: widget.provider.accountURL)
+            Text("Sign in on the provider’s website to obtain an admin key, then save it below. Website sign-in alone does not grant DockGrove access to usage.").font(.caption).foregroundStyle(.secondary)
             SecureField("Admin API key", text: $key).textFieldStyle(.roundedBorder)
             HStack {
                 Button("Save key") { widget.connect(key); key = "" }.disabled(key.isEmpty || widget.busy)

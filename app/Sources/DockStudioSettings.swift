@@ -68,6 +68,7 @@ struct SettingsView: View {
         .frame(minWidth: 960, idealWidth: 1080, minHeight: 690, idealHeight: 780)
         .background(Color(nsColor: .windowBackgroundColor)).preferredColorScheme(model.scheme)
         .toggleStyle(.switch)
+        .onReceive(model.$codexConnectionSelected) { if $0 { section = .connections } }
         .onReceive(model.$connectionSettingsKind) { kind in if kind != nil { section = .connections } }
     }
 
@@ -373,12 +374,9 @@ private struct StudioBehavior: View {
             WorkspaceSettings(model: model, kit: model.toolkit)
             if !model.isAdditionalDock { SnapSettings(model: model) }
             if model.canAccessAI {
-                StudioPanel(title: "Codex connection") {
-                    Text("Read plan limits from your existing Codex sign-in. Your messages are not counted or collected.").font(.callout).foregroundStyle(.secondary)
-                    Toggle("Refresh usage automatically", isOn: $model.usageEnabled)
-                    TextField("Codex executable (auto-detected)", text: $model.customCLI).textFieldStyle(.roundedBorder)
-                    Button(model.fetching ? "Refreshing…" : "Refresh usage") { model.refreshUsage() }.disabled(model.fetching)
-                    if let error = model.usageError { Text(error).font(.caption).foregroundStyle(.orange) }
+                StudioPanel(title: "Codex usage") {
+                    Text("Manage your ChatGPT sign-in and usage refresh in Connections.").font(.callout).foregroundStyle(.secondary)
+                    Button("Account settings") { model.openCodexConnection() }
                 }
             }
         }

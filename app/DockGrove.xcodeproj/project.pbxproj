@@ -60,9 +60,11 @@
 		CA391FA7796E635C1D5A515F /* WeatherAttributionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24B60742D5605E56A9697111 /* WeatherAttributionView.swift */; };
 		CC60A26FAC58F2260899B4DF /* Companion.swift in Sources */ = {isa = PBXBuildFile; fileRef = 491F1A3AF518B5F5F299EAA2 /* Companion.swift */; };
 		CE44CA3A955C290DA9EF0F5E /* Model.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB32712FC1E8BE4E98A97641 /* Model.swift */; };
+		D037C0A4F122F0DB434F6612 /* AISignInTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9918988A455E6680CE6C458F /* AISignInTests.swift */; };
 		D172BD6098FA22FDB60E30F8 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 959381E1CEC2DD92A351123B /* App.swift */; };
 		D2AA74E14C5F5CB426637166 /* DockLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1367AEF0EC4450BE4BFDA69D /* DockLayout.swift */; };
 		D58F3A523E36C2ED4F1228AA /* AppManagementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FF9EE58F87F2CF96A167977 /* AppManagementTests.swift */; };
+		D78815F4C5CF9767443BB2B4 /* AISignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA255BDDFC87FDE0AF37F31B /* AISignIn.swift */; };
 		D887679071BECA521893915B /* NotchWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 545CBEDC6C333F8D40523374 /* NotchWorkspace.swift */; };
 		D8A7D8199D34F63304A55574 /* SelfTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B004C0E7C73F601EB627B4E /* SelfTests.swift */; };
 		DE54E2227B773EBFDA68BD15 /* StoreKitTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 19B1A427FF05FC43D37F76F8 /* StoreKitTest.framework */; };
@@ -86,6 +88,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		04F1E0492A935D43AA259C62 /* fixture_signin.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = fixture_signin.py; sourceTree = "<group>"; };
 		065AEA8BF1C2B5277DF7E7A5 /* GitHubWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubWidget.swift; sourceTree = "<group>"; };
 		082ED5FEFC6851A19EA652F6 /* validate.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = validate.sh; sourceTree = "<group>"; };
 		0AD7B4B5DD57C546E282F1BC /* BehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BehaviorTests.swift; sourceTree = "<group>"; };
@@ -136,6 +139,7 @@
 		959381E1CEC2DD92A351123B /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
 		97997FD52FD465B0B76B27BE /* DockStudioTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockStudioTests.swift; sourceTree = "<group>"; };
 		97D781A8300C943F4EAA5CF4 /* MusicPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicPlayer.swift; sourceTree = "<group>"; };
+		9918988A455E6680CE6C458F /* AISignInTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISignInTests.swift; sourceTree = "<group>"; };
 		9C0A00283733F7F03E1CC95E /* AssetCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetCatalogTests.swift; sourceTree = "<group>"; };
 		9DEFF1C003FD151721C66B1E /* GitHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubView.swift; sourceTree = "<group>"; };
 		A3C632945072D18D9B8AEBAA /* Views.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views.swift; sourceTree = "<group>"; };
@@ -156,6 +160,7 @@
 		CEAFDE06F3C62D74A547C217 /* PurchaseViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseViews.swift; sourceTree = "<group>"; };
 		CF315E7A94B62685E3919BB7 /* Purchases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Purchases.swift; sourceTree = "<group>"; };
 		D17ABF22828D05198F871953 /* WidgetShapes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetShapes.swift; sourceTree = "<group>"; };
+		DA255BDDFC87FDE0AF37F31B /* AISignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISignIn.swift; sourceTree = "<group>"; };
 		DF00A2C337D18CD40E5CB60E /* fixture_codex.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = fixture_codex.py; sourceTree = "<group>"; };
 		E294424534B94B9727CA7D26 /* DockStudioModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockStudioModel.swift; sourceTree = "<group>"; };
 		E629E58ED3BC8179A2FE812C /* CompanionSpriteKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionSpriteKit.swift; sourceTree = "<group>"; };
@@ -246,6 +251,7 @@
 			children = (
 				900A2FAFBEAA33AE7B186E0A /* DockTestHost.swift */,
 				DF00A2C337D18CD40E5CB60E /* fixture_codex.py */,
+				04F1E0492A935D43AA259C62 /* fixture_signin.py */,
 				B6389DB4BF99D8132D0476BA /* fullscreen-host.sh */,
 				C2ED9082AF8DDC961614A2E3 /* LicenseVerifierTests.swift */,
 				082ED5FEFC6851A19EA652F6 /* validate.sh */,
@@ -285,6 +291,8 @@
 		E294CD5649A6840B0B68B87E /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				DA255BDDFC87FDE0AF37F31B /* AISignIn.swift */,
+				9918988A455E6680CE6C458F /* AISignInTests.swift */,
 				F5A4662EC417E210BD054398 /* AIUsage.swift */,
 				64AE3EABB9961784F3DCEF6C /* AlbumArtwork.swift */,
 				959381E1CEC2DD92A351123B /* App.swift */,
@@ -474,6 +482,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D78815F4C5CF9767443BB2B4 /* AISignIn.swift in Sources */,
+				D037C0A4F122F0DB434F6612 /* AISignInTests.swift in Sources */,
 				94369C54B85386CC2EA42B53 /* AIUsage.swift in Sources */,
 				E1477CFE538F23D24072211C /* AlbumArtwork.swift in Sources */,
 				D172BD6098FA22FDB60E30F8 /* App.swift in Sources */,

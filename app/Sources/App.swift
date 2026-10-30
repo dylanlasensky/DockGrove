@@ -212,6 +212,14 @@ final class DockPanel: NSPanel {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in self?.layoutDock() }
         } catch { model.systemError = "Could not change Apple's Dock setting. Your saved original setting is retained for recovery." }
     }
+    func applicationWillTerminate(_ notification: Notification) {
+        model?.codexSignIn.cancel()
+        model?.toolkit.claudeCodeUsage.signIn.cancel()
+        for dock in workspace?.docks ?? [] {
+            dock.model.codexSignIn.cancel()
+            dock.model.toolkit.claudeCodeUsage.signIn.cancel()
+        }
+    }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard model != nil else { return .terminateNow }
         do { if !testing { try SystemDock.restore() }; return .terminateNow }
@@ -292,6 +300,14 @@ final class DockPanel: NSPanel {
                 let audio = AudioControl(); audio.refresh()
                 print(audio.outputs.isEmpty ? "UNVERIFIED: no audio outputs available" : "PASS: live audio output discovery")
                 fflush(stdout); exit(failed ? 1 : 0)
+            }
+            NSApplication.shared.run(); return
+        }
+        if let index = CommandLine.arguments.firstIndex(of: "--ai-signin-test"), CommandLine.arguments.indices.contains(index + 1) {
+            let fixture = CommandLine.arguments[index + 1]
+            Task { @MainActor in
+                do { try await runAISignInTests(fixture: fixture); fflush(stdout); exit(0) }
+                catch { print("FAIL: AI sign-in tests: \(error)"); fflush(stdout); exit(1) }
             }
             NSApplication.shared.run(); return
         }

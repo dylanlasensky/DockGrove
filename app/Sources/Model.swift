@@ -67,8 +67,16 @@ struct DockApp: Identifiable, Equatable {
     @Published var systemError: String?
     let toolkit: Toolkit
     let defaults: UserDefaults
+    let codexSignIn = AISignIn()
+    private var usageGeneration = 0
+    @Published var codexConnectionSelected = false
+    func openCodexConnection() {
+        codexConnectionSelected = true
+        settingsAction?()
+    }
     @Published var connectionSettingsKind: ToolKind?
     func openConnectionSettings(_ kind: ToolKind) {
+        codexConnectionSelected = false
         connectionSettingsKind = kind
         settingsAction?()
     }
@@ -237,15 +245,21 @@ struct DockApp: Identifiable, Equatable {
             } catch { systemError = "This file is not a valid DockGrove layout export." }
         }
     }
+    func reloadSignedInUsage() {
+        usageGeneration += 1
+        usage = nil; refreshed = nil; usageError = nil; fetching = false
+        refreshUsage()
+    }
     func refreshUsage() {
         guard canAccessAI else { return }
         guard !fetching else { return }
         fetching = true
         let custom = customCLI
+        let generation = usageGeneration
         DispatchQueue.global(qos: .utility).async { [weak self] in
             let result = Result { try UsageClient.fetch(custom: custom) }
             Task { @MainActor [weak self] in
-                guard let self = self else { return }
+                guard let self = self, self.usageGeneration == generation else { return }
                 self.fetching = false
                 guard self.canAccessAI else { return }
                 switch result {

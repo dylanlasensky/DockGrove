@@ -142,6 +142,7 @@ enum ClaudeStatusLineSetup {
 }
 @MainActor final class LocalAIWidget: ObservableObject {
     let provider: LocalAIProvider
+    let signIn = AISignIn()
     @Published var report: LocalAIReport?
     @Published var status = ""
     private var timer: Timer?
@@ -181,6 +182,13 @@ struct LocalAIUsageView: View {
     var automaticallyRefresh = true
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
+            if setupAllowed {
+                if widget.provider == .claude {
+                    AISignInControls(signIn: widget.signIn, provider: .claude) { widget.clear(); widget.connectClaude() }
+                    Text("After sign-in, DockGrove enables its usage status line. An existing custom status line is preserved. Usage arrives after your next Claude Code response.").font(.caption).foregroundStyle(.secondary)
+                    Divider()
+                } else { GeminiSignInControls(); Divider() }
+            }
             Text(widget.provider == .claude ? "Claude Code’s reported allowance windows. Available for supported Pro/Max sessions after an API response." : "The latest imported Gemini CLI session. These are session token counts, not remaining subscription allowances.").font(.caption).foregroundStyle(.secondary)
             if let report = widget.report {
                 if report.stale(at: Date()) { Label("Older report · refresh from your CLI", systemImage: "clock").font(.caption).foregroundStyle(.orange) }

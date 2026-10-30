@@ -268,6 +268,7 @@ struct MiniMeter: View {
 
 struct UsageDetails: View {
     @ObservedObject var model: DockModel
+    var showAccountSettings = true
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -296,7 +297,7 @@ struct UsageDetails: View {
             HStack {
                 Button("Refresh") { model.refreshUsage() }.disabled(model.fetching).buttonStyle(.borderedProminent).tint(model.color)
                 Spacer()
-                Button("Settings") { model.settingsAction?() }.buttonStyle(.bordered)
+                if showAccountSettings { Button("Account settings") { model.openCodexConnection() }.buttonStyle(.bordered) }
             }
         }
     }
