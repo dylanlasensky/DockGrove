@@ -1,7 +1,7 @@
 import AppKit
 @main struct CompanionAssetAudit {
  static func main() {
-  CompanionDrawing.assetDirectory=URL(fileURLWithPath:"Assets/Companions")
+  CompanionDrawing.assetDirectory=URL(fileURLWithPath:"Assets.xcassets/Companions")
   let requested=Array(CommandLine.arguments.dropFirst())
   for name in CompanionDrawing.names.keys.sorted() where requested.isEmpty || requested.contains(name) {
    guard let atlas=CompanionDrawing.rig(name) else {preconditionFailure("Missing/malformed 4x4 pixel atlas: \(name)")}

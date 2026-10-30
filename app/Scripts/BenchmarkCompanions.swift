@@ -1,7 +1,7 @@
 import AppKit
 @main struct ReviewBenchmark {
  static func main() {
-  CompanionDrawing.assetDirectory=URL(fileURLWithPath:"Assets/Companions")
+  CompanionDrawing.assetDirectory=URL(fileURLWithPath:"Assets.xcassets/Companions")
   for name in CompanionDrawing.names.keys.sorted() {
    precondition(CompanionDrawing.rig(name) != nil, "Missing rig")
    let bitmap=NSBitmapImageRep(bitmapDataPlanes:nil,pixelsWide:360,pixelsHigh:160,bitsPerSample:8,samplesPerPixel:4,hasAlpha:true,isPlanar:false,colorSpaceName:.deviceRGB,bytesPerRow:0,bitsPerPixel:0)!

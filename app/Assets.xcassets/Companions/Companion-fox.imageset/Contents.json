@@ -1,0 +1,15 @@
+{
+  "images": [
+    {
+      "filename": "fox.png",
+      "idiom": "universal"
+    }
+  ],
+  "properties": {
+    "preserves-vector-representation": false
+  },
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}

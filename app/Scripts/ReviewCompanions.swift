@@ -7,7 +7,7 @@ import AVFoundation
     static func main() async throws {
         let root=URL(fileURLWithPath:CommandLine.arguments.count>1 ? CommandLine.arguments[1]:".build/companion-review")
         try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true)
-        CompanionDrawing.assetDirectory=URL(fileURLWithPath:"Assets/Companions")
+        CompanionDrawing.assetDirectory=URL(fileURLWithPath:"Assets.xcassets/Companions")
         let names=["Miso","Black cat","Orange cat","Golden dog","Husky","Dragon","Cow","Rabbit","Fox"]
         var simulations=names.enumerated().map { CompanionMotion(seed:UInt64($0.offset+71)) }
         var activities=Array(repeating:Set<String>(),count:9)

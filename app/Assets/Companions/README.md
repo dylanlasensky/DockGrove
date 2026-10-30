@@ -1,6 +1,6 @@
 # DockGrove pixel companions
 
-The current runtime uses the nine `*-pixel.png` files: transparent 4×4 atlases with sixteen complete-body poses, eight walking/flight frames, idle/blink and settling/sleep frames. See [implementation](../../docs/COMPANION-REVIEW.md) and `PIXEL-PROMPTS*` for the exact generation prompts. The old six-pose sheets below are retained as historical source assets and are not the current renderer.
+The current SpriteKit runtime loads the nine `Companion-<slug>-pixel` image sets from `../../Assets.xcassets/Companions`: transparent 4×4 atlases with sixteen complete-body poses, eight walking/flight frames, idle/blink and settling/sleep frames. See [implementation](../../../docs/COMPANION-REVIEW.md) and `PIXEL-PROMPTS*` for the exact generation prompts. The old six-pose sheets below are retained as historical source assets and are not the current renderer.
 
 ## Historical artwork provenance
 
