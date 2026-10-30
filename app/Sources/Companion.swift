@@ -53,8 +53,7 @@ struct CompanionState: Codable, Equatable {
     static func frames(_ animal: String) -> [NSImage] {
         let key = names[animal] ?? "miso"
         if let cached = cache[key] { return cached }
-        guard let url = Bundle.main.url(forResource:key,withExtension:"png",subdirectory:"Companions"),
-              let source = NSImage(contentsOf:url), let sheet = source.cgImage(forProposedRect:nil,context:nil,hints:nil),
+        guard let source = NSImage(named: "Companion-" + key), let sheet = source.cgImage(forProposedRect:nil,context:nil,hints:nil),
               sheet.width % 3 == 0, sheet.height % 2 == 0 else { return [] }
         let w = sheet.width/3, h = sheet.height/2
         let result = (0..<6).compactMap { index -> NSImage? in
@@ -73,45 +72,15 @@ struct CatPortrait: NSViewRepresentable {
     var accent: Color
     var playRequest = 0
     func makeNSView(context: Context) -> CompanionStage { CompanionStage() }
+    static func dismantleNSView(_ view: CompanionStage, coordinator: ()) {
+        view.isPaused = true
+        view.presentScene(nil)
+    }
     func updateNSView(_ view: CompanionStage, context: Context) {
         view.animal = animal; view.resting = resting
         view.receivePlay(playRequest)
         view.setAccessibilityLabel(animal + (resting ? " sleeping" : " autonomous companion"))
-        view.needsDisplay = true
-    }
-}
-final class CompanionStage: NSView {
-    var animal = "Miso" { didSet { if animal != oldValue { motion = CompanionMotion(seed: Self.seed(animal)) } } }
-    var resting = false
-    private var motion = CompanionMotion()
-    private var lastPlayRequest: Int?
-    func receivePlay(_ request:Int) { defer { lastPlayRequest=request }; if let lastPlayRequest, request != lastPlayRequest, !resting { motion.play() } }
-    private var timer: Timer?
-    private var lastTick = ProcessInfo.processInfo.systemUptime
-    static func seed(_ name: String) -> UInt64 { name.utf8.reduce(1469598103934665603) { ($0 ^ UInt64($1)) &* 1099511628211 } }
-    override init(frame: NSRect) { super.init(frame:frame); setAccessibilityElement(true); setAccessibilityRole(.image) }
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-    deinit { timer?.invalidate() }
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow(); timer?.invalidate(); timer = nil
-        guard window != nil else { return }
-        lastTick = ProcessInfo.processInfo.systemUptime
-        timer = Timer.scheduledTimer(withTimeInterval:1.0/60, repeats:true) { [weak self] _ in
-            guard let self else { return }
-            let now = ProcessInfo.processInfo.systemUptime
-            let delta = now - self.lastTick; self.lastTick = now
-            guard let window = self.window, window.isVisible, window.occlusionState.contains(.visible), !self.isHiddenOrHasHiddenAncestor else { return }
-            let reduced = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-            self.motion.advance(delta, animal:self.animal, resting:self.resting, reducedMotion:reduced)
-            if !reduced || self.needsDisplay { self.needsDisplay = true }
-        }
-        if let timer { RunLoop.main.add(timer, forMode: .common) }
-    }
-    override func draw(_ dirtyRect: NSRect) {
-        super.draw(dirtyRect)
-        // Reflect manual rest immediately even when Reduce Motion suppresses timer redraws.
-        motion.advance(0, animal:animal, resting:resting, reducedMotion:NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
-        CompanionDrawing.draw(animal:animal,motion:motion,in:bounds,reducedMotion:NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
+        view.refreshScene()
     }
 }
 struct CompanionView: View {

@@ -11,8 +11,13 @@ enum CompanionDrawing {
     static func rig(_ animal:String)->PixelAtlas? {
         guard let key=names[animal] else{return nil}
         if let cached=cache[key] {return cached}
-        let url=assetDirectory?.appendingPathComponent(key+"-pixel.png") ?? Bundle.main.url(forResource:key+"-pixel",withExtension:"png",subdirectory:"Companions")
-        guard let url,let source=NSImage(contentsOf:url),let cg=source.cgImage(forProposedRect:nil,context:nil,hints:nil) else{return nil}
+        let source: NSImage?
+        if let directory = assetDirectory {
+            let flat = directory.appendingPathComponent(key + "-pixel.png")
+            let catalog = directory.appendingPathComponent("Companion-" + key + "-pixel.imageset/" + key + "-pixel.png")
+            source = NSImage(contentsOf: FileManager.default.fileExists(atPath: flat.path) ? flat : catalog)
+        } else { source = NSImage(named: "Companion-" + key + "-pixel") }
+        guard let source, let cg=source.cgImage(forProposedRect:nil,context:nil,hints:nil) else{return nil}
         let w=Int(ceil(Double(cg.width)/4)),h=Int(ceil(Double(cg.height)/4))
         var cells:[CGImage]=[],cellBounds:[CGRect]=[],union=CGRect.null
         for i in 0..<16 {
