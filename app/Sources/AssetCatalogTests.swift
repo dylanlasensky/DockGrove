@@ -5,6 +5,10 @@ import SpriteKit
     for name in ["DockGrove-icon", "DockGrove-mark", "DockGrove-wordmark", "DockGrove-brand-sheet"] {
         precondition(NSImage(named: name) != nil, "Missing catalog image: \(name)")
     }
+    for icon in FontAwesomeIcon.allCases {
+        precondition(NSImage(named: icon.assetName) != nil, "Missing Font Awesome vector: \(icon.assetName)")
+    }
+    precondition(Bundle.main.url(forResource: "FontAwesome-LICENSE", withExtension: "txt") != nil, "Missing Font Awesome attribution")
     precondition(Bundle.main.url(forResource: "AppIcon", withExtension: "icns") != nil, "Missing compiled app icon")
     for pack in AccentPalette.packs {
         for name in pack.colors {
@@ -61,5 +65,5 @@ import SpriteKit
         }
     }
     view.presentScene(nil)
-    print("PASS: compiled app icon, 22 catalog images, \(AccentPalette.packs.reduce(0) { $0 + $1.colors.count }) palette colors in light/dark, nine SpriteKit renders, animation bounds, texture reuse, and Reduce Motion/rest")
+    print("PASS: compiled app icon, 22 catalog images, \(FontAwesomeIcon.allCases.count) Font Awesome vectors and bundled attribution, \(AccentPalette.packs.reduce(0) { $0 + $1.colors.count }) palette colors in light/dark, nine SpriteKit renders, animation bounds, texture reuse, and Reduce Motion/rest")
 }

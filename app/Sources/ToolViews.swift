@@ -130,7 +130,7 @@ struct ToolTile: View {
             Text(kit.timerText).font(.system(size: 54, weight: .light, design: .rounded)).monospacedDigit().frame(maxWidth: .infinity)
             if kit.focusFinished { Label("Session complete", systemImage: "checkmark.circle").foregroundStyle(model.color) }
             HStack { ForEach([5, 15, 25, 50], id: \.self) { minutes in Button("\(minutes)m") { kit.resetTimer(minutes) } } }
-            HStack { Button(kit.focusEnd == nil ? "Start" : "Pause", action: kit.toggleTimer).buttonStyle(.borderedProminent).tint(model.color); Button("Reset") { kit.resetTimer(25) } }
+            HStack { Button(action: kit.toggleTimer) { FontAwesomeLabel(kit.focusEnd == nil ? "Start" : "Pause", icon: kit.focusEnd == nil ? .play : .pause) }.buttonStyle(.bordered); Button("Reset") { kit.resetTimer(25) } }
             Text("Choose a short break or a focused session. A sound plays when time is up.").font(.caption).foregroundStyle(.secondary)
         case .files:
             Text("Drop files here to keep shortcuts handy.").foregroundStyle(.secondary)

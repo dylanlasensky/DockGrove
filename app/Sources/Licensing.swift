@@ -214,8 +214,8 @@ struct LicenseSettingsView: View {
             Text("Payment integration is in test mode.").font(.caption).foregroundStyle(.secondary)
             SecureField("License key", text: $key).textFieldStyle(.roundedBorder)
             HStack {
-                Button("Activate") { Task { await license.activate(key); if license.valid { key = "" } } }
-                    .buttonStyle(.borderedProminent).disabled(license.busy || key.isEmpty)
+                Button { Task { await license.activate(key); if license.valid { key = "" } } } label: { FontAwesomeLabel("Activate", icon: .key) }
+                    .buttonStyle(.bordered).disabled(license.busy || key.isEmpty)
                 Button("Buy") { license.openPurchase() }
                 Button("Restore purchase") { license.openRecovery() }
             }

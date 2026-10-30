@@ -116,13 +116,14 @@ struct AISignInControls: View {
             HStack {
                 if signIn.busy {
                     ProgressView().controlSize(.small)
-                    Button("Cancel sign-in") { signIn.cancel() }
+                    Button { signIn.cancel() } label: { FontAwesomeLabel("Cancel sign-in", icon: .close) }
                 } else {
-                    Button("Sign in with \(provider.title)") { signIn.start(provider, custom: custom, onSuccess: onSuccess) }
-                        .buttonStyle(.borderedProminent)
-                    Button("Use existing sign-in") { signIn.start(provider, custom: custom, checkOnly: true, onSuccess: onSuccess) }
+                    Button { signIn.start(provider, custom: custom, onSuccess: onSuccess) } label: {
+                        FontAwesomeLabel("Sign in with \(provider.title)", icon: provider == .codex ? .openAI : .claude)
+                    }.buttonStyle(.bordered)
+                    Button { signIn.start(provider, custom: custom, checkOnly: true, onSuccess: onSuccess) } label: { FontAwesomeLabel("Use existing sign-in", icon: .key) }
                 }
-                Link("CLI setup", destination: provider.setupURL)
+                Link(destination: provider.setupURL) { FontAwesomeLabel("CLI setup", icon: .externalLink) }.foregroundStyle(.primary)
             }
             Text("Sign-in uses your browser and the provider’s CLI on this Mac. Changing accounts also changes that CLI’s account. DockGrove does not collect your password.")
                 .font(.caption).foregroundStyle(.secondary)
@@ -150,7 +151,7 @@ struct GeminiSignInControls: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(status).font(.callout)
             HStack {
-                Button("Sign in with Google in Gemini…", action: openGemini)
+                Button(action: openGemini) { FontAwesomeLabel("Sign in with Google in Gemini…", icon: .google) }.buttonStyle(.bordered)
                 Link("Install Gemini CLI", destination: URL(string: "https://geminicli.com/docs/get-started/installation/")!)
             }
             Text("Choose Sign in with Google, or /auth to change accounts. After signing in, import a session report below to show usage. Signing in alone does not provide a live remaining-quota feed.")

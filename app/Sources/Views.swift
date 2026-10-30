@@ -295,9 +295,9 @@ struct UsageDetails: View {
             Text("Uses the limits reported by your signed-in Codex service. Regular ChatGPT message counts may not be included.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             HStack {
-                Button("Refresh") { model.refreshUsage() }.disabled(model.fetching).buttonStyle(.borderedProminent).tint(model.color)
+                Button { model.refreshUsage() } label: { FontAwesomeLabel("Refresh", icon: .refresh) }.disabled(model.fetching).buttonStyle(.bordered)
                 Spacer()
-                if showAccountSettings { Button("Account settings") { model.openCodexConnection() }.buttonStyle(.bordered) }
+                if showAccountSettings { Button { model.openCodexConnection() } label: { FontAwesomeLabel("Account settings", icon: .settings) }.buttonStyle(.bordered) }
             }
         }
     }

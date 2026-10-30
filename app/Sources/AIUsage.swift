@@ -179,12 +179,14 @@ struct AIUsageView: View {
             }
             Text(widget.status).font(.caption).fixedSize(horizontal: false, vertical: true)
             if setupAllowed {
-            Link("Open account dashboard to sign in", destination: widget.provider.accountURL)
+            Link(destination: widget.provider.accountURL) {
+                FontAwesomeLabel("Open account dashboard to sign in", icon: widget.provider == .openai ? .openAI : widget.provider == .anthropic ? .claude : .code)
+            }.foregroundStyle(.primary)
             Text("Sign in on the provider’s website to obtain an admin key, then save it below. Website sign-in alone does not grant DockGrove access to usage.").font(.caption).foregroundStyle(.secondary)
             SecureField("Admin API key", text: $key).textFieldStyle(.roundedBorder)
             HStack {
-                Button("Save key") { widget.connect(key); key = "" }.disabled(key.isEmpty || widget.busy)
-                Button(widget.busy ? "Loading…" : "Refresh saved key", action: widget.refresh).disabled(widget.busy)
+                Button { widget.connect(key); key = "" } label: { FontAwesomeLabel("Save key", icon: .key) }.disabled(key.isEmpty || widget.busy)
+                Button(action: widget.refresh) { FontAwesomeLabel(widget.busy ? "Loading…" : "Refresh saved key", icon: .refresh) }.disabled(widget.busy)
             }
             Toggle("Refresh hourly while DockGrove is open", isOn: $widget.autoRefresh)
             Button("Disconnect & forget key", action: widget.forget)

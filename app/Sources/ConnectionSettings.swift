@@ -33,14 +33,17 @@ struct StudioConnections: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 175))], spacing: 10) {
                 if model.canAccessAI {
                     Button { model.codexConnectionSelected = true } label: {
-                        Label("ChatGPT / Codex", systemImage: "sparkles").font(.callout)
+                        FontAwesomeLabel("ChatGPT / Codex", icon: .openAI).font(.callout)
                             .frame(maxWidth: .infinity, alignment: .leading).padding(14)
                             .background(model.codexConnectionSelected ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
                     }.buttonStyle(.plain).accessibilityAddTraits(model.codexConnectionSelected ? .isSelected : [])
                 }
                 ForEach(available) { kind in
                     Button { model.codexConnectionSelected = false; model.connectionSettingsKind = kind } label: {
-                        Label(kind.title, systemImage: kind.icon).font(.callout)
+                        Group {
+                            if let icon = FontAwesomeIcon.provider(kind) { FontAwesomeLabel(kind.title, icon: icon) }
+                            else { Label(kind.title, systemImage: kind.icon) }
+                        }.font(.callout)
                             .frame(maxWidth: .infinity, alignment: .leading).padding(14)
                             .background(selected == kind ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
                     }.buttonStyle(.plain).accessibilityAddTraits(selected == kind ? .isSelected : [])

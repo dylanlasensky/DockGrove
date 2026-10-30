@@ -111,8 +111,8 @@ struct PurchaseSettingsView: View {
         } else if tier == .free || purchases.tier >= tier {
             Label(tier == .free ? "Included" : "Unlocked", systemImage: "checkmark.circle.fill").font(.caption.weight(.semibold)).foregroundStyle(.green)
         } else if let product = purchases.product(for: tier) {
-            Button("Get " + tier.title) { Task { await purchases.purchase(tier) } }
-                .buttonStyle(.borderedProminent).tint(tint(tier)).disabled(purchases.busy)
+            Button { Task { await purchases.purchase(tier) } } label: { FontAwesomeLabel("Get " + tier.title, icon: .purchase) }
+                .buttonStyle(.bordered).disabled(purchases.busy)
                 .accessibilityLabel("Buy \(tier.title) for \(product.displayPrice), one time")
         } else {
             Text(purchases.loadingProducts ? "Loading price…" : "Currently unavailable").font(.caption).foregroundStyle(.secondary)

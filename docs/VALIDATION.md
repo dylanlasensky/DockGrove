@@ -186,3 +186,9 @@ These limits are retained rather than converting fixture or rendering evidence i
 - Signed Debug and unrestricted regression builds succeeded. Strict code-signature verification passed. Four focused sign-in checks covered both CLIs' login/status argument contracts, success, refused login, duplicate-start prevention, cancellation, retry, timeout, failed launch and Gemini shell quoting/environment/no-prompt behavior. The full 28-check offline regression suite passed.
 - Native Settings inspection verified all new provider controls. Using an existing Codex account completed successfully and loaded live allowance data. New-account browser authorization was not completed, and no personal Claude/Gemini session or API admin key was used. Those providers' live usage remains unverified.
 - Login output is discarded; credentials remain with each CLI. The app does not parse credential files, read browser cookies, or generate AI requests to refresh usage.
+
+## October 30, 2026: Font Awesome buttons
+
+- Replaced prominent filled action buttons with neutral native buttons and Font Awesome labels for AI sign-in, usage refresh, purchases, license activation and Focus. Provider cards also use bundled brand marks. Button labels, disabled states and purchase accessibility descriptions remain intact.
+- Added 13 upstream SVGs to the asset catalog with template rendering/vector preservation, plus the bundled upstream attribution/license. The asset test verifies all 13 compiled images and the license resource.
+- Signed Debug build, strict code-signature verification, shell-script syntax and the full existing asset/render suite passed. Native Connections inspection confirmed the provider marks, neutral sign-in buttons, key/external-link icons and refresh icon render correctly; no authorization or purchase behavior changed in this styling pass.
