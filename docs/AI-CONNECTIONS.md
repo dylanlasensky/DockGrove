@@ -7,7 +7,7 @@ No integration generates AI requests simply to refresh usage.
 
 | Widget | What it measures | Setup |
 | --- | --- | --- |
-| Codex | Reported account allowances and reset windows | Existing signed-in Codex CLI |
+| Codex | Reported account allowances and reset windows | Sign in or use an existing Codex account in Connections |
 | Claude Code limits | Supported Pro/Max rolling and weekly windows; optional gateway limit | Local status-line bridge |
 | Gemini CLI usage | Latest imported session, per-model tokens and request counts | Import CLI JSON or pipe to capture command |
 | OpenAI API | Organization input/output tokens over seven days | OpenAI organization admin key |
@@ -18,7 +18,7 @@ No integration generates AI requests simply to refresh usage.
 
 1. Put DockGrove in its permanent location, normally Applications.
 2. Enable **Claude Code limits** in the widget library.
-3. Open it and choose **Connect Claude Code status line**.
+3. Open **Settings → Connections → Claude Code limits**. Choose **Sign in with Claude Code** or **Use existing sign-in** to enable usage capture. You can also choose **Set up Claude Code status line** separately.
 4. Start a new Claude Code session. After an API response, a supported Claude
    version supplies allowance windows to DockGrove's helper.
 
@@ -71,3 +71,34 @@ Primary references, checked October 28, 2026:
 - https://code.claude.com/docs/en/statusline
 - https://geminicli.com/docs/cli/headless/
 - https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/telemetry/uiTelemetry.ts
+
+## Account sign-in in Settings (October 30, 2026)
+
+**Settings → Connections** includes ChatGPT / Codex alongside the existing provider
+cards. Codex uses the installed CLI's `codex login`; Claude Code uses
+`claude auth login --claudeai`. The CLI opens the provider's browser sign-in and
+retains the credentials. DockGrove discards CLI stdout/stderr, waits for completion,
+and refreshes usage after a successful exit. **Use existing sign-in** checks the
+CLI's auth status first. A successful CLI login is not proof that the account
+includes subscription allowances.
+
+Claude's successful sign-in also enables the existing status-line bridge, preserving
+any custom status line. Its usage remains unavailable until a supported Claude Code
+session reports it. Gemini opens a dedicated Terminal session without a prompt;
+choose **Sign in with Google**, or `/auth` to change accounts, then import a session
+report in DockGrove. This is not an embedded Google OAuth client or a live Gemini
+quota feed.
+
+OpenAI API, Claude API, and Cursor team cards link to their official account
+administration pages. Sign in there, obtain the appropriate admin key, and save it
+in the card to fetch usage. Website sign-in does not itself connect an API account.
+Keys continue to use macOS Keychain. No cookies or private consumer endpoints are
+used. Cancel stops DockGrove's login attempt without logging out the shared CLI;
+changing an account in the CLI affects other apps that use that CLI account.
+
+References checked October 30, 2026:
+- https://developers.openai.com/codex/auth/
+- https://code.claude.com/docs/en/cli-reference
+- https://geminicli.com/docs/get-started/authentication/
+- https://platform.claude.com/docs/en/manage-claude/usage-cost-api
+- https://cursor.com/docs/account/teams/admin-api

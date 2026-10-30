@@ -178,3 +178,11 @@ These limits are retained rather than converting fixture or rendering evidence i
 - Fixed the review layout replacing both halves: File Tray now remains in the left half while the right half contains either the AirDrop zone or its custom review controls. Saved tray cards remain available while review is open.
 - A native-view regression assertion verifies that the registered File Tray drop target still exists in the AirDrop-review render. Both focused notch suites cover this layout without changing the height or half-width sizing.
 - Native UI verification opened AirDrop review and confirmed the separate File Tray drop zone stayed visible. Activating File Tray opened its own picker with “Choose files to keep in the tray”; cancelling returned to the two-section view.
+
+
+## October 30, 2026: AI provider sign-in
+
+- Added ChatGPT / Codex to Connections, with browser sign-in through the installed CLI, existing-account detection and usage refresh. Claude Code has the same controls and enables the existing status-line bridge after successful authentication. Gemini opens its official Google sign-in flow in Terminal, followed by the existing session-report import. API/team providers link to their account dashboards and retain explicit admin-key setup.
+- Signed Debug and unrestricted regression builds succeeded. Strict code-signature verification passed. Four focused sign-in checks covered both CLIs' login/status argument contracts, success, refused login, duplicate-start prevention, cancellation, retry, timeout, failed launch and Gemini shell quoting/environment/no-prompt behavior. The full 28-check offline regression suite passed.
+- Native Settings inspection verified all new provider controls. Using an existing Codex account completed successfully and loaded live allowance data. New-account browser authorization was not completed, and no personal Claude/Gemini session or API admin key was used. Those providers' live usage remains unverified.
+- Login output is discarded; credentials remain with each CLI. The app does not parse credential files, read browser cookies, or generate AI requests to refresh usage.
