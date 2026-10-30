@@ -60,17 +60,18 @@ import SwiftUI
     func select(_ calendar: EKCalendar, enabled: Bool) { if enabled { selected.insert(calendar.calendarIdentifier) } else { selected.remove(calendar.calendarIdentifier) } }
 }
 struct CalendarAgendaView: View {
+    @Environment(\.connectionSetupAllowed) private var setupAllowed
     @ObservedObject var calendar: CalendarWidget
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(calendar.status).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            if calendar.google { Text("Add Google in System Settings > Internet Accounts and enable Calendars. Then connect here and select your Google calendars.").font(.caption).fixedSize(horizontal: false, vertical: true) }
-            HStack {
-                Button(calendar.loading ? "Connecting…" : "Connect / refresh", action: calendar.connect).disabled(calendar.loading)
-                if calendar.connected { Button("Disconnect", action: calendar.disconnect) }
-            }
-            Button("Open Internet Accounts") { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Internet-Accounts-Settings.extension")!) }
-            if !calendar.calendars.isEmpty {
+            if setupAllowed {
+                if calendar.google { Text("Add Google in Internet Accounts, then allow access and select calendars below.").font(.caption) }
+                Toggle("Allow calendar access", isOn: Binding(get: { calendar.connected }, set: { $0 ? calendar.connect() : calendar.disconnect() })).disabled(calendar.loading)
+                Button("Open Internet Accounts") { NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Internet-Accounts-Settings.extension")!) }
+            } else { ConnectionSettingsButton() }
+            if calendar.connected { Button("Refresh", action: calendar.connect).disabled(calendar.loading) }
+            if setupAllowed && !calendar.calendars.isEmpty {
                 Text(calendar.google ? "Choose Google calendars" : "Choose calendars (none selected = all)").font(.caption.bold())
                 ScrollView { VStack(alignment: .leading) { ForEach(calendar.calendars, id: \.calendarIdentifier) { item in
                     Toggle("\(item.source.title) · \(item.title)", isOn: Binding(get: { calendar.selected.contains(item.calendarIdentifier) }, set: { calendar.select(item, enabled: $0) }))

@@ -2,6 +2,7 @@ import SwiftUI
 import AppKit
 
 struct UtilityView: View {
+    @Environment(\.connectionSetupAllowed) private var setupAllowed
     let kind: ToolKind
     @ObservedObject var utility: Utilities
     @State private var title = ""
@@ -130,7 +131,8 @@ struct UtilityView: View {
             ScrollView { VStack(alignment: .leading, spacing: 12) { ForEach(utility.reminders, id: \.calendarItemIdentifier) { reminder in
                 HStack { Button { utility.completeReminder(reminder) } label: { Image(systemName: "circle") }.help("Mark complete in Apple Reminders"); Text(reminder.title ?? "Untitled") }
             } }}.frame(maxHeight: 250)
-            Button("Connect / refresh Reminders", action: utility.loadReminders)
+            if setupAllowed { Button("Allow / refresh Reminders access", action: utility.loadReminders) }
+            else { ConnectionSettingsButton() }
         default: EmptyView()
         }
     }

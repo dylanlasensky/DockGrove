@@ -176,6 +176,7 @@ enum ClaudeStatusLineSetup {
     deinit { timer?.invalidate() }
 }
 struct LocalAIUsageView: View {
+    @Environment(\.connectionSetupAllowed) private var setupAllowed
     @ObservedObject var widget: LocalAIWidget
     var automaticallyRefresh = true
     var body: some View {
@@ -203,8 +204,9 @@ struct LocalAIUsageView: View {
                 }
             }
             Text(widget.status).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if setupAllowed {
             if widget.provider == .claude {
-                Button("Connect Claude Code status line", action: widget.connectClaude)
+                Button("Set up Claude Code status line", action: widget.connectClaude)
                 Button("Remove DockGrove status line", action: widget.disconnectClaude)
                 Text("Adds a command to ~/.claude/settings.json. Custom status lines are never overwritten. Keep DockGrove in the same location after connecting.").font(.caption2).foregroundStyle(.secondary)
             } else {
@@ -212,6 +214,7 @@ struct LocalAIUsageView: View {
                 Button("Copy CLI capture command") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString("gemini --output-format json -p 'YOUR PROMPT' | " + ClaudeStatusLineSetup.quote(Bundle.main.executableURL!.path) + " --gemini-report", forType: .string) }
                 Text("Use with a run you choose to make. DockGrove never runs a prompt or charges your AI account to refresh.").font(.caption2).foregroundStyle(.secondary)
             }
+            } else { ConnectionSettingsButton() }
             HStack { Button("Refresh", action: widget.refresh); Button("Clear local snapshot", action: widget.clear) }
             Link("Provider setup documentation", destination: widget.provider.documentation).font(.caption)
             Text("Only usage metrics stay on this Mac. No prompts, responses, credentials or transcript paths are retained.").font(.caption2).foregroundStyle(.secondary)

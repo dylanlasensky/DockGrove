@@ -50,7 +50,7 @@ enum MusicCommand: String, CaseIterable { case previous = "previous track", togg
     func disconnect() { generation += 1; connected = false; track = nil; clearArtwork(); busy = false; status = "Disconnected." }
     func refresh(command: MusicCommand? = nil) {
         guard !busy else { return }
-        guard NSWorkspace.shared.runningApplications.contains(where: { $0.bundleIdentifier == bundleID }) else { connected = false; track = nil; clearArtwork(); status = "Open \(name), then Connect."; return }
+        guard NSWorkspace.shared.runningApplications.contains(where: { $0.bundleIdentifier == bundleID }) else { connected = false; track = nil; clearArtwork(); status = "Open \(name), then allow access in Connection settings."; return }
         busy = true; let requestID = generation, bundle = bundleID
         // Only fixed application IDs and enumerated transport commands enter the script.
         let script = """
@@ -144,6 +144,7 @@ enum BoundedProcess {
     }
 }
 struct MusicPlayerView: View {
+    @Environment(\.connectionSetupAllowed) private var setupAllowed
     @ObservedObject var player: MusicPlayer
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -152,7 +153,10 @@ struct MusicPlayerView: View {
             Text(player.status).font(.caption).fixedSize(horizontal: false, vertical: true)
             HStack {
                 Button("Open \(player.name)", action: player.openPlayer)
-                Button(player.busy ? "Connecting…" : "Connect / refresh") { player.refresh() }.disabled(player.busy)
+                if setupAllowed {
+                    Toggle("Allow access", isOn: Binding(get: { player.connected }, set: { $0 ? player.refresh() : player.disconnect() })).disabled(player.busy)
+                } else { ConnectionSettingsButton() }
+                if player.connected { Button("Refresh") { player.refresh() }.disabled(player.busy) }
             }
             if player.connected {
                 HStack {
@@ -160,7 +164,7 @@ struct MusicPlayerView: View {
                     Button(player.track?.playing == true ? "Pause" : "Play") { player.refresh(command: .toggle) }
                     Button("Next") { player.refresh(command: .next) }
                 }.disabled(player.busy)
-                Button("Disconnect", action: player.disconnect)
+                if setupAllowed { Button("Remove access", action: player.disconnect) }
             }
         }
     }

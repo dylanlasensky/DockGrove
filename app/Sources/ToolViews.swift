@@ -62,7 +62,10 @@ struct ToolTile: View {
             }.padding(22).frame(width: 350).preferredColorScheme(model.scheme)
         }
     }
-    @ViewBuilder var contents: some View {
+    var contents: some View {
+        widgetContents.environment(\.connectionSettingsAction, { model.openConnectionSettings(kind) })
+    }
+    @ViewBuilder private var widgetContents: some View {
         switch kind {
         case .pet: CompanionView(pet: kit.pet, accent: model.color)
         case .claudeCodeUsage: LocalAIUsageView(widget: kit.claudeCodeUsage)

@@ -164,6 +164,7 @@ enum UsageKeychain {
     }
 }
 struct AIUsageView: View {
+    @Environment(\.connectionSetupAllowed) private var setupAllowed
     @ObservedObject var widget: AIUsageWidget
     @State private var key = ""
     var body: some View {
@@ -174,14 +175,19 @@ struct AIUsageView: View {
                 ForEach(report.totals.indices, id: \.self) { i in HStack { Text(widget.provider.labels[i]); Spacer(); Text(report.totals[i].formatted()).monospacedDigit() } }
             }
             Text(widget.status).font(.caption).fixedSize(horizontal: false, vertical: true)
+            if setupAllowed {
             SecureField("Admin API key", text: $key).textFieldStyle(.roundedBorder)
             HStack {
-                Button("Save & connect") { widget.connect(key); key = "" }.disabled(key.isEmpty || widget.busy)
+                Button("Save key") { widget.connect(key); key = "" }.disabled(key.isEmpty || widget.busy)
                 Button(widget.busy ? "Loading…" : "Refresh saved key", action: widget.refresh).disabled(widget.busy)
             }
             Toggle("Refresh hourly while DockGrove is open", isOn: $widget.autoRefresh)
             Button("Disconnect & forget key", action: widget.forget)
             Text("Keys stay in macOS Keychain and are sent only to the selected provider. No key is included in layouts or logs.").font(.caption).foregroundStyle(.secondary)
+            } else {
+                ConnectionSettingsButton()
+                Button("Refresh", action: widget.refresh).disabled(widget.busy)
+            }
             Link("API setup and permissions", destination: widget.provider.documentation)
         }
     }

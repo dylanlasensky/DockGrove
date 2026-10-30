@@ -2,15 +2,16 @@ import SwiftUI
 import AppKit
 
 enum StudioSection: String, CaseIterable {
-    case library = "Library", appearance = "Appearance", behavior = "Behavior", purchases = "Purchases"
+    case library = "Library", appearance = "Appearance", behavior = "Behavior", connections = "Connections", purchases = "Purchases"
     var icon: String {
-        switch self { case .library: return "square.grid.2x2"; case .appearance: return "paintpalette"; case .behavior: return "slider.horizontal.3"; case .purchases: return "sparkles" }
+        switch self { case .library: return "square.grid.2x2"; case .appearance: return "paintpalette"; case .behavior: return "slider.horizontal.3"; case .connections: return "person.crop.circle.badge.checkmark"; case .purchases: return "sparkles" }
     }
     var subtitle: String {
         switch self {
         case .library: return "A place for your everyday essentials."
         case .appearance: return "Make this little corner of your Mac feel like you."
         case .behavior: return "Choose how your Dock fits into your day."
+        case .connections: return "App access and account setup in one place."
         case .purchases: return "More useful widgets. One simple purchase."
         }
     }
@@ -37,7 +38,7 @@ struct SettingsView: View {
                     Spacer()
                     Button("Done") { model.closeSettingsAction?() }.keyboardShortcut(.cancelAction)
                 }
-                if model.canUseFeatures && section != .purchases {
+                if model.canUseFeatures && section != .purchases && section != .connections {
                     DockStudioPreview(model: model)
                     HStack(spacing: 5) {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
@@ -54,6 +55,8 @@ struct SettingsView: View {
                             if model.canUseFeatures { StudioAppearance(model: model) }
                         case .behavior:
                             if model.canUseFeatures { StudioBehavior(model: model) }
+                        case .connections:
+                            if model.canUseFeatures { StudioConnections(model: model) }
                         case .purchases:
                             if PurchaseConfiguration.enabled { PurchaseSettingsView() }
                             else { LicenseSettingsView() }
@@ -65,6 +68,7 @@ struct SettingsView: View {
         .frame(minWidth: 960, idealWidth: 1080, minHeight: 690, idealHeight: 780)
         .background(Color(nsColor: .windowBackgroundColor)).preferredColorScheme(model.scheme)
         .toggleStyle(.switch)
+        .onReceive(model.$connectionSettingsKind) { kind in if kind != nil { section = .connections } }
     }
 
     private var sidebar: some View {
@@ -373,7 +377,7 @@ private struct StudioBehavior: View {
                     Text("Read plan limits from your existing Codex sign-in. Your messages are not counted or collected.").font(.callout).foregroundStyle(.secondary)
                     Toggle("Refresh usage automatically", isOn: $model.usageEnabled)
                     TextField("Codex executable (auto-detected)", text: $model.customCLI).textFieldStyle(.roundedBorder)
-                    Button(model.fetching ? "Connecting…" : "Connect & refresh") { model.refreshUsage() }.disabled(model.fetching)
+                    Button(model.fetching ? "Refreshing…" : "Refresh usage") { model.refreshUsage() }.disabled(model.fetching)
                     if let error = model.usageError { Text(error).font(.caption).foregroundStyle(.orange) }
                 }
             }

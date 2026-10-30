@@ -19,6 +19,7 @@
 		316DC5EB57AC0FFA54F4E611 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B710E6FB7F91932A2630F6A8 /* Assets.xcassets */; };
 		31861043DEB812DC50E7DD6B /* CompanionMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC32E6395C5684CD5111154D /* CompanionMotion.swift */; };
 		31F761712F27544C36ECE570 /* DockWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = B304EA9816F22C9FADB54C6E /* DockWorkspace.swift */; };
+		3526CC9C3D0731A4F79DBFEE /* ConnectionSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0360D77D1A795FEFA85357 /* ConnectionSettings.swift */; };
 		37507B48E0989347EEB95EAF /* DockStudioSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE15C96D2C3ACD020A3DBBEB /* DockStudioSettings.swift */; };
 		382DF20114C24F6FB2302901 /* Usage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28884BE47BEE2F67BA424D5A /* Usage.swift */; };
 		428C728E14DEFF7132695DEC /* LicensingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BDE603304CFC6E53C1EFB2E /* LicensingTests.swift */; };
@@ -128,6 +129,7 @@
 		82DED36412E9CF7C525DEF8B /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build.sh; sourceTree = "<group>"; };
 		83B45B52FEB8C0D89A32032C /* DragPaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragPaging.swift; sourceTree = "<group>"; };
 		864F709D98B8CEA9B217AA6B /* PIXEL-PROMPTS-GOLDEN-HUSKY-COW.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "PIXEL-PROMPTS-GOLDEN-HUSKY-COW.txt"; sourceTree = "<group>"; };
+		8F0360D77D1A795FEFA85357 /* ConnectionSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSettings.swift; sourceTree = "<group>"; };
 		900A2FAFBEAA33AE7B186E0A /* DockTestHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockTestHost.swift; sourceTree = "<group>"; };
 		9014F449C96B049694881C44 /* IntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationTests.swift; sourceTree = "<group>"; };
 		951122A690E615B4914F8A57 /* Notch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notch.swift; sourceTree = "<group>"; };
@@ -298,6 +300,7 @@
 				BC32E6395C5684CD5111154D /* CompanionMotion.swift */,
 				293C943D481305EEB23F0086 /* CompanionMotionTests.swift */,
 				E629E58ED3BC8179A2FE812C /* CompanionSpriteKit.swift */,
+				8F0360D77D1A795FEFA85357 /* ConnectionSettings.swift */,
 				C8285458C68BA527D160D756 /* Design.swift */,
 				58DE772FC54AB1898E5C58D0 /* DockBehavior.swift */,
 				1367AEF0EC4450BE4BFDA69D /* DockLayout.swift */,
@@ -486,6 +489,7 @@
 				31861043DEB812DC50E7DD6B /* CompanionMotion.swift in Sources */,
 				F5D9BA90E5A85771FEF73858 /* CompanionMotionTests.swift in Sources */,
 				A551E89EB7B6F8CD3CC058FD /* CompanionSpriteKit.swift in Sources */,
+				3526CC9C3D0731A4F79DBFEE /* ConnectionSettings.swift in Sources */,
 				0560CB0FF29B16C719412848 /* Design.swift in Sources */,
 				11126638526F05AED6E239B5 /* DockBehavior.swift in Sources */,
 				D2AA74E14C5F5CB426637166 /* DockLayout.swift in Sources */,

@@ -294,7 +294,7 @@ struct UsageDetails: View {
             Text("Uses the limits reported by your signed-in Codex service. Regular ChatGPT message counts may not be included.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             HStack {
-                Button(model.usageEnabled ? "Refresh" : "Connect & refresh") { model.refreshUsage() }.disabled(model.fetching).buttonStyle(.borderedProminent).tint(model.color)
+                Button("Refresh") { model.refreshUsage() }.disabled(model.fetching).buttonStyle(.borderedProminent).tint(model.color)
                 Spacer()
                 Button("Settings") { model.settingsAction?() }.buttonStyle(.bordered)
             }
