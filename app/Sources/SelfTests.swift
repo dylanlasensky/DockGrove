@@ -5,6 +5,7 @@ import Foundation
     do {
         try runBehaviorTests()
         try runAppManagementTests()
+        try runDockStudioTests()
         try runLicensingTests()
         let response = try JSONDecoder().decode(UsageResponse.self, from: Data(modern.utf8))
         precondition(response.buckets.count == 2)
