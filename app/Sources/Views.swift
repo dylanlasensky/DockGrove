@@ -18,14 +18,15 @@ struct DockView: View {
     @State private var arrowFrames: [Int: CGRect] = [:]
     @State private var dropTarget: String?
     @State private var turnedDuringDrag = false
+    @State private var studioDropTarget: String?
+    @State private var studioBarTarget = false
     @GestureState private var dragging = false
     private let dragClock = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
     var entries: [DockEntry] { model.canUseFeatures ? model.orderedEntries : [] }
     var body: some View {
         let screen = model.selectedScreen
-        let widths = entries.map { $0.width(iconSize: model.iconSize, rich: model.toolkit.richWidgets) }
-        let natural = widths.reduce(0, +) + Double(max(0, widths.count - 1)) * DockPageLayout.gap
-        let width = DockPageLayout.bodyWidth(screenWidth: min(screen?.frame.width ?? 1440, max((widths.max() ?? 236) + DockPageLayout.chrome + 44, (screen?.frame.width ?? 1440) * model.widthFraction)), naturalWidth: natural)
+        let widths = entries.map { $0.width(iconSize: model.iconSize, rich: model.toolkit.richWidgets, shapes: model.toolkit.widgetShapes, tileHeight: model.tileHeight) }
+        let width = model.toolbarWidth(screenWidth: screen?.frame.width ?? 1440, widths: widths)
         let pages = DockPageLayout.pages(widths: widths, available: width - DockPageLayout.chrome)
         let current = min(page, pages.count - 1)
         HStack(spacing: 8) {
@@ -34,23 +35,33 @@ struct DockView: View {
                 .background(arrowGeometry(-1))
                 .foregroundStyle(dwell.direction == -1 ? model.color : .primary)
                 .disabled(current == 0).help("Previous Dock page; hold a dragged tile here to turn pages").accessibilityLabel("Previous Dock page")
+                .dropDestination(for: DockStudioItem.self) { items, _ in
+                    acceptStudioPageDrop(items, destination: current - 1, pages: pages)
+                }
             HStack(spacing: DockPageLayout.gap) {
                 ForEach(pages[current].map { entries[$0] }) { item in
                     tile(item)
                 }
                 Spacer(minLength: 0)
-            }.frame(width: max(1, width - DockPageLayout.chrome), height: max(64, model.iconSize + 20)).clipped()
+            }.frame(width: max(1, width - DockPageLayout.chrome), height: model.tileHeight).clipped()
             VStack(spacing: 3) {
                 Button { page = min(pages.count - 1, current + 1) } label: { Image(systemName: "chevron.right").frame(width: 24, height: 26) }
                     .background(arrowGeometry(1))
                     .foregroundStyle(dwell.direction == 1 ? model.color : .primary)
                     .disabled(current == pages.count - 1).help("Next Dock page; hold a dragged tile here to turn pages").accessibilityLabel("Next Dock page")
+                    .dropDestination(for: DockStudioItem.self) { items, _ in
+                        acceptStudioPageDrop(items, destination: current + 1, pages: pages)
+                    }
                 Text("\(current + 1)/\(pages.count)").font(.system(size: 9)).monospacedDigit().foregroundStyle(.secondary)
             }.frame(width: 32)
             Button { model.settingsAction?() } label: { Image(systemName: "slider.horizontal.3").frame(width: 26, height: 46) }
                 .help("DockGrove settings").accessibilityLabel("DockGrove settings")
         }
         .contentShape(Rectangle())
+        .dropDestination(for: DockStudioItem.self) { items, _ in
+            guard items.count == 1 else { return false }
+            return model.placeStudioItem(items[0])
+        } isTargeted: { studioBarTarget = $0 }
         // This recognizer belongs to the stable Dock, not a tile removed by paging.
         .highPriorityGesture(DragGesture(minimumDistance:8,coordinateSpace:.global)
             .updating($dragging) { _, active, _ in active = true }
@@ -74,7 +85,7 @@ struct DockView: View {
                     guard let target = direction > 0 ? candidates.first : candidates.last else { return }
                     model.moveEntry(source,onto:target)
                     let moved = model.orderedEntries
-                    let updated = DockPageLayout.pages(widths:moved.map { $0.width(iconSize:model.iconSize,rich:model.toolkit.richWidgets) },available:width-DockPageLayout.chrome)
+                    let updated = DockPageLayout.pages(widths:moved.map { $0.width(iconSize:model.iconSize,rich:model.toolkit.richWidgets,shapes:model.toolkit.widgetShapes,tileHeight:model.tileHeight) },available:width-DockPageLayout.chrome)
                     if let index = moved.firstIndex(where: { $0.id == source }), let destinationPage = updated.firstIndex(where: { $0.contains(index) }) { page = destinationPage }
                 }
             })
@@ -91,7 +102,7 @@ struct DockView: View {
         .onChange(of:dragging) { active in if !active { clearDrag() } }
         .onDisappear { clearDrag() }
         .buttonStyle(.plain).padding(.horizontal, 16).padding(.vertical, 10)
-        .frame(width: width, height: max(64, model.iconSize + 20) + 24)
+        .frame(width: width, height: model.tileHeight + 24)
         .background { DockPlate(theme: model.theme) }
         .overlay(alignment:.top) {
             Capsule().fill(model.color.opacity(0.6)).frame(width:28,height:4).padding(7).contentShape(Rectangle())
@@ -107,7 +118,7 @@ struct DockView: View {
                     lastDrag = value.translation
                 }.onEnded { _ in lastDrag = .zero })
         }
-        .overlay(RoundedRectangle(cornerRadius: 27).stroke(Color(nsColor: .separatorColor), lineWidth: 0.7))
+        .overlay(RoundedRectangle(cornerRadius: 27).stroke(studioBarTarget ? model.color : Color(nsColor: .separatorColor), lineWidth: studioBarTarget ? 2 : 0.7))
         .clipShape(RoundedRectangle(cornerRadius: 27))
         .padding(.horizontal, 12).padding(.top, 16).padding(.bottom, 4)
         .overlay(alignment:.top) {
@@ -120,8 +131,24 @@ struct DockView: View {
         .onChange(of: entries.map(\.id)) { page = min(page, pages.count - 1) }
     }
     private func tile(_ item: DockEntry) -> some View {
-        UnifiedDockTile(item:item,model:model,targeted:dropTarget == item.id,dragged:draggedID == item.id,content:{ entry(item) })
-            .frame(width:item.width(iconSize:model.iconSize,rich:model.toolkit.richWidgets),height:max(64,model.iconSize+20))
+        UnifiedDockTile(item:item,model:model,targeted:dropTarget == item.id || studioDropTarget == item.id,dragged:draggedID == item.id,content:{ entry(item) })
+            .frame(width:item.width(iconSize:model.iconSize,rich:model.toolkit.richWidgets,shapes:model.toolkit.widgetShapes,tileHeight:model.tileHeight),height:model.tileHeight)
+            .dropDestination(for: DockStudioItem.self) { items, point in
+                guard items.count == 1 else { return false }
+                let next = model.studioEntries.drop(while: { $0.id != item.id }).dropFirst().first?.id
+                let target = item.id == "add" ? nil : point.x < item.width(iconSize: model.iconSize, rich: model.toolkit.richWidgets, shapes: model.toolkit.widgetShapes, tileHeight: model.tileHeight) / 2 ? item.id : next
+                return model.placeStudioItem(items[0], before: target)
+            } isTargeted: { active in
+                if active { studioDropTarget = item.id }
+                else if studioDropTarget == item.id { studioDropTarget = nil }
+            }
+    }
+    private func acceptStudioPageDrop(_ items: [DockStudioItem], destination: Int, pages: [[Int]]) -> Bool {
+        guard items.count == 1, pages.indices.contains(destination) else { return false }
+        let target = pages[destination].map { entries[$0] }.first { $0.id != "add" }?.id
+        guard model.placeStudioItem(items[0], before: target) else { return false }
+        page = destination
+        return true
     }
     private func clearDrag() { draggedID = nil; dropTarget = nil; turnedDuringDrag = false; dwell.reset() }
     private func arrowGeometry(_ direction: Int) -> some View {
@@ -278,114 +305,6 @@ struct UsageDetails: View {
             MiniMeter(window: window, color: model.color)
             Text(window.resetDescription).font(.caption).foregroundStyle(.secondary)
         }
-    }
-}
-
-struct SettingsView: View {
-    @ObservedObject var model: DockModel
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                HStack(spacing: 13) {
-                    BrandIcon().frame(width: 58, height: 58)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("DockGrove").font(.system(size: 27, weight: .bold, design: .rounded))
-                        Text("A calmer space for everything you do.").font(.callout).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 8) {
-                        Text("VERSION 1.0 · RELEASE CANDIDATE").font(.system(size: 10, weight: .bold)).tracking(1).foregroundStyle(.secondary)
-                        Button("Done") { model.closeSettingsAction?() }
-                    }
-                }
-                if LicenseConfiguration.commercial {
-                    LicenseSettingsView()
-                } else {
-                    DisclosureGroup("Development access enabled · License testing") {
-                        LicenseSettingsView().padding(.top, 8)
-                    }.font(.callout)
-                }
-                if !model.canUseFeatures {
-                    Button("Restore Apple Dock") { model.changeDockAction?(false) }
-                }
-                if model.canUseFeatures {
-                card("Make it yours", icon: "paintpalette") {
-                    DockAppearanceSettings(model: model)
-                    HStack {
-                        Text("Icon size")
-                        Slider(value: $model.iconSize, in: 32...64, step: 2).frame(width: 210)
-                        Text("\(Int(model.iconSize))").monospacedDigit().foregroundStyle(.secondary)
-                    }
-                    HStack {
-                        Text("Accent")
-                        Spacer()
-                        ForEach(AccentPalette.names, id: \.self) { name in
-                            Button { model.accent = name } label: {
-                                Circle().fill(AccentPalette.color(name)).frame(width: 22, height: 22)
-                                    .overlay { if name == "None" { Image(systemName: "slash.circle").foregroundStyle(.black) } }
-                                    .padding(3).overlay(Circle().stroke(model.accent == name ? Color.primary : .clear, lineWidth: 1.5))
-                            }.buttonStyle(.plain).help(name).accessibilityLabel(name + " accent")
-                        }
-                        ColorPicker("Custom", selection: Binding(get: { model.color }, set: { model.accent = AccentPalette.hex($0) }), supportsOpacity: false).labelsHidden().help("Choose any accent color")
-                    }
-                    Text(model.accent == "None" ? "Neutral controls with no colored accent." : "Accent: " + model.accent).font(.caption).foregroundStyle(.secondary)
-                    Toggle("Rich widget cards", isOn: Binding(get: { model.toolkit.richWidgets }, set: { model.toolkit.richWidgets = $0 }))
-                    Toggle("Show clock and date", isOn: $model.showClock)
-                    HStack {
-                        Button("Pin apps…", action: model.addApps)
-                        Button("Undo") { model.undoAppChange() }.disabled(model.appHistory.isEmpty)
-                        Text("Drag icons to reorder. Right-click for more actions.").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-                WorkspaceSettings(model: model, kit: model.toolkit)
-                if !model.isAdditionalDock { card("Your Mac Dock", icon: "dock.rectangle") {
-                    Toggle("Use DockGrove as my Dock", isOn: Binding(get: { model.replacingDock }, set: { model.changeDockAction?($0) }))
-                    Text("Replaces Apple’s Dock at the bottom edge while DockGrove runs. Hides during full screen and restores your original Dock preferences when you quit.")
-                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    if let error = model.systemError { Text(error).font(.caption).foregroundStyle(.orange) }
-                    HStack {
-                        Button(model.visible ? "Hide DockGrove" : "Show DockGrove") { model.visible.toggle(); model.visibilityAction?() }
-                        Button("Restore Apple Dock") { model.changeDockAction?(false) }
-                    }
-                }
-                }
-                if !model.isAdditionalDock { SnapSettings(model: model) }
-                card("ChatGPT plan usage", icon: "sparkles") {
-                    Text("Connect your existing ChatGPT sign-in through Codex. DockGrove reads the reported limits and reset times every five minutes. It does not count your chat messages.")
-                        .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    Toggle("Refresh usage automatically", isOn: $model.usageEnabled)
-                    HStack {
-                        TextField("Codex executable (auto-detected)", text: $model.customCLI).textFieldStyle(.roundedBorder)
-                        Button("Choose…") { chooseCLI() }
-                    }
-                    Text(UsageClient.executable(custom: model.customCLI) == nil ? "Codex not found. Install Codex CLI or choose its executable." : "Codex found on this Mac.")
-                        .font(.caption).foregroundStyle(.secondary)
-                    HStack {
-                        Button(model.fetching ? "Connecting…" : "Connect & refresh") { model.refreshUsage() }.disabled(model.fetching).buttonStyle(.borderedProminent).tint(model.color)
-                        if model.usage != nil { Label("Usage received", systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(model.color) }
-                    }
-                    if let error = model.usageError { Text(error).font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true) }
-                }
-                }
-                HStack {
-                    Text("DockGrove · Thoughtfully at hand.").font(.caption).foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Quit DockGrove") { NSApp.terminate(nil) }
-                }
-            }.padding(28)
-        }.frame(width: 590, height: 720).background(Color(nsColor: .windowBackgroundColor)).preferredColorScheme(model.scheme)
-    }
-    private func card<Content: View>(_ title: String, icon: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 13) {
-            Label(title, systemImage: icon).font(.headline)
-            content()
-        }.padding(18).frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color(nsColor: .separatorColor)))
-    }
-    private func chooseCLI() {
-        let picker = NSOpenPanel(); picker.title = "Choose the Codex executable"; picker.canChooseDirectories = false
-        if picker.runModal() == .OK, let url = picker.url { model.customCLI = url.path }
     }
 }
 

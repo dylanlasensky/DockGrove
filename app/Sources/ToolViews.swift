@@ -24,18 +24,31 @@ struct ToolTile: View {
     }
     var body: some View {
         Group {
-            if kit.richWidgets {
+            if kit.shape(for: kind) != .rounded {
+                Button { interaction.expanded.toggle(); if kind == .search { kit.scanApplications() } } label: {
+                    ShapedWidgetFace(kind: kind, style: kit.shape(for: kind), caption: caption, accent: model.color, animal: kit.pet.animal, resting: kit.pet.state.resting, weatherAttribution: kind == .weather && kit.weatherSnapshot != nil)
+                }.buttonStyle(.plain).help(kind.title).accessibilityLabel(kind.title + ": " + caption)
+            } else if kit.richWidgets {
                 RichWidgetCard(kind: kind, model: model, kit: kit) { interaction.expanded.toggle(); if kind == .search { kit.scanApplications() } }
             } else {
                 Button { interaction.expanded.toggle(); if kind == .search { kit.scanApplications() } } label: {
                     VStack(spacing: 5) {
-                        Image(systemName: kind.icon).font(.system(size: 20, weight: .medium)).foregroundStyle(model.color)
+                        Image(systemName: kind == .weather ? (kit.weatherSnapshot?.symbolName ?? kind.icon) : kind.icon).font(.system(size: 20, weight: .medium)).foregroundStyle(model.color)
                         Text(caption).font(.system(size: 10, weight: .medium)).lineLimit(1).monospacedDigit()
+                        if kind == .weather, kit.weatherSnapshot != nil {
+                            Label("Weather", systemImage: "apple.logo").font(.system(size: 8))
+                        }
                     }.frame(width: 72, height: max(48, model.iconSize)).modifier(WidgetSurface(radius: 12))
                 }.buttonStyle(.plain).help(kind.title)
             }
         }
         .contextMenu {
+            Menu("Widget shape") {
+                ForEach(WidgetShapeStyle.allCases) { shape in
+                    Button(shape.title) { model.setWidgetShape(shape, for: kind) }
+                }
+            }
+            Divider()
             Button("Move earlier") { kit.moveWidget(kind, by: -1) }
             Button("Move later") { kit.moveWidget(kind, by: 1) }
             Divider()
@@ -75,8 +88,8 @@ struct ToolTile: View {
             Text(kit.weatherDetail).font(.callout).foregroundStyle(.secondary)
             TextField("City name", text: $kit.weatherCity).textFieldStyle(.roundedBorder).onSubmit { kit.fetchWeather() }
             Button(kit.weatherLoading ? "Loading…" : "Get weather") { kit.fetchWeather() }.disabled(kit.weatherLoading)
-            Text("City search is sent to Open-Meteo when you refresh. No location permission needed.").font(.caption).foregroundStyle(.secondary)
-            Link("Weather data by Open-Meteo", destination: URL(string: "https://open-meteo.com/")!).font(.caption)
+            Text("Your entered city is sent to Apple when you refresh. Your device location is not used.").font(.caption).foregroundStyle(.secondary)
+            if let snapshot = kit.weatherSnapshot { WeatherAttributionView(snapshot: snapshot) }
         case .music:
             MusicPlayerView(player: kit.spotify)
             Divider()
@@ -147,13 +160,12 @@ struct ToolTile: View {
 }
 
 struct WorkspaceSettings: View {
-    @State private var widgetSearch = ""
     @ObservedObject var model: DockModel
     @ObservedObject var kit: Toolkit
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Label("Layout & profiles", systemImage: "rectangle.3.group").font(.headline)
-            Picker("Display", selection: Binding(get: { kit.screenIndex }, set: { kit.screenIndex = $0; if NSScreen.screens.indices.contains($0) { model.screenID = DockModel.displayID(NSScreen.screens[$0]) } })) { ForEach(Array(NSScreen.screens.enumerated()), id: \.offset) { index, screen in Text(screen.localizedName).tag(index) } }
+            StudioChoiceControl(title: "Display", selection: Binding(get: { String(kit.screenIndex) }, set: { if let index = Int($0), NSScreen.screens.indices.contains(index) { kit.screenIndex = index; model.screenID = DockModel.displayID(NSScreen.screens[index]) } }), options: NSScreen.screens.enumerated().map { StudioChoice(value: String($0.offset), title: $0.element.localizedName, icon: "display") })
             Toggle("Automatically hide DockGrove", isOn: $kit.autoHide)
             Toggle("Hide when windows overlap", isOn: $kit.hideOnOverlap)
             Toggle("Include unpinned running apps", isOn: $kit.showRunning)
@@ -164,16 +176,7 @@ struct WorkspaceSettings: View {
             HStack { Button("Export layouts…", action: model.exportProfiles); Button("Import layouts…", action: model.importProfiles) }
             Divider()
             LoginSettings(utility: kit.utilities)
-            Label("Widget library", systemImage: "square.grid.2x2").font(.headline)
-            Text("Enable the tools you want in your Dock. Use the page arrows when the Dock fills up. Settings stays visible on every page.").font(.caption).foregroundStyle(.secondary)
-            TextField("Find a widget…", text: $widgetSearch)
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                ForEach(ToolKind.allCases.filter { widgetSearch.isEmpty || $0.title.localizedCaseInsensitiveContains(widgetSearch) }) { kind in
-                    Toggle(isOn: Binding(get: { kit.enabled.contains(kind.rawValue) }, set: { kit.toggle(kind, $0) })) {
-                        HStack(spacing: 8) { Image(systemName: kind.icon).foregroundStyle(model.color).frame(width: 22); Text(kind.title).font(.system(size: 11, weight: .medium)).lineLimit(1) }
-                    }.toggleStyle(.switch).controlSize(.mini).padding(10).modifier(WidgetSurface(radius: 10)).help(kind.title)
-                }
-            }
+
         }.padding(18).background(.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 16))
     }
 }

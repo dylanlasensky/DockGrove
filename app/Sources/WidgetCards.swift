@@ -65,7 +65,7 @@ struct RichWidgetCard: View {
                 }
             }
         case .weather:
-            HStack { VStack(alignment: .leading, spacing: 2) { Text(kit.weatherText == "Choose a city" ? "—°" : kit.weatherText).font(.system(size: 28, weight: .medium)); Text(kit.weatherCity.isEmpty ? "Choose a city" : kit.weatherCity).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1) }; Spacer(); Image(systemName: "cloud.sun.fill").symbolRenderingMode(.hierarchical).foregroundStyle(model.color).font(.system(size: 27)) }
+            HStack { VStack(alignment: .leading, spacing: 2) { Text(kit.weatherText == "Choose a city" ? "—°" : kit.weatherText).font(.system(size: 28, weight: .medium)); Text(kit.weatherSnapshot?.city ?? (kit.weatherCity.isEmpty ? "Choose a city" : kit.weatherCity)).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1); if kit.weatherSnapshot != nil { Label("Weather", systemImage: "apple.logo").font(.system(size: 8)).foregroundStyle(.secondary) } }; Spacer(); Image(systemName: kit.weatherSnapshot?.symbolName ?? "cloud.sun.fill").symbolRenderingMode(.hierarchical).foregroundStyle(model.color).font(.system(size: 27)) }
         case .progress:
             TimelineView(.periodic(from: .now, by: 60)) { context in
                 let interval = Calendar.current.dateInterval(of: .month, for: context.date)!
