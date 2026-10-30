@@ -124,5 +124,5 @@ These limits are retained rather than converting fixture or rendering evidence i
 
 - Added opt-in notch-row controls using public screen safe-area and auxiliary-area geometry. The center camera region has no controls; the widget panel expands from the notch row.
 - All tier-permitted widgets are browsable, with Dock widgets first, search, and pagination. Hover and click opening use separate close behavior.
-- Signed builds, notch state/geometry/render tests, and the studio suite pass. The pre-hover unrestricted regression build passed all 28 checks; the final notch suite covers hover and catalog behavior.
-- Native checks verified compatible detection, persisted enablement, click expansion/collapse, widget paging, Focus controls, and fullscreen suppression. See NOTCH.md for untested hardware scenarios.
+- Signed builds, notch state/geometry/render tests, and the studio suite pass. The final committed-source unrestricted regression build passed all 28 checks, including hover and catalog behavior.
+- Native checks verified compatible detection, persisted enablement, click expansion/collapse, widget paging, Focus and Weather controls, search, and fullscreen suppression. See NOTCH.md for untested hardware scenarios.
