@@ -126,3 +126,13 @@ These limits are retained rather than converting fixture or rendering evidence i
 - All tier-permitted widgets are browsable, with Dock widgets first, search, and pagination. Hover and click opening use separate close behavior.
 - Signed builds, notch state/geometry/render tests, and the studio suite pass. The final committed-source unrestricted regression build passed all 28 checks, including hover and catalog behavior.
 - Native checks verified compatible detection, persisted enablement, click expansion/collapse, widget paging, Focus and Weather controls, search, and fullscreen suppression. See NOTCH.md for untested hardware scenarios.
+
+## October 30, 2026: System-sized notch workspace and file tray
+
+- Resting bounds now equal the detected camera housing exactly (185×32 points on the development Mac); the 760-point-wide expansion combines Home and Widgets alongside Tray. The camera region remains empty in the expanded header.
+- Home includes music, Focus, and the widget grid in one section. All unlocked widgets are available, with current Dock widgets first. Inline Appearance settings offer Tabs or Rounded pills for Home/Tray navigation, with persistent selection. The expanded height remains camera housing plus 324 points; only width increases. Paging shows four widgets at a time; full controls open inline.
+- Tray uses the persistent, tier-gated File Shelf with native file drops, a file picker, drag-out providers, Finder reveal, system sharing, and shortcut-only removal.
+- Signed and unrestricted builds pass. All 28 unrestricted regression checks pass, including native pasteboard URL round trips, file/folder validation, duplicate prevention, persistence, access gating, and original-file preservation.
+- Native UI verification added a temporary text file through Add files, displayed its tray card, removed its shortcut, and confirmed the original contents were unchanged. Inline Focus controls were verified in the same notch window. Home, Tray, and Focus renders were visually inspected.
+- The running signed app exposed both navigation preview cards in Appearance. Selecting Tabs updated the Home/Tray navigation, and the wider combined Home rendered without clipping.
+- Physical drag-in/drag-out gestures and sharing remain manual validation gaps; the file intake and drag-provider implementation are not presented as end-to-end gesture certification.

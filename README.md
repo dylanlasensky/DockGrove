@@ -12,7 +12,7 @@ Built with Swift, SwiftUI, and AppKit. The 1.0 commercial candidate adds purchas
 
 [DockGrove website](https://dockgrove.com/) · Website source and the test-commerce implementation are under `website/`. Checkout remains unavailable until the test services are configured.
 
-Compatible Macs can enable **Notch quick access** in Settings → Appearance. Hover over the notch row or click its side controls to browse all unlocked widgets, with search and paging. See [notch behavior and validation](docs/NOTCH.md).
+Compatible Macs can enable **Notch quick access** in Settings → Appearance. The resting notch matches the system camera housing. Hover or click to open a wider Home with searchable widgets and a file Tray with drag-in and drag-out shortcuts. See [notch behavior and validation](docs/NOTCH.md).
 
 Toolbar dimensions are available in Settings → Appearance → Toolbar size. Drag a number badge left or right, or use its −/+ buttons, to adjust width, height, and icon size. Compact, Balanced, and Spacious previews apply presets; Fit width to content chooses between a content-sized bar and your chosen width. Changes save automatically and support Undo layout. Widget and display choices expand into searchable inline panels, and on/off settings use switches.
 
