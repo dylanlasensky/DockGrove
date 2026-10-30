@@ -1,6 +1,7 @@
 import AppKit
 
 @MainActor func runIntegrationTests() async throws {
+    try await runWeatherTests()
     try runLocalAIUsageTests()
     try runWorkspaceTests()
     // Validate whole-tile paging at laptop, external-display and narrow resolutions.
