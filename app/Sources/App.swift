@@ -14,6 +14,7 @@ final class DockPanel: NSPanel {
     var status: NSStatusItem!
     var workspace: DockWorkspace!
     var workspaceWindow: NSWindow?
+    var notch: NotchController?
     var snapper: WindowSnapper?
     var subscriptions = Set<AnyCancellable>()
     var visibilityTimer: Timer?
@@ -23,6 +24,9 @@ final class DockPanel: NSPanel {
     var settlingUntil = Date.distantPast
     let testing = CommandLine.arguments.contains("--ui-test") || CommandLine.arguments.contains("--native-test")
 
+    func applicationDidBecomeActive(_ notification: Notification) {
+        if PurchaseConfiguration.enabled { Task { await PurchaseManager.shared.refreshEntitlements() } }
+    }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showSettings(); return true
     }
@@ -46,6 +50,7 @@ final class DockPanel: NSPanel {
             editMenu.addItem(withTitle: title, action: Selector(action), keyEquivalent: key)
         }
         editItem.submenu = editMenu; mainMenu.addItem(editItem); NSApp.mainMenu = mainMenu
+        if PurchaseConfiguration.enabled { Task { await PurchaseManager.shared.load() } }
         model = DockModel(defaults: testing ? UserDefaults(suiteName: "DockGroveUITests")! : .standard)
         do { if !testing { try SystemDock.restore() } } catch { model.systemError = "Could not restore the original Dock setting. Use Restore Apple Dock to retry." }
         workspace = DockWorkspace(defaults: model.defaults, testing: testing)
@@ -62,7 +67,7 @@ final class DockPanel: NSPanel {
         // Never join another application's native full-screen Space or Mission Control.
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenNone, .stationary, .ignoresCycle]
         panel.contentView = NSHostingView(rootView: DockView(model: model))
-        settings = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 590, height: 720), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
+        settings = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1080, height: 780), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         settings.title = "DockGrove"; settings.isReleasedWhenClosed = false
         settings.contentView = NSHostingView(rootView: SettingsView(model: model))
         settings.center()
@@ -102,6 +107,8 @@ final class DockPanel: NSPanel {
         self.workspace.restore()
         snapper = WindowSnapper(model: model)
         if !CommandLine.arguments.contains("--native-test") { snapper?.start() }
+        notch = NotchController(model: model)
+        model.openNotchAction = { [weak self] in self?.checkAutoHide(); self?.notch?.setExpanded(true) }
         layoutDock(); checkAutoHide()
         if !CommandLine.arguments.contains("--native-test") && !model.defaults.bool(forKey: "hasLaunched02") { showSettings(); model.defaults.set(true, forKey: "hasLaunched02") }
         if let i = CommandLine.arguments.firstIndex(of: "--native-test"), CommandLine.arguments.indices.contains(i + 1) {
@@ -131,6 +138,7 @@ final class DockPanel: NSPanel {
         guard model != nil, panel != nil else { return }
         layout(panel,model:model)
         for dock in workspace?.docks ?? [] { layout(dock.panel,model:dock.model) }
+        notch?.update(suppressed: !sessionActive || !screenAwake || Date() < settlingUntil)
     }
     func layout(_ panel: DockPanel, model: DockModel) {
         guard let screen=model.selectedScreen, let view=panel.contentView else { return }
@@ -144,7 +152,7 @@ final class DockPanel: NSPanel {
         let usable=DockGeometry.reserve(screen.visibleFrame,docks:rects)
         return CGRect(x:usable.minX,y:(NSScreen.screens.first?.frame.maxY ?? 0)-usable.maxY,width:usable.width,height:usable.height)
     }
-    @objc func spaceChanged() { settlingUntil = Date().addingTimeInterval(0.5); panel.orderOut(nil); visibility = DockVisibility(); snapper?.cancel(); for dock in workspace?.docks ?? [] { dock.panel.orderOut(nil); dock.visibility=DockVisibility() } }
+    @objc func spaceChanged() { notch?.hide(); settlingUntil = Date().addingTimeInterval(0.5); panel.orderOut(nil); visibility = DockVisibility(); snapper?.cancel(); for dock in workspace?.docks ?? [] { dock.panel.orderOut(nil); dock.visibility=DockVisibility() } }
     @objc func sessionResigned() { sessionActive = false; checkAutoHide() }
     @objc func sessionBecameActive() { sessionActive = true; spaceChanged(); layoutDock() }
     @objc func screenSlept() { screenAwake = false; checkAutoHide() }
@@ -153,6 +161,7 @@ final class DockPanel: NSPanel {
         guard let panel, let model else { return }
         check(panel,model:model,visibility:&visibility)
         for dock in workspace?.docks ?? [] { check(dock.panel,model:dock.model,visibility:&dock.visibility) }
+        notch?.update(suppressed: !sessionActive || !screenAwake || Date() < settlingUntil)
         if !sessionActive || !screenAwake { snapper?.cancel() }
     }
     func check(_ panel:DockPanel,model:DockModel,visibility:inout DockVisibility) {
@@ -217,6 +226,42 @@ final class DockPanel: NSPanel {
 
 @main struct DockGroveMain {
     @MainActor static func main() {
+        if let index = CommandLine.arguments.firstIndex(of: "--notch-test") {
+            let output = CommandLine.arguments.indices.contains(index + 1) ? URL(fileURLWithPath: CommandLine.arguments[index + 1]) : nil
+            do { try runNotchTests(output: output) } catch { print("FAIL: notch: \(error)"); exit(1) }
+            return
+        }
+        if let index = CommandLine.arguments.firstIndex(of: "--assets-test") {
+            let output = CommandLine.arguments.indices.contains(index + 1) ? URL(fileURLWithPath: CommandLine.arguments[index + 1]) : nil
+            do { try runAssetCatalogTests(output: output) } catch { print("FAIL: asset catalog: \(error)"); exit(1) }
+            return
+        }
+        if CommandLine.arguments.contains("--studio-test") {
+            do { try runDockStudioTests() } catch { print("FAIL: studio: \(error)"); exit(1) }
+            return
+        }
+        if let index = CommandLine.arguments.firstIndex(of: "--studio-render"), CommandLine.arguments.indices.contains(index + 1) {
+            do { try renderDockStudio(to: URL(fileURLWithPath: CommandLine.arguments[index + 1])) }
+            catch { print("FAIL: studio render: \(error)"); exit(1) }
+            return
+        }
+        if let index = CommandLine.arguments.firstIndex(of: "--weather-test") {
+            guard CommandLine.arguments.indices.contains(index + 1) else {
+                print("Usage: DockGrove --weather-test CITY"); exit(2)
+            }
+            let city = CommandLine.arguments[index + 1]
+            Task { @MainActor in
+                do {
+                    let weather = try await AppleWeatherClient.fetch(city: city)
+                    print("PASS: Apple Weather · \(weather.city) · \(WeatherSnapshot.fahrenheit(weather.temperature)) · \(weather.condition)")
+                    print("Attribution: \(weather.attributionURL.absoluteString)")
+                    fflush(stdout); exit(0)
+                } catch {
+                    print("FAIL: Apple Weather: \(error)"); fflush(stdout); exit(1)
+                }
+            }
+            NSApplication.shared.run(); return
+        }
         if CommandLine.arguments.contains("--claude-statusline") { exit(LocalAIStore.capture(.claude)) }
         if CommandLine.arguments.contains("--gemini-report") { exit(LocalAIStore.capture(.gemini)) }
         if CommandLine.arguments.contains("--restore-dock") {
