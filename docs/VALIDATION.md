@@ -144,3 +144,10 @@ These limits are retained rather than converting fixture or rendering evidence i
 - Signed Debug build and all 28 unrestricted regression checks pass. Strict code-signature verification passes.
 - Native scroll actions moved the horizontal offset from 0 to 0.164 and revealed the widget row. Search filtered to Focus, its controls opened inline without growing the strip, and clearing search restored the initial sections. Longer widget controls scroll within their fixed-height area.
 - File drag gesture certification remains outstanding as documented in NOTCH.md; existing intake, persistence, tier, and preservation tests pass.
+
+## October 30, 2026: Separate Files tab
+
+- Moved the tray from the Home row into a second Files tab in the existing header. Home retains horizontal controls and widgets; Files scrolls its shortcuts horizontally. Expanded geometry remains 760×144 points on the development Mac.
+- Dropping accepted files automatically selects Files. The File Shelf card is omitted from Home to avoid a duplicate tray entry.
+- Signed and unrestricted builds and their focused notch suites pass, including automatic Files selection, purchase gating, and fixed-height assertions. Strict code-signature verification passes.
+- Native UI verification confirmed Home contains widgets and no file drop area; selecting the second Files tab shows the drop area and Add files action. The app was left on Files.
