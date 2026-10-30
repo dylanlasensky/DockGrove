@@ -167,3 +167,8 @@ These limits are retained rather than converting fixture or rendering evidence i
 - Queue tests cover deduplication, removal, empty selection rejection, explicit handoff, cancellation-safe staging, separation from tray shortcuts, and reset to the two zones when a new drag enters the resting notch. Signed and unrestricted builds and focused notch suites pass; the broader regression run passed all 28 checks.
 - Native verification opened the custom AirDrop panel, added an agent-created text file, and confirmed it stayed in the review view until Choose device. The system chooser opened only after that action; no recipient was selected.
 - The live Cancel path reported a completion callback on this Mac. The handler now retains the review queue and reports that the chooser closed, without claiming delivery. A regression assertion covers this callback and selection preservation.
+
+## October 30, 2026: Minimal notch controls
+
+- Removed bordered button styling from Focus, music settings, and AirDrop handoff. Back and Add use small labeled icons. File cards open and drag directly; secondary file actions and clear commands live in context menus. Accessibility actions remain available for removing files and clearing selections. Missing files retain their removal action.
+- Signed build and the focused notch suite pass. Native Home and AirDrop screenshots verify the unboxed controls; the accessibility tree retains named Back, Add files, playback, and settings actions. The half-width layout and short height remain intact.

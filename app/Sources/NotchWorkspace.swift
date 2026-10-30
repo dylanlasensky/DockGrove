@@ -142,7 +142,7 @@ struct NotchHomeView: View {
                     Text(kit.timerText).font(.system(size: 21, weight: .light, design: .rounded)).monospacedDigit()
                 }
                 Button(action: kit.toggleTimer) { Image(systemName: kit.focusEnd == nil ? "play.fill" : "pause.fill").padding(4) }
-                    .buttonStyle(.bordered).accessibilityLabel(kit.focusEnd == nil ? "Start focus" : "Pause focus")
+                    .buttonStyle(.plain).accessibilityLabel(kit.focusEnd == nil ? "Start focus" : "Pause focus")
             }.frame(width: 188, height: 64).padding(10).background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
         }
     }
@@ -168,7 +168,7 @@ private struct NotchMusicCard: View {
                     Button { player.refresh(command: .next) } label: { Image(systemName: "forward.fill") }.accessibilityLabel("Next track")
                 }.disabled(player.busy)
             } else {
-                Button(action: openSettings) { Image(systemName: "gearshape").padding(5) }.buttonStyle(.bordered)
+                Button(action: openSettings) { Image(systemName: "gearshape").padding(5) }.buttonStyle(.plain)
                     .accessibilityLabel("Open " + player.name + " connection settings")
             }
         }.frame(height: 64).padding(10).background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
@@ -194,9 +194,10 @@ struct NotchAirDropReview: View {
                                 HStack(spacing: 8) {
                                     Image(nsImage: NSWorkspace.shared.icon(forFile: url.path)).resizable().frame(width: 28, height: 28)
                                     Text(url.lastPathComponent).font(.caption).lineLimit(2).frame(width: 104, alignment: .leading)
-                                    Button { controller.removeAirDropFile(url) } label: { Image(systemName: "xmark.circle.fill") }
-                                        .accessibilityLabel("Remove " + url.lastPathComponent + " from AirDrop").disabled(controller.airDropBusy)
                                 }.padding(10).frame(height: 58).background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+                                    .contextMenu { Button("Remove from AirDrop") { controller.removeAirDropFile(url) }.disabled(controller.airDropBusy) }
+                                    .accessibilityAction(named: Text("Remove from AirDrop")) { controller.removeAirDropFile(url) }
+                                    .help("Right-click to remove this file from AirDrop")
                             }
                         }.padding(5)
                     }.frame(width: width, height: 84)
@@ -207,15 +208,17 @@ struct NotchAirDropReview: View {
                     Label("AirDrop", systemImage: "airplayaudio").font(.headline)
                     Spacer()
                     Text("\(controller.airDropFiles.count) selected").font(.caption).foregroundStyle(.secondary)
+                        .contextMenu { Button("Clear selection") { controller.clearAirDropFiles() }.disabled(controller.airDropBusy) }
+                        .accessibilityAction(named: Text("Clear selection")) { controller.clearAirDropFiles() }
                 }
                 Text(controller.airDropMessage).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
                 HStack(spacing: 10) {
-                    Button("Back") { controller.airDropReview = false }
-                    Button("Add files") { controller.addFiles(to: .airDrop) }.disabled(controller.airDropBusy)
-                    Button { controller.clearAirDropFiles() } label: { Image(systemName: "trash") }.help("Clear selected files").disabled(controller.airDropBusy || controller.airDropFiles.isEmpty)
+                    Button { controller.airDropReview = false } label: { Image(systemName: "chevron.left").frame(width: 24, height: 24) }.help("Back to Files").accessibilityLabel("Back to Files")
+                    Button { controller.addFiles(to: .airDrop) } label: { Image(systemName: "plus").frame(width: 24, height: 24) }.disabled(controller.airDropBusy).help("Add files").accessibilityLabel("Add files to AirDrop")
                     Spacer(minLength: 0)
-                    Button(controller.airDropBusy ? "Choosing…" : "Choose device") { controller.startAirDrop() }
-                        .buttonStyle(.borderedProminent).disabled(controller.airDropBusy || controller.airDropFiles.isEmpty)
+                    Button { controller.startAirDrop() } label: {
+                        Label(controller.airDropBusy ? "Choosing…" : "Choose device", systemImage: "airplayaudio").padding(.vertical, 4)
+                    }.buttonStyle(.plain).foregroundStyle(Color.accentColor).disabled(controller.airDropBusy || controller.airDropFiles.isEmpty)
                 }.font(.caption)
             }.padding(.horizontal, 12).frame(width: width, height: 84)
                 .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 13))
@@ -242,9 +245,9 @@ struct NotchTrayView: View {
                 if !controller.airDropReview && !kit.files.isEmpty {
                     VStack(spacing: 8) {
                         Text("\(kit.files.count) file\(kit.files.count == 1 ? "" : "s")").font(.caption)
-                        Button("Clear shortcuts") { kit.files.removeAll(); controller.trayMessage = "Original files are unchanged." }
-                            .font(.system(size: 10)).foregroundStyle(.secondary)
-                    }.frame(width: 100)
+                    }.frame(width: 70)
+                        .contextMenu { Button("Clear tray") { kit.files.removeAll(); controller.trayMessage = "Original files are unchanged." } }
+                        .accessibilityAction(named: Text("Clear tray")) { kit.files.removeAll(); controller.trayMessage = "Original files are unchanged." }
                     ForEach(kit.files, id: \.self) { path in trayItem(path).frame(width: NotchFileLayout.halfWidth(controller.expandedWidth)) }
                 }
             }
@@ -253,19 +256,24 @@ struct NotchTrayView: View {
     private func trayItem(_ path: String) -> some View {
         let url = URL(fileURLWithPath: path)
         let exists = FileManager.default.fileExists(atPath: path)
-        return VStack(spacing: 5) {
-            Button { NSWorkspace.shared.open(url) } label: {
-                VStack(spacing: 5) {
-                    Image(nsImage: NSWorkspace.shared.icon(forFile: path)).resizable().frame(width: 26, height: 26)
-                    Text(url.lastPathComponent).font(.caption).lineLimit(1).truncationMode(.middle)
-                    if !exists { Text("File unavailable").font(.system(size: 9)).foregroundStyle(.orange) }
-                }.frame(maxWidth: .infinity)
-            }.disabled(!exists).onDrag { NSItemProvider(object: url as NSURL) }
-            HStack(spacing: 18) {
-                Button { NSWorkspace.shared.activateFileViewerSelecting([url]) } label: { Image(systemName: "folder") }.help("Reveal in Finder").disabled(!exists)
-                ShareLink(item: url) { Image(systemName: "square.and.arrow.up") }.help("Share file").disabled(!exists)
-                Button { kit.files.removeAll { $0 == path }; controller.trayMessage = "Shortcut removed. Original file is unchanged." } label: { Image(systemName: "xmark") }.help("Remove shortcut")
-            }.font(.system(size: 10))
-        }.padding(7).background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+        return Button { if exists { NSWorkspace.shared.open(url) } } label: {
+            HStack(spacing: 14) {
+                Image(nsImage: NSWorkspace.shared.icon(forFile: path)).resizable().frame(width: 36, height: 36)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(url.lastPathComponent).font(.callout).lineLimit(1).truncationMode(.middle)
+                    Text(exists ? "Drag to use · right-click for actions" : "File unavailable")
+                        .font(.system(size: 10)).foregroundStyle(exists ? Color.secondary : .orange)
+                }
+                Spacer(minLength: 0)
+            }.padding(.horizontal, 16).frame(maxWidth: .infinity).frame(height: 84)
+                .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+        }.buttonStyle(.plain).onDrag { exists ? NSItemProvider(object: url as NSURL) : NSItemProvider() }
+            .contextMenu {
+                Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }.disabled(!exists)
+                ShareLink(item: url) { Label("Share file", systemImage: "square.and.arrow.up") }.disabled(!exists)
+                Button("Remove shortcut") { kit.files.removeAll { $0 == path }; controller.trayMessage = "Shortcut removed. Original file is unchanged." }
+            }
+            .accessibilityAction(named: Text("Remove shortcut")) { kit.files.removeAll { $0 == path } }
+
     }
 }
