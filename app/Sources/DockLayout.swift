@@ -29,10 +29,11 @@ enum DockEntry: Identifiable {
     var title: String {
         switch self { case .app(let a): return a.name; case .add: return "Add app"; case .usage: return "Codex usage"; case .tool(let k): return k.title; case .clock: return "Clock" }
     }
-    func width(iconSize: Double, rich: Bool = true) -> CGFloat {
+    func width(iconSize: Double, rich: Bool = true, shapes: [String: String] = [:], tileHeight: Double? = nil) -> CGFloat {
         switch self { case .app: return iconSize + 8; case .add: return 28; case .usage: return rich ? 202 : 177; case .clock: return rich ? 136 : 100
         case .tool(let kind):
-            if kind == .separator { return 1 }; if kind == .spacer { return 24 }; if !rich { return 72 }
+            if kind == .separator { return 1 }; if kind == .spacer { return 24 }
+            if let shape = WidgetShapeStyle(rawValue: shapes[kind.rawValue] ?? ""), let width = shape.width(height: tileHeight ?? max(64, iconSize + 20)) { return width }; if !rich { return 72 }
             switch kind { case .spotify, .appleMusic, .music, .calendar, .googleCalendar: return 236
             case .tasks, .notes: return 208
             case .focus, .stopwatch: return 170

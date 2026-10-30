@@ -29,12 +29,17 @@ struct DockApp: Identifiable, Equatable {
     @Published var dockName: String { didSet { defaults.set(String(dockName.prefix(40)), forKey: "dockName") } }
     @Published var theme: String { didSet { defaults.set(theme, forKey: "theme") } }
     @Published var widthFraction: Double { didSet { defaults.set(widthFraction, forKey: "widthFraction") } }
+    @Published var notchEnabled: Bool { didSet { defaults.set(notchEnabled, forKey: "notchEnabled") } }
+    var openNotchAction: (() -> Void)?
+    @Published var toolbarHeight: Double { didSet { defaults.set(toolbarHeight, forKey: "toolbarHeight") } }
+    @Published var fitToolbarToContent: Bool { didSet { defaults.set(fitToolbarToContent, forKey: "fitToolbarToContent") } }
     @Published var alignment: Double { didSet { defaults.set(alignment, forKey: "alignment") } }
     @Published var elevation: Double { didSet { defaults.set(elevation, forKey: "elevation") } }
     @Published var albumColors: Bool { didSet { defaults.set(albumColors, forKey: "albumColors") } }
     @Published var showUsageCard: Bool { didSet { defaults.set(showUsageCard, forKey: "showUsageCard") } }
     @Published var snappingEnabled: Bool { didSet { defaults.set(snappingEnabled, forKey: "snappingEnabled") } }
     @Published var snapRequiresOption: Bool { didSet { defaults.set(snapRequiresOption, forKey: "snapRequiresOption") } }
+    @Published var studioHistory: [DockStudioSnapshot] = []
     var appPickerWindow: NSWindow?
     @Published var appHistory: [([DockApp], [String])] = []
     var tileFrames: [String:CGRect] = [:]
@@ -59,7 +64,11 @@ struct DockApp: Identifiable, Equatable {
     var closeSettingsAction: (() -> Void)?
     var changeDockAction: ((Bool) -> Void)?
     var visibilityAction: (() -> Void)?
-    var canUseFeatures: Bool { LicenseManager.shared.permitsFeatures }
+    var canUseFeatures: Bool { PurchaseConfiguration.enabled || LicenseManager.shared.permitsFeatures }
+    var accessTier: AccessTier { PurchaseConfiguration.enabled ? PurchaseManager.shared.tier : .full }
+    func canAccess(_ kind: ToolKind) -> Bool { canUseFeatures && accessTier >= kind.requiredAccess }
+    var canAccessAI: Bool { canUseFeatures && accessTier == .full }
+    private var purchaseObservation: AnyCancellable?
     private var licenseObservation: AnyCancellable?
     private var timer: Timer?
     private var observations: [NSObjectProtocol] = []
@@ -70,6 +79,10 @@ struct DockApp: Identifiable, Equatable {
         dockName = defaults.string(forKey: "dockName") ?? "Main Dock"
         theme = defaults.string(forKey: "theme") ?? "Automatic"
         widthFraction = min(1,max(0.35,defaults.object(forKey: "widthFraction") as? Double ?? 1))
+        notchEnabled = defaults.bool(forKey: "notchEnabled")
+        let storedHeight = defaults.object(forKey: "toolbarHeight") as? Double ?? 92
+        toolbarHeight = storedHeight.isFinite ? min(180, max(88, storedHeight)) : 92
+        fitToolbarToContent = defaults.object(forKey: "fitToolbarToContent") as? Bool ?? true
         alignment = min(1,max(0,defaults.object(forKey: "alignment") as? Double ?? 0.5))
         elevation = min(1,max(0,defaults.object(forKey: "elevation") as? Double ?? 0.5))
         albumColors = defaults.object(forKey: "albumColors") as? Bool ?? true
@@ -100,7 +113,16 @@ struct DockApp: Identifiable, Equatable {
             Task { @MainActor [weak self] in if self?.usageEnabled == true { self?.refreshUsage() } }
         }
         licenseObservation = LicenseManager.shared.objectWillChange.debounce(for: .milliseconds(50), scheduler: RunLoop.main).sink { [weak self] _ in self?.objectWillChange.send() }
-        if usageEnabled && canUseFeatures { refreshUsage() }
+        if PurchaseConfiguration.enabled {
+            purchaseObservation = PurchaseManager.shared.$ownedProductIDs.dropFirst().receive(on: RunLoop.main).sink { [weak self] _ in
+                guard let self else { return }
+                self.objectWillChange.send()
+                self.toolkit.stopLockedWidgets()
+                if self.canAccessAI && self.usageEnabled { self.refreshUsage() }
+                if !self.canAccessAI { self.usage = nil }
+            }
+        }
+        if usageEnabled && canAccessAI { refreshUsage() }
     }
 
     deinit {
@@ -108,7 +130,15 @@ struct DockApp: Identifiable, Equatable {
         for observation in observations { NSWorkspace.shared.notificationCenter.removeObserver(observation) }
     }
 
-    var dockHeight: Double { max(64, iconSize + 20) + 44 }
+    var tileHeight: Double { max(64, iconSize + 20, toolbarHeight - 24) }
+    var barHeight: Double { tileHeight + 24 }
+    var dockHeight: Double { barHeight + 20 }
+    func toolbarWidth(screenWidth: CGFloat, widths: [CGFloat]) -> CGFloat {
+        let natural = widths.reduce(0, +) + Double(max(0, widths.count - 1)) * DockPageLayout.gap
+        let available = max(1, screenWidth - 44)
+        let requested = min(available, max((widths.max() ?? 236) + DockPageLayout.chrome, screenWidth * widthFraction - 44))
+        return fitToolbarToContent ? min(requested, natural + DockPageLayout.chrome) : requested
+    }
     var color: Color { (theme == "Pearl" || theme == "System" || theme == "Automatic") && accent == "White" ? .primary : AccentPalette.color(accent) }
     var activeBucket: LimitBucket? { usage?.buckets.first { $0.0 == selectedBucket }?.1 ?? usage?.buckets.first?.1 }
     func persistApps() { defaults.set(apps.map(\.id), forKey: "apps") }
@@ -132,7 +162,7 @@ struct DockApp: Identifiable, Equatable {
     }
     func pin(_ app: DockApp) { _ = chooseApp(app, replacing: nil) }
     var orderedEntries: [DockEntry] {
-        let available = apps.map(DockEntry.app) + runningApps.map(DockEntry.app) + [.add] + (showUsageCard ? [.usage] : []) + toolkit.enabled.compactMap(ToolKind.init(rawValue:)).map(DockEntry.tool) + (showClock ? [.clock] : [])
+        let available = apps.map(DockEntry.app) + runningApps.map(DockEntry.app) + [.add] + (showUsageCard && canAccessAI ? [.usage] : []) + toolkit.enabled.compactMap(ToolKind.init(rawValue:)).filter { canAccess($0) }.map(DockEntry.tool) + (showClock ? [.clock] : [])
         var seen=Set<String>()
         let unique=available.filter { seen.insert($0.id).inserted }
         let lookup=Dictionary(uniqueKeysWithValues:unique.map { ($0.id,$0) })
@@ -156,9 +186,13 @@ struct DockApp: Identifiable, Equatable {
     func saveProfile() {
         let name = toolkit.profileName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
-        toolkit.profiles.append(DockProfile(name: name, apps: apps.map(\.id), widgets: toolkit.enabled, accent: accent, size: iconSize, richWidgets: toolkit.richWidgets, theme: theme, widthFraction: widthFraction, alignment: alignment, elevation: elevation, edge: toolkit.edge, albumColors: albumColors, entryOrder: entryOrder)); toolkit.profileName = ""
+        toolkit.profiles.append(DockProfile(name: name, apps: apps.map(\.id), widgets: toolkit.enabled, accent: accent, size: iconSize, richWidgets: toolkit.richWidgets, theme: theme, widthFraction: widthFraction, alignment: alignment, elevation: elevation, edge: toolkit.edge, albumColors: albumColors, entryOrder: entryOrder, widgetShapes: toolkit.widgetShapes, toolbarHeight: toolbarHeight, fitToolbarToContent: fitToolbarToContent)); toolkit.profileName = ""
     }
     func applyProfile(_ profile: DockProfile) {
+        toolkit.widgetShapes = WidgetShapeStyle.validated(profile.widgetShapes ?? [:])
+        let height = profile.toolbarHeight ?? 92
+        toolbarHeight = height.isFinite ? min(180, max(88, height)) : 92
+        fitToolbarToContent = profile.fitToolbarToContent ?? true
         if let order=profile.entryOrder { entryOrder=Array(order.prefix(1000)) }
         if let value=profile.theme, ["Automatic","Glass","Graphite","Pearl","System"].contains(value) { theme=value }
         if let value=profile.widthFraction,value.isFinite { widthFraction=min(1,max(0.35,value)) }
@@ -191,7 +225,7 @@ struct DockApp: Identifiable, Equatable {
         }
     }
     func refreshUsage() {
-        guard canUseFeatures else { return }
+        guard canAccessAI else { return }
         guard !fetching else { return }
         fetching = true
         let custom = customCLI
@@ -200,6 +234,7 @@ struct DockApp: Identifiable, Equatable {
             Task { @MainActor [weak self] in
                 guard let self = self else { return }
                 self.fetching = false
+                guard self.canAccessAI else { return }
                 switch result {
                 case .success(let response): self.usage = response; self.refreshed = Date(); self.usageError = nil
                 case .failure(let error): self.usageError = (error as? UsageError)?.localizedDescription ?? "Could not read usage. Check your Codex connection in Settings."

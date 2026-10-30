@@ -41,7 +41,7 @@ enum DockGeometry {
         panel.isFloatingPanel = true; panel.level = .floating; panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = false; panel.hidesOnDeactivate = false
         panel.collectionBehavior = [.canJoinAllSpaces,.fullScreenNone,.stationary,.ignoresCycle]
         panel.contentView = NSHostingView(rootView:DockView(model:model))
-        settings = NSWindow(contentRect:NSRect(x:0,y:0,width:590,height:720),styleMask:[.titled,.closable,.miniaturizable],backing:.buffered,defer:false)
+        settings = NSWindow(contentRect:NSRect(x:0,y:0,width:1080,height:780),styleMask:[.titled,.closable,.miniaturizable,.resizable],backing:.buffered,defer:false)
         settings.isReleasedWhenClosed = false; settings.contentView = NSHostingView(rootView:SettingsView(model:model)); settings.center()
         model.settingsAction = { [weak self] in self?.showSettings() }
         model.closeSettingsAction = { [weak self] in self?.settings.orderOut(nil) }
