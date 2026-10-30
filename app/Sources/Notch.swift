@@ -19,7 +19,7 @@ struct NotchGeometry: Equatable {
     func panelFrame(expanded: Bool) -> CGRect {
         guard expanded else { return housing }
         let width = min(screen.width - 32, max(760, housing.width + 120))
-        let height: CGFloat = housing.height + 324
+        let height: CGFloat = housing.height + 112
         let x = min(screen.maxX - width - 16, max(screen.minX + 16, housing.midX - width / 2))
         return CGRect(x: x, y: screen.maxY - height, width: width, height: height)
     }
@@ -64,21 +64,21 @@ extension DockModel {
 @MainActor final class NotchController: ObservableObject {
     @Published var expanded = false
     @Published var selectedWidget: ToolKind?
-    @Published var section: NotchSection = .home
+    @Published var trayScrollRequest = 0
     @Published var fileDragActive = false
     @Published var trayMessage: String?
     private var choosingFiles = false
     var canAcceptFiles: Bool { model.canAccess(.files) }
     func beginFileDrag() {
         guard canAcceptFiles else { return }
-        setExpanded(true); section = .tray; fileDragActive = true
+        setExpanded(true); trayScrollRequest += 1; fileDragActive = true
     }
     @discardableResult func acceptFiles(_ urls: [URL]) -> Bool {
         defer { fileDragActive = false }
         guard canAcceptFiles else { return false }
         let valid = NotchFileIntake.existingURLs(urls)
         guard !valid.isEmpty else { trayMessage = "Drop existing files or folders from Finder."; return false }
-        setExpanded(true); section = .tray
+        setExpanded(true); trayScrollRequest += 1
         let before = model.toolkit.files.count
         for url in valid { model.toolkit.addFile(url.standardizedFileURL) }
         let added = model.toolkit.files.count - before
@@ -155,7 +155,6 @@ extension DockModel {
 struct NotchShelfView: View {
     @ObservedObject var model: DockModel
     @ObservedObject var controller: NotchController
-    @State private var page = 0
     @State private var query = ""
     private var widgets: [ToolKind] {
         model.notchWidgets.filter { query.isEmpty || $0.title.localizedCaseInsensitiveContains(query) }
@@ -163,83 +162,79 @@ struct NotchShelfView: View {
     var body: some View {
         VStack(spacing: 0) {
             if controller.expanded {
-                HStack(spacing: 0) {
-                    Text("DockGrove").font(.system(size: 11, weight: .semibold)).frame(maxWidth: .infinity)
-                    Color.clear.frame(width: controller.geometry?.housing.width ?? 185).allowsHitTesting(false).accessibilityHidden(true)
-                    Button { controller.setExpanded(false) } label: { Image(systemName: "chevron.up").frame(maxWidth: .infinity, maxHeight: .infinity) }.accessibilityLabel("Collapse notch")
-                }.frame(height: controller.geometry?.housing.height ?? 32)
-                VStack(spacing: 14) {
+                HStack(spacing: 12) {
                     HStack(spacing: 6) {
-                        ForEach(NotchSection.allCases, id: \.self) { section in
-                            Button { controller.selectedWidget = nil; controller.section = section } label: {
-                                NotchNavigationLabel(title: section.rawValue, icon: section.icon,
-                                    selected: controller.section == section, style: model.notchNavigationStyle)
-                            }.accessibilityAddTraits(controller.section == section ? .isSelected : [])
-                        }
+                        Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                        TextField("Find a widget", text: $query).textFieldStyle(.plain).font(.caption)
+                    }.padding(.leading, 16).frame(maxWidth: .infinity)
+                    Color.clear.frame(width: controller.geometry?.housing.width ?? 185).allowsHitTesting(false).accessibilityHidden(true)
+                    HStack {
                         Spacer()
-                        if controller.fileDragActive { Image(systemName: "arrow.down.doc.fill").foregroundStyle(.green) }
-                    }
-                    if let kind = controller.selectedWidget, model.canAccess(kind) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Button { controller.selectedWidget = nil } label: { Label("Back to " + controller.section.rawValue, systemImage: "chevron.left") }.font(.caption)
-                            ScrollView {
-                                VStack(alignment: .leading, spacing: 14) {
-                                    Label(kind.title, systemImage: kind.icon).font(.headline)
-                                    ToolTile(kind: kind, model: model, kit: model.toolkit).contents
-                                }.frame(maxWidth: .infinity, alignment: .leading).padding(4)
+                        Text("Scroll to explore").font(.system(size: 10)).foregroundStyle(.secondary)
+                        Button { controller.setExpanded(false) } label: { Image(systemName: "chevron.up").padding(8) }.accessibilityLabel("Collapse notch")
+                    }.padding(.trailing, 8).frame(maxWidth: .infinity)
+                }.frame(height: controller.geometry?.housing.height ?? 32)
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 14) {
+                            if query.isEmpty {
+                                NotchHomeView(model: model, kit: model.toolkit, controller: controller).id("essentials")
+                                divider
+                                NotchTrayView(model: model, kit: model.toolkit, controller: controller).id("tray")
+                                divider
                             }
+                            ForEach(widgets) { kind in
+                                widget(kind).id(kind.rawValue)
+                            }
+                            if widgets.isEmpty { Text("No matching widgets").font(.caption).foregroundStyle(.secondary).frame(width: 200) }
+                        }.padding(.horizontal, 16).padding(.vertical, 8)
+                    }.frame(height: 112)
+                        .onChange(of: controller.trayScrollRequest) { _, _ in
+                            query = ""
+                            withAnimation(.easeInOut(duration: 0.2)) { proxy.scrollTo("tray", anchor: .leading) }
                         }
-                    } else {
-                        switch controller.section {
-                        case .home:
-                            NotchHomeView(model: model, kit: model.toolkit, controller: controller)
-                            widgetBrowser
-                        case .tray: NotchTrayView(model: model, kit: model.toolkit, controller: controller)
+                        .onChange(of: controller.selectedWidget) { _, kind in
+                            if let kind { withAnimation(.easeInOut(duration: 0.2)) { proxy.scrollTo(kind.rawValue, anchor: .center) } }
                         }
-                    }
-                    Spacer(minLength: 0)
-                }.padding(16).frame(height: 324)
+                        .onChange(of: query) { _, value in
+                            proxy.scrollTo(controller.fileDragActive ? "tray" : (value.isEmpty ? "essentials" : (widgets.first?.rawValue ?? "essentials")), anchor: .leading)
+                        }
+                }
             } else {
-                Button { controller.setExpanded(true) } label: { Color.black.contentShape(Rectangle()) }
-                    .accessibilityLabel("Expand DockGrove notch")
+                Button { controller.setExpanded(true) } label: { Color.black.contentShape(Rectangle()) }.accessibilityLabel("Expand DockGrove notch")
             }
         }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .foregroundStyle(.white).background(.black)
-            .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: controller.expanded ? 26 : 10, bottomTrailingRadius: controller.expanded ? 26 : 10))
-            .overlay(alignment: .bottom) {
-                if controller.fileDragActive { RoundedRectangle(cornerRadius: 22).stroke(.green.opacity(0.6), lineWidth: 2).padding(2).allowsHitTesting(false) }
+            .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: controller.expanded ? 20 : 10, bottomTrailingRadius: controller.expanded ? 20 : 10))
+            .overlay {
+                if controller.fileDragActive { RoundedRectangle(cornerRadius: 18).stroke(.green.opacity(0.6), lineWidth: 2).padding(2).allowsHitTesting(false) }
             }
             .buttonStyle(.plain).preferredColorScheme(.dark)
-            .onChange(of: query) { _, _ in page = 0 }
     }
-    private var widgetBrowser: some View {
-        let pages = max(1, (widgets.count + 3) / 4)
-        let current = min(page, pages - 1)
-        return VStack(spacing: 12) {
-            HStack {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Find a widget", text: $query).textFieldStyle(.plain).font(.caption)
-                Spacer()
-                Button { page = max(0, current - 1) } label: { Image(systemName: "chevron.left") }.disabled(current == 0).accessibilityLabel("Previous notch page")
-                Text("\(current + 1)/\(pages)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                Button { page = min(pages - 1, current + 1) } label: { Image(systemName: "chevron.right") }.disabled(current == pages - 1).accessibilityLabel("Next notch page")
-            }
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
-                ForEach(Array(widgets.dropFirst(current * 4).prefix(4))) { kind in
-                    Button {
-                        guard model.canAccess(kind) else { return }
-                        if kind == .search { model.toolkit.scanApplications() }
-                        controller.selectedWidget = kind
-                    } label: {
-                        VStack(spacing: 8) {
-                            Image(systemName: kind.icon).font(.title3)
-                            Text(kind.title).font(.caption).lineLimit(1)
-                        }.frame(maxWidth: .infinity, minHeight: 72).background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 13))
-                    }.accessibilityLabel("Open " + kind.title + " from notch")
-                }
-            }
-            if widgets.isEmpty { Text("No matching widgets").font(.caption).foregroundStyle(.secondary) }
-            Text("All unlocked widgets · Dock favorites first").font(.system(size: 9)).foregroundStyle(.secondary)
+    private var divider: some View { Rectangle().fill(.white.opacity(0.14)).frame(width: 1, height: 58).accessibilityHidden(true) }
+    @ViewBuilder private func widget(_ kind: ToolKind) -> some View {
+        if controller.selectedWidget == kind {
+            HStack(spacing: 12) {
+                VStack(spacing: 8) {
+                    Image(systemName: kind.icon)
+                    Button { controller.selectedWidget = nil } label: { Image(systemName: "xmark.circle.fill") }.accessibilityLabel("Close " + kind.title + " controls")
+                }.frame(width: 24)
+                ScrollView(.vertical) {
+                    ToolTile(kind: kind, model: model, kit: model.toolkit).contents
+                        .frame(maxWidth: .infinity, alignment: .leading).padding(4)
+                }.frame(width: 360, height: 76)
+            }.padding(8).background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+        } else {
+            Button {
+                guard model.canAccess(kind) else { return }
+                if kind == .search { model.toolkit.scanApplications() }
+                controller.selectedWidget = kind
+            } label: {
+                VStack(spacing: 7) {
+                    Image(systemName: kind.icon).font(.title3)
+                    Text(kind.title).font(.caption).lineLimit(2).multilineTextAlignment(.center)
+                }.frame(width: 104, height: 84).background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+            }.accessibilityLabel("Open " + kind.title + " from notch")
         }
     }
 }
@@ -268,28 +263,7 @@ struct NotchSettingsView: View {
                     if model.notchEnabled && displayName != nil { Button("Open notch") { model.openNotchAction?() } }
                 }
             }
-            Text("Notch navigation").font(.subheadline.weight(.semibold))
-            HStack(spacing: 12) {
-                ForEach(NotchNavigationStyle.allCases, id: \.self) { style in
-                    Button { model.notchNavigationStyle = style } label: {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Text(style.rawValue).font(.caption.weight(.semibold))
-                                Spacer()
-                                if model.notchNavigationStyle == style { Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.accentColor) }
-                            }
-                            HStack(spacing: 6) {
-                                NotchNavigationLabel(title: "Home", icon: "square.grid.2x2", selected: true, style: style)
-                                NotchNavigationLabel(title: "Tray", icon: "tray", selected: false, style: style)
-                            }
-                        }.padding(12).frame(maxWidth: .infinity)
-                            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(model.notchNavigationStyle == style ? Color.accentColor : Color.primary.opacity(0.1)))
-                    }.buttonStyle(.plain).accessibilityLabel("Use " + style.rawValue + " for notch navigation")
-                        .accessibilityAddTraits(model.notchNavigationStyle == style ? .isSelected : [])
-                }
-            }
-            Text("The resting notch matches your system notch exactly. Hover, click, or drag files onto it to open Home or Tray. Hides in full screen, on lock, and during sleep.")
+            Text("The resting notch matches your system notch exactly. Hover or click to open a slim horizontal strip. Scroll sideways through controls, files, and widgets; drag files onto the notch to reach the tray. Hides in full screen, on lock, and during sleep.")
                 .font(.caption).foregroundStyle(.secondary)
         }.padding(18).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 17))
             .overlay(RoundedRectangle(cornerRadius: 17).stroke(Color.primary.opacity(0.07)))
@@ -314,7 +288,10 @@ struct NotchSettingsView: View {
             precondition(screen.contains(frame))
             precondition(abs(frame.midX - geometry.housing.midX) < 0.01)
             precondition(frame.maxY == screen.maxY, "The shelf must anchor in the notch row")
-            if expanded { precondition(frame.width > geometry.housing.width + 90) }
+            if expanded {
+                precondition(frame.width > geometry.housing.width + 90)
+                precondition(frame.height == geometry.housing.height + 112, "The strip must stay short regardless of content")
+            }
             else { precondition(frame == geometry.housing, "Resting notch must exactly match the system camera housing") }
             if !expanded { precondition(frame.minY == geometry.housing.minY, "Collapsed mode must stay entirely in the notch row") }
         }
@@ -332,13 +309,6 @@ struct NotchSettingsView: View {
     precondition(!model.notchWidgets.contains(.spacer) && !model.notchWidgets.contains(.separator))
     precondition(model.notchWidgets.allSatisfy { model.canAccess($0) })
     precondition(model.notchWidgets.count == ToolKind.allCases.filter { $0 != .spacer && $0 != .separator && model.canAccess($0) }.count)
-    precondition(model.notchNavigationStyle == .pills)
-    for style in NotchNavigationStyle.allCases {
-        model.notchNavigationStyle = style
-        precondition(DockModel(defaults: defaults).notchNavigationStyle == style)
-    }
-    defaults.set("unknown", forKey: "notchNavigationStyle")
-    precondition(DockModel(defaults: defaults).notchNavigationStyle == .pills)
     var hover = NotchHoverState()
     precondition(hover.update(now: 0, trigger: true, inside: true, expanded: false, interacting: false) == nil)
     precondition(hover.update(now: 0.2, trigger: true, inside: true, expanded: false, interacting: false) == true)
@@ -369,7 +339,7 @@ struct NotchSettingsView: View {
     precondition(!controller.acceptFiles([missing, remote]))
     if model.canAccess(.files) {
         precondition(controller.acceptFiles([fixture, fixture, temporary]))
-        precondition(model.toolkit.files.count == 2 && controller.section == .tray)
+        precondition(model.toolkit.files.count == 2 && controller.trayScrollRequest > 0)
         precondition(controller.acceptFiles([fixture]) && model.toolkit.files.count == 2)
         precondition(DockModel(defaults: defaults).toolkit.files == model.toolkit.files)
         model.toolkit.files.removeAll()
@@ -386,8 +356,8 @@ struct NotchSettingsView: View {
         controller.trayMessage = nil
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
         let geometry = NotchGeometry(screen: base, topInset: 32, left: left, right: right)!
-        for (name, expanded, section, detail) in [("collapsed", false, NotchSection.home, false), ("home", true, .home, false), ("tray", true, .tray, false), ("focus", true, .home, true)] {
-            controller.setExpanded(expanded); controller.section = section
+        for (name, expanded, detail) in [("collapsed", false, false), ("strip", true, false), ("focus", true, true)] {
+            controller.setExpanded(expanded)
             if detail { controller.selectedWidget = .focus }
             let view = controller.panel.contentView!
             controller.panel.setFrame(geometry.panelFrame(expanded: expanded), display: true)
@@ -399,5 +369,5 @@ struct NotchSettingsView: View {
         }
     }
     controller.hide()
-    print("PASS: notch compatibility, invalid/missing geometry, negative display origins, camera-safe frames, preference persistence, disabled/suppressed cleanup, hover dwell/leave/click behavior, complete access-gated widget catalog, navigation style persistence, file intake/deduplication/persistence/original preservation and workspace renders")
+    print("PASS: notch compatibility, invalid/missing geometry, negative display origins, camera-safe frames, preference persistence, disabled/suppressed cleanup, hover dwell/leave/click behavior, complete access-gated widget catalog, fixed-height horizontal layout, file intake/deduplication/persistence/original preservation and workspace renders")
 }

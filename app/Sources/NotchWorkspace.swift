@@ -39,57 +39,31 @@ final class NotchDropHostingView: NSHostingView<NotchShelfView> {
     override func concludeDragOperation(_ sender: NSDraggingInfo?) { controller?.fileDragActive = false }
 }
 
-enum NotchNavigationStyle: String, CaseIterable {
-    case tabs = "Tabs", pills = "Rounded pills"
-}
-
-struct NotchNavigationLabel: View {
-    let title: String
-    let icon: String
-    let selected: Bool
-    let style: NotchNavigationStyle
-    var body: some View {
-        Label(title, systemImage: icon).font(.caption.weight(.medium))
-            .padding(.horizontal, 14).padding(.vertical, 7)
-            .background(selected && style == .pills ? Color.primary.opacity(0.14) : .clear, in: Capsule())
-            .overlay(alignment: .bottom) {
-                if style == .tabs {
-                    Rectangle().fill(selected ? Color.primary : Color.primary.opacity(0.12)).frame(height: selected ? 2 : 1)
-                }
-            }
-    }
-}
-
-enum NotchSection: String, CaseIterable {
-    case home = "Home", tray = "Tray"
-    var icon: String { switch self { case .home: return "square.grid.2x2"; case .tray: return "tray" } }
-}
-
 struct NotchHomeView: View {
     @ObservedObject var model: DockModel
     @ObservedObject var kit: Toolkit
     @ObservedObject var controller: NotchController
     var body: some View {
         HStack(spacing: 12) {
-            if model.canAccess(.music) { NotchMusicCard(player: kit.spotify.connected ? kit.spotify : kit.appleMusic) }
+            if model.canAccess(.music) { NotchMusicCard(player: kit.spotify.connected ? kit.spotify : kit.appleMusic).frame(width: 256) }
             else {
                 HStack(spacing: 12) {
                     Image(systemName: "sun.max").font(.title2)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("A little space to focus").font(.headline)
-                        Text("Your essentials, right at the top.").font(.caption).foregroundStyle(.secondary)
+                        Text("Scroll for your widgets.").font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
-                }.frame(height: 64).padding(10).background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
+                }.frame(width: 236, height: 64).padding(10).background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
             }
             HStack(spacing: 14) {
                 VStack(alignment: .leading, spacing: 4) {
                     Label("Focus", systemImage: "timer").font(.caption).foregroundStyle(.secondary)
-                    Text(kit.timerText).font(.system(size: 25, weight: .light, design: .rounded)).monospacedDigit()
+                    Text(kit.timerText).font(.system(size: 21, weight: .light, design: .rounded)).monospacedDigit()
                 }
-                Button(action: kit.toggleTimer) { Image(systemName: kit.focusEnd == nil ? "play.fill" : "pause.fill").padding(10) }
+                Button(action: kit.toggleTimer) { Image(systemName: kit.focusEnd == nil ? "play.fill" : "pause.fill").padding(4) }
                     .buttonStyle(.bordered).accessibilityLabel(kit.focusEnd == nil ? "Start focus" : "Pause focus")
-            }.frame(width: 166, height: 64).padding(10).background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
+            }.frame(width: 128, height: 64).padding(10).background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
         }
     }
 }
@@ -125,47 +99,39 @@ struct NotchTrayView: View {
     @ObservedObject var kit: Toolkit
     @ObservedObject var controller: NotchController
     var body: some View {
-        if !model.canAccess(.files) {
-            VStack(spacing: 14) {
-                Image(systemName: "lock.fill").font(.title)
-                Text("File tray is included with Plus").font(.headline)
-                Text("Keep files nearby and drag them into other apps.").font(.caption).foregroundStyle(.secondary)
-            }.frame(maxWidth: .infinity, minHeight: 210)
-        } else {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Label("\(kit.files.count) file\(kit.files.count == 1 ? "" : "s")", systemImage: "tray.fill").font(.caption.weight(.semibold))
-                    Spacer()
-                    Button("Add files…") { controller.addFiles() }
-                    Button("Clear tray") { kit.files.removeAll(); controller.trayMessage = "Tray cleared. Original files are unchanged." }.disabled(kit.files.isEmpty)
-                }.font(.caption)
+        HStack(spacing: 10) {
+            if !model.canAccess(.files) {
+                Label("File tray · Plus", systemImage: "lock.fill")
+                    .font(.caption).foregroundStyle(.secondary).frame(width: 220, height: 84)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("File tray", systemImage: "tray.fill").font(.caption.weight(.semibold))
+                    Button("Add files…") { controller.addFiles() }.font(.caption)
+                    if !kit.files.isEmpty {
+                        Button("Clear shortcuts") { kit.files.removeAll(); controller.trayMessage = "Original files are unchanged." }
+                            .font(.system(size: 10)).foregroundStyle(.secondary)
+                    }
+                }.frame(width: 84, alignment: .leading)
                 if kit.files.isEmpty {
-                    VStack(spacing: 10) {
-                        Image(systemName: "square.and.arrow.down").font(.system(size: 30, weight: .light))
-                        Text(controller.fileDragActive ? "Release to add files" : "Drop files here").font(.headline)
-                        Text("A temporary home for file shortcuts. Drag them back into any app.").font(.caption).foregroundStyle(.secondary)
-                    }.frame(maxWidth: .infinity, minHeight: 150)
-                        .background(.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 14))
-                        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(.white.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [5])))
+                    HStack(spacing: 8) {
+                        Image(systemName: "square.and.arrow.down").font(.title2)
+                        Text(controller.fileDragActive ? "Release files" : "Drop files here").font(.caption)
+                    }.frame(width: 144, height: 80)
+                        .background(.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
+                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.2), style: StrokeStyle(lineWidth: 1, dash: [5])))
                 } else {
-                    ScrollView {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 145))], spacing: 8) {
-                            ForEach(kit.files, id: \.self) { path in trayItem(path) }
-                        }
-                    }.frame(height: 172)
+                    ForEach(kit.files, id: \.self) { path in trayItem(path).frame(width: 112) }
                 }
-                Text(controller.trayMessage ?? "Removing a shortcut leaves the original file in place.")
-                    .font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(2)
             }
-        }
+        }.frame(height: 84).help(controller.trayMessage ?? "File shortcuts: removing them leaves the originals unchanged.")
     }
     private func trayItem(_ path: String) -> some View {
         let url = URL(fileURLWithPath: path)
         let exists = FileManager.default.fileExists(atPath: path)
-        return VStack(spacing: 7) {
+        return VStack(spacing: 5) {
             Button { NSWorkspace.shared.open(url) } label: {
                 VStack(spacing: 5) {
-                    Image(nsImage: NSWorkspace.shared.icon(forFile: path)).resizable().frame(width: 34, height: 34)
+                    Image(nsImage: NSWorkspace.shared.icon(forFile: path)).resizable().frame(width: 26, height: 26)
                     Text(url.lastPathComponent).font(.caption).lineLimit(1).truncationMode(.middle)
                     if !exists { Text("File unavailable").font(.system(size: 9)).foregroundStyle(.orange) }
                 }.frame(maxWidth: .infinity)
@@ -175,6 +141,6 @@ struct NotchTrayView: View {
                 ShareLink(item: url) { Image(systemName: "square.and.arrow.up") }.help("Share file").disabled(!exists)
                 Button { kit.files.removeAll { $0 == path }; controller.trayMessage = "Shortcut removed. Original file is unchanged." } label: { Image(systemName: "xmark") }.help("Remove shortcut")
             }.font(.system(size: 10))
-        }.padding(10).background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
+        }.padding(7).background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
     }
 }
