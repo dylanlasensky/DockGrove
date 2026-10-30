@@ -183,46 +183,40 @@ struct NotchAirDropReview: View {
     @ObservedObject var controller: NotchController
     let width: CGFloat
     var body: some View {
-        HStack(spacing: 10) {
-            Group {
-                if controller.airDropFiles.isEmpty {
-                    NotchDropZone(destination: .airDrop, controller: controller, width: width)
-                } else {
-                    ScrollView(.horizontal) {
-                        HStack(spacing: 8) {
-                            ForEach(controller.airDropFiles, id: \.self) { url in
-                                HStack(spacing: 8) {
-                                    Image(nsImage: NSWorkspace.shared.icon(forFile: url.path)).resizable().frame(width: 28, height: 28)
-                                    Text(url.lastPathComponent).font(.caption).lineLimit(2).frame(width: 104, alignment: .leading)
-                                }.padding(10).frame(height: 58).background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
-                                    .contextMenu { Button("Remove from AirDrop") { controller.removeAirDropFile(url) }.disabled(controller.airDropBusy) }
-                                    .accessibilityAction(named: Text("Remove from AirDrop")) { controller.removeAirDropFile(url) }
-                                    .help("Right-click to remove this file from AirDrop")
-                            }
-                        }.padding(5)
-                    }.frame(width: width, height: 84)
-                }
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Label("AirDrop", systemImage: "airplayaudio").font(.headline)
+                Spacer()
+                Text("\(controller.airDropFiles.count) selected").font(.caption).foregroundStyle(.secondary)
+                    .contextMenu { Button("Clear selection") { controller.clearAirDropFiles() }.disabled(controller.airDropBusy) }
+                    .accessibilityAction(named: Text("Clear selection")) { controller.clearAirDropFiles() }
             }
-            VStack(alignment: .leading, spacing: 7) {
-                HStack {
-                    Label("AirDrop", systemImage: "airplayaudio").font(.headline)
-                    Spacer()
-                    Text("\(controller.airDropFiles.count) selected").font(.caption).foregroundStyle(.secondary)
-                        .contextMenu { Button("Clear selection") { controller.clearAirDropFiles() }.disabled(controller.airDropBusy) }
-                        .accessibilityAction(named: Text("Clear selection")) { controller.clearAirDropFiles() }
-                }
-                Text(controller.airDropMessage).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
-                HStack(spacing: 10) {
-                    Button { controller.airDropReview = false } label: { Image(systemName: "chevron.left").frame(width: 24, height: 24) }.help("Back to Files").accessibilityLabel("Back to Files")
-                    Button { controller.addFiles(to: .airDrop) } label: { Image(systemName: "plus").frame(width: 24, height: 24) }.disabled(controller.airDropBusy).help("Add files").accessibilityLabel("Add files to AirDrop")
-                    Spacer(minLength: 0)
-                    Button { controller.startAirDrop() } label: {
-                        Label(controller.airDropBusy ? "Choosing…" : "Choose device", systemImage: "airplayaudio").padding(.vertical, 4)
-                    }.buttonStyle(.plain).foregroundStyle(Color.accentColor).disabled(controller.airDropBusy || controller.airDropFiles.isEmpty)
-                }.font(.caption)
-            }.padding(.horizontal, 12).frame(width: width, height: 84)
-                .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 13))
-        }
+            if controller.airDropFiles.isEmpty {
+                Text("Drop files here or add them below").font(.caption).foregroundStyle(.secondary).frame(height: 22)
+            } else {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        ForEach(controller.airDropFiles, id: \.self) { url in
+                            Label(url.lastPathComponent, systemImage: "doc").font(.caption).lineLimit(1)
+                                .padding(.horizontal, 6).padding(.vertical, 3)
+                                .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 5))
+                                .contextMenu { Button("Remove from AirDrop") { controller.removeAirDropFile(url) }.disabled(controller.airDropBusy) }
+                                .accessibilityAction(named: Text("Remove from AirDrop")) { controller.removeAirDropFile(url) }
+                        }
+                    }
+                }.scrollIndicators(.hidden).frame(height: 22)
+            }
+            HStack(spacing: 10) {
+                Button { controller.airDropReview = false } label: { Image(systemName: "xmark").frame(width: 24, height: 24) }.help("Close AirDrop review").accessibilityLabel("Close AirDrop review")
+                Button { controller.addFiles(to: .airDrop) } label: { Image(systemName: "plus").frame(width: 24, height: 24) }.disabled(controller.airDropBusy).help("Add files").accessibilityLabel("Add files to AirDrop")
+                Spacer(minLength: 0)
+                Button { controller.startAirDrop() } label: {
+                    Label(controller.airDropBusy ? "Choosing…" : "Choose device", systemImage: "airplayaudio").padding(.vertical, 4)
+                }.buttonStyle(.plain).foregroundStyle(Color.accentColor).disabled(controller.airDropBusy || controller.airDropFiles.isEmpty)
+            }.font(.caption)
+        }.padding(.horizontal, 12).frame(width: width, height: 84)
+            .background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 13))
+            .help(controller.airDropMessage)
     }
 }
 
@@ -236,13 +230,13 @@ struct NotchTrayView: View {
                 Label("File tray · Plus", systemImage: "lock.fill")
                     .font(.caption).foregroundStyle(.secondary).frame(width: 220, height: 84)
             } else {
+                NotchDropZone(destination: .tray, controller: controller, width: NotchFileLayout.halfWidth(controller.expandedWidth))
                 if controller.airDropReview {
                     NotchAirDropReview(controller: controller, width: NotchFileLayout.halfWidth(controller.expandedWidth))
                 } else {
-                    NotchDropZone(destination: .tray, controller: controller, width: NotchFileLayout.halfWidth(controller.expandedWidth))
                     NotchDropZone(destination: .airDrop, controller: controller, width: NotchFileLayout.halfWidth(controller.expandedWidth))
                 }
-                if !controller.airDropReview && !kit.files.isEmpty {
+                if !kit.files.isEmpty {
                     VStack(spacing: 8) {
                         Text("\(kit.files.count) file\(kit.files.count == 1 ? "" : "s")").font(.caption)
                     }.frame(width: 70)

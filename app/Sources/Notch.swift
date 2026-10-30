@@ -507,6 +507,13 @@ struct NotchSettingsView: View {
             controller.panel.setFrame(geometry.panelFrame(expanded: expanded, preferredWidth: model.notchWidth), display: true)
             view.layoutSubtreeIfNeeded()
             RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+            if name == "airdrop-review" && model.canAccess(.files) {
+                func hasTrayTarget(_ node: NSView) -> Bool {
+                    if let target = node as? NotchDropTargetView, target.destination == .tray { return true }
+                    return node.subviews.contains(where: hasTrayTarget)
+                }
+                precondition(hasTrayTarget(view), "The File Tray drop target must remain present during AirDrop review")
+            }
             guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { throw CocoaError(.fileWriteUnknown) }
             view.cacheDisplay(in: view.bounds, to: bitmap)
             try bitmap.representation(using: .png, properties: [:])!.write(to: output.appendingPathComponent("notch-" + name + ".png"))

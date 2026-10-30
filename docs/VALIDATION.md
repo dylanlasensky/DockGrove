@@ -172,3 +172,9 @@ These limits are retained rather than converting fixture or rendering evidence i
 
 - Removed bordered button styling from Focus, music settings, and AirDrop handoff. Back and Add use small labeled icons. File cards open and drag directly; secondary file actions and clear commands live in context menus. Accessibility actions remain available for removing files and clearing selections. Missing files retain their removal action.
 - Signed build and the focused notch suite pass. Native Home and AirDrop screenshots verify the unboxed controls; the accessibility tree retains named Back, Add files, playback, and settings actions. The half-width layout and short height remain intact.
+
+## October 30, 2026: Keep File Tray visible during AirDrop review
+
+- Fixed the review layout replacing both halves: File Tray now remains in the left half while the right half contains either the AirDrop zone or its custom review controls. Saved tray cards remain available while review is open.
+- A native-view regression assertion verifies that the registered File Tray drop target still exists in the AirDrop-review render. Both focused notch suites cover this layout without changing the height or half-width sizing.
+- Native UI verification opened AirDrop review and confirmed the separate File Tray drop zone stayed visible. Activating File Tray opened its own picker with “Choose files to keep in the tray”; cancelling returned to the two-section view.
