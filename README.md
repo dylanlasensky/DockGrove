@@ -43,11 +43,11 @@ zsh build.sh --development
 open dist/DockGrove.app
 ```
 
-The development build uses the installed Apple toolchain and creates `dist/DockGrove.app` with a separate development bundle identifier. `zsh build.sh --commercial` creates `dist/DockGrove-Commercial.app` with activation enforced; configure only the public license-server URL, verification public key and key ID as described in the build script. An unconfigured commercial build fails closed. It generates the app icon from the included drawing script. Build outputs are excluded from version control. Ad-hoc rebuilds may require you to re-enable macOS privacy permissions; stable distribution requires a consistent Developer ID signature.
+The development build uses the installed Apple toolchain and creates `dist/DockGrove.app` with a separate development bundle identifier. `zsh build.sh --commercial` creates `dist/DockGrove-Commercial.app` with activation enforced; configure only the public license-server URL, verification public key and key ID as described in the build script. An unconfigured commercial build fails closed. It packages the exact owner-supplied icon into standard macOS icon sizes. Build outputs are excluded from version control. Ad-hoc rebuilds may require you to re-enable macOS privacy permissions; stable distribution requires a consistent Developer ID signature.
 
 ## First setup
 
-1. Open Settings from the wave icon in your menu bar or the sliders button in DockGrove.
+1. Open Settings from the DockGrove icon in your menu bar or the sliders button in DockGrove.
 2. New installations use **Automatic** appearance, following the Mac. Explicit existing themes are preserved. Choose icon size and an accent: White, None (neutral), Mint, Blue, Lilac, Coral, Rose, Gold, or any custom color. Rich widget cards show live details directly on the Dock; turn them off for compact tiles.
 3. Use **+** or **Pin apps…** for the searchable installed-app picker. Right-click an app and choose **Replace app…** to preserve its position. Undo is available for app changes. Drag tiles to reorder them.
 4. Choose a display. Replacement mode stays at the bottom. Enable automatic hiding or hide-on-overlap if you prefer; hold the pointer at the physical bottom edge for a quarter second to reveal it.
@@ -55,7 +55,7 @@ The development build uses the installed Apple toolchain and creates `dist/DockG
 6. Enable **Use DockGrove as my Dock** when you want replacement mode. Fresh development settings leave it off until you choose it. Apple’s Dock is hidden and its edge reveal is delayed while DockGrove runs. Disable replacement to use a separate top or bottom bar. Your original Apple Dock preferences return when you disable replacement or quit.
 7. Save a named layout to switch between app collections, widgets, icon sizes, and accent colors. Export/import layout JSON to move those layouts to another Mac. App paths must exist on the destination Mac.
 
-The menu-bar wave always gives access to Settings, show/hide, usage refresh, Apple Dock restoration, and Quit. **Done** closes Settings. ⌘W closes Settings and ⌘Q quits while DockGrove is active.
+The DockGrove menu-bar icon always gives access to Settings, show/hide, usage refresh, Apple Dock restoration, and Quit. **Done** closes Settings. ⌘W closes Settings and ⌘Q quits while DockGrove is active.
 
 ## Features
 
@@ -231,7 +231,7 @@ Sources/Toolkit.swift    Widget state, persistence, timers, integrations
 Sources/ToolViews.swift  Widget popovers and library settings
 Sources/SelfTests.swift  Decoding and persistence-format checks
 Tests/fixture_codex.py   Offline app-server protocol fixture
-Scripts/MakeIcon.swift   Reproducible native app-icon drawing
+Scripts/MakeIcon.swift   Exact-logo macOS icon packaging
 build.sh                Universal app build and local signing
 ```
 
