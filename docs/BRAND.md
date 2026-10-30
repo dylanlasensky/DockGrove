@@ -15,3 +15,16 @@ Visible names, executable, bundle filenames, icon, exports, UI, documentation, G
 Existing Application Support/WaveDock libraries continue to be read in place so recordings and AI reports are not orphaned. Fresh libraries use Application Support/DockGrove. Old layout exports still import. The original historical MIT license and Git history are not rewritten.
 
 The existing Cloudflare Worker retains its internal `wavedock-preview` service ID so old preview links keep working; dockgrove.com is the canonical public address. Custom domains are explicitly recorded in the deployment config after connection.
+
+## Font Awesome action icons
+
+The `FontAwesome` group in `app/Assets.xcassets` contains 13 unmodified SVGs from
+[Font Awesome Free 7.3.1](https://github.com/FortAwesome/Font-Awesome/releases/tag/7.3.1),
+by Fonticons, Inc. Provider marks represent only their respective services.
+The vector image sets preserve vector data and render as templates, so the native
+foreground color adapts to light/dark appearance. `FontAwesomeLabel` pairs the icons
+with readable button labels; decorative images are hidden from accessibility.
+
+SVG attribution comments are preserved. `app/Resources/FontAwesome-LICENSE.txt`
+contains the upstream license and is included by both the Xcode and shell builds.
+The SVG icons are licensed under CC BY 4.0; see https://fontawesome.com/license/free.

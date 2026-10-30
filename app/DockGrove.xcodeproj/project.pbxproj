@@ -11,8 +11,10 @@
 		0560CB0FF29B16C719412848 /* Design.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8285458C68BA527D160D756 /* Design.swift */; };
 		110E5C6291049EAE91D31AE3 /* WorkspaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67FA74BD9E98C6C7D8B19055 /* WorkspaceTests.swift */; };
 		11126638526F05AED6E239B5 /* DockBehavior.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58DE772FC54AB1898E5C58D0 /* DockBehavior.swift */; };
+		113C90B0DE1990FB8C0F6C34 /* FontAwesome-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = C2908E1C07F7DDF9644A8D2A /* FontAwesome-LICENSE.txt */; };
 		156F73A14111B208480613BB /* NativeStudioDragSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEACD4DA5351A86D27CCC9B4 /* NativeStudioDragSource.swift */; };
 		17912CB0FA715E8340393C20 /* DockStudioTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97997FD52FD465B0B76B27BE /* DockStudioTests.swift */; };
+		25FD554E029B3176887D4188 /* FontAwesome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 864B0795A98FB5410A56DC46 /* FontAwesome.swift */; };
 		26E56BB59790E3CE726F228E /* WindowManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B1687BD84A792ABDD0D9D12 /* WindowManager.swift */; };
 		28E76620B37F4A70C2FDB6EA /* ToolViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44E42F3955AF09E9EA26AC31 /* ToolViews.swift */; };
 		315C0255FCF61AFD3ADE4296 /* WidgetCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 420614E65977CE989ECE2BB7 /* WidgetCatalog.swift */; };
@@ -131,6 +133,7 @@
 		7AB952CBC6C3B614C3EE6B2A /* VerifyCompanionVideo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerifyCompanionVideo.swift; sourceTree = "<group>"; };
 		82DED36412E9CF7C525DEF8B /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build.sh; sourceTree = "<group>"; };
 		83B45B52FEB8C0D89A32032C /* DragPaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragPaging.swift; sourceTree = "<group>"; };
+		864B0795A98FB5410A56DC46 /* FontAwesome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontAwesome.swift; sourceTree = "<group>"; };
 		864F709D98B8CEA9B217AA6B /* PIXEL-PROMPTS-GOLDEN-HUSKY-COW.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "PIXEL-PROMPTS-GOLDEN-HUSKY-COW.txt"; sourceTree = "<group>"; };
 		8F0360D77D1A795FEFA85357 /* ConnectionSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSettings.swift; sourceTree = "<group>"; };
 		900A2FAFBEAA33AE7B186E0A /* DockTestHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockTestHost.swift; sourceTree = "<group>"; };
@@ -151,6 +154,7 @@
 		BB32712FC1E8BE4E98A97641 /* Model.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Model.swift; sourceTree = "<group>"; };
 		BC32E6395C5684CD5111154D /* CompanionMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionMotion.swift; sourceTree = "<group>"; };
 		BF37F4006A36C18DF88B3019 /* NativeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeTests.swift; sourceTree = "<group>"; };
+		C2908E1C07F7DDF9644A8D2A /* FontAwesome-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "FontAwesome-LICENSE.txt"; sourceTree = "<group>"; };
 		C2ED9082AF8DDC961614A2E3 /* LicenseVerifierTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseVerifierTests.swift; sourceTree = "<group>"; };
 		C5387A0A74582B4F4C896427 /* MakeIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MakeIcon.swift; sourceTree = "<group>"; };
 		C80F7ADB7065699333FA3F1A /* PurchaseTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PurchaseTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -208,6 +212,7 @@
 				32D5212E0AB18524066977BD /* Assets */,
 				34E56435B35D91AE94982527 /* PurchaseTestHost */,
 				A1AC5FC7C3EE441269B2C34E /* PurchaseTests */,
+				D887E1FE890019425ABE53F4 /* Resources */,
 				42F147A15DA362017C49A98C /* Scripts */,
 				E294CD5649A6840B0B68B87E /* Sources */,
 				54FDBEB8FB2A45CB9886D352 /* Tests */,
@@ -288,6 +293,14 @@
 			path = PurchaseTests;
 			sourceTree = "<group>";
 		};
+		D887E1FE890019425ABE53F4 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				C2908E1C07F7DDF9644A8D2A /* FontAwesome-LICENSE.txt */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 		E294CD5649A6840B0B68B87E /* Sources */ = {
 			isa = PBXGroup;
 			children = (
@@ -319,6 +332,7 @@
 				B304EA9816F22C9FADB54C6E /* DockWorkspace.swift */,
 				83B45B52FEB8C0D89A32032C /* DragPaging.swift */,
 				5E6FA1428CD2FF22BC0255EA /* ExtraWidgets.swift */,
+				864B0795A98FB5410A56DC46 /* FontAwesome.swift */,
 				9DEFF1C003FD151721C66B1E /* GitHubView.swift */,
 				065AEA8BF1C2B5277DF7E7A5 /* GitHubWidget.swift */,
 				9014F449C96B049694881C44 /* IntegrationTests.swift */,
@@ -472,6 +486,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				316DC5EB57AC0FFA54F4E611 /* Assets.xcassets in Resources */,
+				113C90B0DE1990FB8C0F6C34 /* FontAwesome-LICENSE.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -510,6 +525,7 @@
 				31F761712F27544C36ECE570 /* DockWorkspace.swift in Sources */,
 				4915E281DBED7D2CEBDEBED1 /* DragPaging.swift in Sources */,
 				5F8F3912198D7C0DD155F911 /* ExtraWidgets.swift in Sources */,
+				25FD554E029B3176887D4188 /* FontAwesome.swift in Sources */,
 				4855794FE826C549A6E55AFA /* GitHubView.swift in Sources */,
 				4730DC02D6C8D397A6FEAB93 /* GitHubWidget.swift in Sources */,
 				7A6E955290F58A69AAA1E129 /* IntegrationTests.swift in Sources */,

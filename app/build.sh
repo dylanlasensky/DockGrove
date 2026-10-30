@@ -42,6 +42,7 @@ for key, variable in [('DockGroveLicenseServerURL','DOCKGROVE_LICENSE_SERVER_URL
 with open(path, 'wb') as f: plistlib.dump(info, f)
 PYCONFIG
 mkdir -p "$bundle/Contents/Resources"
+cp Resources/FontAwesome-LICENSE.txt "$bundle/Contents/Resources/"
 # Asset catalogs are the single source for icons, artwork and named colors.
 xcrun actool Assets.xcassets --compile "$bundle/Contents/Resources" \
   --platform macosx --minimum-deployment-target 14.0 --target-device mac \

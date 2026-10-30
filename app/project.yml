@@ -23,6 +23,8 @@ targets:
         buildPhase: none
       - path: Assets
         buildPhase: none
+      - path: Resources
+        buildPhase: resources
       - path: Assets.xcassets
         buildPhase: resources
       - path: build.sh
