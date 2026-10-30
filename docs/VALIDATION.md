@@ -136,3 +136,11 @@ These limits are retained rather than converting fixture or rendering evidence i
 - Native UI verification added a temporary text file through Add files, displayed its tray card, removed its shortcut, and confirmed the original contents were unchanged. Inline Focus controls were verified in the same notch window. Home, Tray, and Focus renders were visually inspected.
 - The running signed app exposed both navigation preview cards in Appearance. Selecting Tabs updated the Home/Tray navigation, and the wider combined Home rendered without clipping.
 - Physical drag-in/drag-out gestures and sharing remain manual validation gaps; the file intake and drag-provider implementation are not presented as end-to-end gesture certification.
+
+## October 30, 2026: Short horizontal notch strip
+
+- Replaced Home/Tray tabs and widget paging with one horizontal scroll view. Controls, files, and widget cards are adjacent sections; file shortcuts extend the same row. Removed the obsolete tab-style setting.
+- Expanded size on the development Mac is 760×144 points, down from 760×356. Closed bounds still exactly match the 185×32-point camera housing. Geometry tests assert the fixed short height.
+- Signed Debug build and all 28 unrestricted regression checks pass. Strict code-signature verification passes.
+- Native scroll actions moved the horizontal offset from 0 to 0.164 and revealed the widget row. Search filtered to Focus, its controls opened inline without growing the strip, and clearing search restored the initial sections. Longer widget controls scroll within their fixed-height area.
+- File drag gesture certification remains outstanding as documented in NOTCH.md; existing intake, persistence, tier, and preservation tests pass.
