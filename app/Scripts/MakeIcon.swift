@@ -15,7 +15,7 @@ for size in [16, 32, 128, 256, 512] {
         let context = NSGraphicsContext.current!.cgContext
         context.scaleBy(x: CGFloat(pixels) / 1024, y: CGFloat(pixels) / 1024)
         // Resample the exact owner's icon crop into standard macOS icon sizes.
-        let source = NSImage(contentsOfFile: "Assets/Brand/DockGrove-icon.png")!
+        let source = NSImage(contentsOfFile: "Assets.xcassets/Brand/DockGrove-icon.imageset/DockGrove-icon.png")!
         source.draw(in: NSRect(x:40,y:40,width:944,height:944), from:.zero, operation:.sourceOver, fraction:1)
         NSGraphicsContext.restoreGraphicsState()
         let suffix = scale == 2 ? "@2x" : ""
