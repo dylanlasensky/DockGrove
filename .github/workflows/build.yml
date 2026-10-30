@@ -20,8 +20,10 @@ jobs:
         with:
           node-version: '24'
       - name: Build universal app
+        working-directory: app
         run: zsh build.sh
       - name: Test layout, windows, AI clients, music, calendar and existing regressions
+        working-directory: app
         run: |
           chmod +x Tests/fixture_codex.py
           dist/DockGrove.app/Contents/MacOS/DockGrove --self-test --fixture-cli "$PWD/Tests/fixture_codex.py"
@@ -31,12 +33,12 @@ jobs:
           lipo dist/DockGrove.app/Contents/MacOS/DockGrove -verify_arch x86_64
       - name: Package
         run: |
-          ditto -c -k --sequesterRsrc --keepParent dist/DockGrove.app dist/DockGrove.zip
+          ditto -c -k --sequesterRsrc --keepParent app/dist/DockGrove.app app/dist/DockGrove.zip
           node website/tests/site.test.mjs
           node --test website/tests/client.test.mjs
           node --test website/backend/*.test.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: DockGrove-development-universal-pass-${{ matrix.validation-pass }}
-          path: dist/DockGrove.zip
+          path: app/dist/DockGrove.zip
           retention-days: 30

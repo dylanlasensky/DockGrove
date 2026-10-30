@@ -15,4 +15,4 @@ Deploy the static site with `wrangler deploy --config wrangler.jsonc`. The exist
 
 The planned price remains $9.99 once for major version 1, maintenance updates and three personal Macs. Checkout remains disabled; signing, notarization, owner-approved customer terms and live payment configuration are still pending. The separate test-commerce scaffolding is not deployed by the static config. No development app binaries or unprotected commercial downloads are placed in public assets.
 
-The source and CI development artifacts include the approved pet implementation. See `docs/BRAND.md` for exact-logo extraction and storage compatibility details, and `docs/COMPANION-REVIEW.md` for the animation and validation contract.
+The source and CI development artifacts include the approved pet implementation. See [`docs/BRAND.md`](../docs/BRAND.md) for exact-logo extraction and storage compatibility details, and [`docs/COMPANION-REVIEW.md`](../docs/COMPANION-REVIEW.md) for the animation and validation contract.

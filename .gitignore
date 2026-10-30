@@ -4,6 +4,7 @@ dist/
 *.zip
 *.dmg
 *.xcuserstate
+xcuserdata/
 .dev.vars
 .dev.vars.*
 .env
