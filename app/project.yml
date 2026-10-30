@@ -21,8 +21,6 @@ targets:
         buildPhase: none
       - path: Scripts
         buildPhase: none
-      - path: Assets
-        buildPhase: none
       - path: Resources
         buildPhase: resources
       - path: Assets.xcassets

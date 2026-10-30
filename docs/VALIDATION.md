@@ -2,7 +2,7 @@
 
 ## Version 1.0 non-pet publication — October 29, 2026
 
-This publication excludes the local pet redesign. `app/Sources/Companion.swift`, `app/Sources/WidgetCards.swift`, `app/Sources/WorkspaceTests.swift` and the entire `app/Assets/` tree remain identical to baseline `97c9fed`; no new companion motion/drawing modules or generated rigs are included. The existing six-pose companions remain in the native app. The public website omits the pet gallery and new pet artwork.
+This publication excludes the local pet redesign. `app/Sources/Companion.swift`, `app/Sources/WidgetCards.swift`, and `app/Sources/WorkspaceTests.swift` remain unchanged from baseline `97c9fed`; no new companion motion/drawing modules or generated rigs are included. The unused prompt documentation formerly in `app/Assets/` was subsequently removed. The existing six-pose companions remain in the native app. The public website omits the pet gallery and new pet artwork.
 
 The changes cover app search/replacement/Undo, adaptive appearance, native window actions, separate development identity, fail-closed commercial activation, the static website, and test-only commerce infrastructure. Provider credentials, deployed commerce, actual payments, Apple signing and installed-app replacement are outside this publication.
 

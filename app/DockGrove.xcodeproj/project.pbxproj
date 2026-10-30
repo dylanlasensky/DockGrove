@@ -95,7 +95,6 @@
 		065AEA8BF1C2B5277DF7E7A5 /* GitHubWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubWidget.swift; sourceTree = "<group>"; };
 		082ED5FEFC6851A19EA652F6 /* validate.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = validate.sh; sourceTree = "<group>"; };
 		0AD7B4B5DD57C546E282F1BC /* BehaviorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BehaviorTests.swift; sourceTree = "<group>"; };
-		0EC3546AD86656AF24E5D1C6 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		0F3F052105CD1CB166A9C802 /* ReleaseVisualTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseVisualTests.swift; sourceTree = "<group>"; };
 		1202676CD501AA705A2E34EE /* WeatherClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherClient.swift; sourceTree = "<group>"; };
 		1367AEF0EC4450BE4BFDA69D /* DockLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockLayout.swift; sourceTree = "<group>"; };
@@ -119,7 +118,6 @@
 		4C81618425D237E6DC8ABA66 /* BrandStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandStorage.swift; sourceTree = "<group>"; };
 		4CC3403F0C0955F0DEB6BD40 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		4FD0DE5609C2BC58EED77C1B /* ReviewCompanions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewCompanions.swift; sourceTree = "<group>"; };
-		512F393312F2C828AD3154B4 /* PIXEL-PROMPTS-CATS.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "PIXEL-PROMPTS-CATS.json"; sourceTree = "<group>"; };
 		545CBEDC6C333F8D40523374 /* NotchWorkspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchWorkspace.swift; sourceTree = "<group>"; };
 		553A5C8F82574217746164A6 /* BenchmarkCompanions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BenchmarkCompanions.swift; sourceTree = "<group>"; };
 		58DE772FC54AB1898E5C58D0 /* DockBehavior.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockBehavior.swift; sourceTree = "<group>"; };
@@ -136,7 +134,6 @@
 		82DED36412E9CF7C525DEF8B /* build.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = build.sh; sourceTree = "<group>"; };
 		83B45B52FEB8C0D89A32032C /* DragPaging.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragPaging.swift; sourceTree = "<group>"; };
 		864B0795A98FB5410A56DC46 /* FontAwesome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FontAwesome.swift; sourceTree = "<group>"; };
-		864F709D98B8CEA9B217AA6B /* PIXEL-PROMPTS-GOLDEN-HUSKY-COW.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "PIXEL-PROMPTS-GOLDEN-HUSKY-COW.txt"; sourceTree = "<group>"; };
 		8F0360D77D1A795FEFA85357 /* ConnectionSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionSettings.swift; sourceTree = "<group>"; };
 		900A2FAFBEAA33AE7B186E0A /* DockTestHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockTestHost.swift; sourceTree = "<group>"; };
 		9014F449C96B049694881C44 /* IntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationTests.swift; sourceTree = "<group>"; };
@@ -162,7 +159,6 @@
 		C80F7ADB7065699333FA3F1A /* PurchaseTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PurchaseTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C8285458C68BA527D160D756 /* Design.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Design.swift; sourceTree = "<group>"; };
 		CD80B2C8AE3DE4E959BBE30D /* Utilities.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utilities.swift; sourceTree = "<group>"; };
-		CD8DD3B751823D92ABC1F901 /* PIXEL-PROMPTS-RABBIT-FOX-DRAGON.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "PIXEL-PROMPTS-RABBIT-FOX-DRAGON.txt"; sourceTree = "<group>"; };
 		CEAFDE06F3C62D74A547C217 /* PurchaseViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseViews.swift; sourceTree = "<group>"; };
 		CF315E7A94B62685E3919BB7 /* Purchases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Purchases.swift; sourceTree = "<group>"; };
 		D17ABF22828D05198F871953 /* WidgetShapes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetShapes.swift; sourceTree = "<group>"; };
@@ -211,7 +207,6 @@
 				82DED36412E9CF7C525DEF8B /* build.sh */,
 				1EB7D7CF3F929C8333C0AB2D /* DockGrove.entitlements */,
 				5F5FE2B5CD8FE141E6287DEA /* DockGrove.storekit */,
-				32D5212E0AB18524066977BD /* Assets */,
 				34E56435B35D91AE94982527 /* PurchaseTestHost */,
 				A1AC5FC7C3EE441269B2C34E /* PurchaseTests */,
 				D887E1FE890019425ABE53F4 /* Resources */,
@@ -221,14 +216,6 @@
 				219DA031D5A5C5783EDE7D29 /* Frameworks */,
 				61949DB6C752F31577E4C74C /* Products */,
 			);
-			sourceTree = "<group>";
-		};
-		32D5212E0AB18524066977BD /* Assets */ = {
-			isa = PBXGroup;
-			children = (
-				5B73AF70FEBF1C56947E18E3 /* Companions */,
-			);
-			path = Assets;
 			sourceTree = "<group>";
 		};
 		34E56435B35D91AE94982527 /* PurchaseTestHost */ = {
@@ -264,17 +251,6 @@
 				082ED5FEFC6851A19EA652F6 /* validate.sh */,
 			);
 			path = Tests;
-			sourceTree = "<group>";
-		};
-		5B73AF70FEBF1C56947E18E3 /* Companions */ = {
-			isa = PBXGroup;
-			children = (
-				512F393312F2C828AD3154B4 /* PIXEL-PROMPTS-CATS.json */,
-				864F709D98B8CEA9B217AA6B /* PIXEL-PROMPTS-GOLDEN-HUSKY-COW.txt */,
-				CD8DD3B751823D92ABC1F901 /* PIXEL-PROMPTS-RABBIT-FOX-DRAGON.txt */,
-				0EC3546AD86656AF24E5D1C6 /* README.md */,
-			);
-			path = Companions;
 			sourceTree = "<group>";
 		};
 		61949DB6C752F31577E4C74C /* Products */ = {
