@@ -31,14 +31,14 @@ import AppKit
     precondition(!DockVisibility.coversScreen(CGRect(x: -1440, y: -875, width: 1440, height: 875), screen))
     print("PASS: fullscreen/session suppression, physical edge dwell, hide delay, overlap, negative display coordinates")
 
-    precondition(GitHubClient.normalized("https://github.com/dylanlasensky/WaveDock.git") == "dylanlasensky/WaveDock")
+    precondition(GitHubClient.normalized("https://github.com/dylanlasensky/DockGrove.git") == "dylanlasensky/DockGrove")
     for invalid in ["owner/repo/extra", "../repo", "owner/repo?token=secret", "https://evil.test/repo", "owner/", "owner/.."] { precondition(GitHubClient.normalized(invalid) == nil) }
     let queued = try JSONDecoder().decode(RepositoryRun.self, from: Data(#"{"id":1,"name":"Build","status":"queued","conclusion":null,"html_url":"https://github.com/a/b/actions/runs/1"}"#.utf8))
     precondition(queued.displayStatus == "queued")
     precondition(GitHubClient.safeURL("https://evil.test/run") == nil)
     precondition(GitHubClient.safeURL("https://github.com/a/b") != nil)
     print("PASS: GitHub repository validation, safe links, queued build status")
-    let domain = FileManager.default.temporaryDirectory.appendingPathComponent("WaveDockPreferenceProbe-" + UUID().uuidString)
+    let domain = FileManager.default.temporaryDirectory.appendingPathComponent("DockGrovePreferenceProbe-" + UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: domain.appendingPathExtension("plist")) }
     for (raw, expected) in [("0", false), ("1", true), ("false", false), ("true", true)] {
         let value = try SystemDock.cliValue(DockPreference(type: "boolean", value: raw))
@@ -49,7 +49,7 @@ import AppKit
         precondition(object["probe"] as? Bool == expected)
     }
     print("PASS: real macOS defaults command accepts restored boolean representations")
-    let suite = "WaveDockBehaviorTests." + UUID().uuidString
+    let suite = "DockGroveBehaviorTests." + UUID().uuidString
     let store = UserDefaults(suiteName: suite)!
     defer { store.removePersistentDomain(forName: suite) }
     var preferences: [String: DockPreference] = ["autohide": DockPreference(type: "boolean", value: "false"), "autohide-delay": DockPreference(type: "float", value: "0.75")]

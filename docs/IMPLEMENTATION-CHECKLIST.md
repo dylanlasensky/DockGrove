@@ -6,12 +6,12 @@
 - [x] Separate development identity and fail-closed commercial configuration.
 - [x] Test-only checkout, signed activation, fulfillment, recovery and private downloads implemented; no real payment service deployed.
 - [x] Universal build, strict signature/plist/architecture checks, offline fixture suite and 39-widget native rendering passed in the isolated publication checkout.
-- [x] Existing native pet code and artwork preserved exactly; rejected pet redesign and animation implementation excluded.
+- [x] All nine approved pixel companions included, with complete-body frames and eased motion.
 - [x] Commercial transition proposal and signing handoff documented; existing MIT permissions preserved.
 
 ## Still separate from this publication
 
-- [ ] Local species-specific pet redesign and visual acceptance; no new pets are shipped here.
+- [x] Owner approved the pixel pets for publication with the DockGrove rebrand.
 - [ ] Owner-approved seller terms, licensing boundary and payment/provider configuration.
 - [ ] Actual Stripe/email/storage sandbox acceptance and independently approved live-sales launch.
 - [ ] Malcolm's Developer ID signing and notarization of a configured commercial build.

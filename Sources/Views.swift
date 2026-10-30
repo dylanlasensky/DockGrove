@@ -29,7 +29,7 @@ struct DockView: View {
         let pages = DockPageLayout.pages(widths: widths, available: width - DockPageLayout.chrome)
         let current = min(page, pages.count - 1)
         HStack(spacing: 8) {
-            if !model.canUseFeatures { Button("Activate WaveDock") { model.settingsAction?() } }
+            if !model.canUseFeatures { Button("Activate DockGrove") { model.settingsAction?() } }
             Button { page = max(0, current - 1) } label: { Image(systemName: "chevron.left").frame(width: 24, height: 46) }
                 .background(arrowGeometry(-1))
                 .foregroundStyle(dwell.direction == -1 ? model.color : .primary)
@@ -48,7 +48,7 @@ struct DockView: View {
                 Text("\(current + 1)/\(pages.count)").font(.system(size: 9)).monospacedDigit().foregroundStyle(.secondary)
             }.frame(width: 32)
             Button { model.settingsAction?() } label: { Image(systemName: "slider.horizontal.3").frame(width: 26, height: 46) }
-                .help("WaveDock settings").accessibilityLabel("WaveDock settings")
+                .help("DockGrove settings").accessibilityLabel("DockGrove settings")
         }
         .contentShape(Rectangle())
         // This recognizer belongs to the stable Dock, not a tile removed by paging.
@@ -289,7 +289,7 @@ struct SettingsView: View {
                 HStack(spacing: 13) {
                     BrandIcon().frame(width: 58, height: 58)
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("WaveDock").font(.system(size: 27, weight: .bold, design: .rounded))
+                        Text("DockGrove").font(.system(size: 27, weight: .bold, design: .rounded))
                         Text("A calmer space for everything you do.").font(.callout).foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -339,19 +339,19 @@ struct SettingsView: View {
                 }
                 WorkspaceSettings(model: model, kit: model.toolkit)
                 if !model.isAdditionalDock { card("Your Mac Dock", icon: "dock.rectangle") {
-                    Toggle("Use WaveDock as my Dock", isOn: Binding(get: { model.replacingDock }, set: { model.changeDockAction?($0) }))
-                    Text("Replaces Apple’s Dock at the bottom edge while WaveDock runs. Hides during full screen and restores your original Dock preferences when you quit.")
+                    Toggle("Use DockGrove as my Dock", isOn: Binding(get: { model.replacingDock }, set: { model.changeDockAction?($0) }))
+                    Text("Replaces Apple’s Dock at the bottom edge while DockGrove runs. Hides during full screen and restores your original Dock preferences when you quit.")
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     if let error = model.systemError { Text(error).font(.caption).foregroundStyle(.orange) }
                     HStack {
-                        Button(model.visible ? "Hide WaveDock" : "Show WaveDock") { model.visible.toggle(); model.visibilityAction?() }
+                        Button(model.visible ? "Hide DockGrove" : "Show DockGrove") { model.visible.toggle(); model.visibilityAction?() }
                         Button("Restore Apple Dock") { model.changeDockAction?(false) }
                     }
                 }
                 }
                 if !model.isAdditionalDock { SnapSettings(model: model) }
                 card("ChatGPT plan usage", icon: "sparkles") {
-                    Text("Connect your existing ChatGPT sign-in through Codex. WaveDock reads the reported limits and reset times every five minutes. It does not count your chat messages.")
+                    Text("Connect your existing ChatGPT sign-in through Codex. DockGrove reads the reported limits and reset times every five minutes. It does not count your chat messages.")
                         .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     Toggle("Refresh usage automatically", isOn: $model.usageEnabled)
                     HStack {
@@ -368,9 +368,9 @@ struct SettingsView: View {
                 }
                 }
                 HStack {
-                    Text("WaveDock · Thoughtfully at hand.").font(.caption).foregroundStyle(.secondary)
+                    Text("DockGrove · Thoughtfully at hand.").font(.caption).foregroundStyle(.secondary)
                     Spacer()
-                    Button("Quit WaveDock") { NSApp.terminate(nil) }
+                    Button("Quit DockGrove") { NSApp.terminate(nil) }
                 }
             }.padding(28)
         }.frame(width: 590, height: 720).background(Color(nsColor: .windowBackgroundColor)).preferredColorScheme(model.scheme)

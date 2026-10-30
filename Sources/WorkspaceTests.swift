@@ -51,18 +51,18 @@ import SwiftUI
             }
             precondition(borderInk < 16, "Companion pose crosses a sprite boundary: \(animal)")
         }
-        let poses = stride(from:0.0,to:18.0,by:0.1).map { CompanionPose.at($0,animal:animal,resting:false,reduceMotion:false) }
-        precondition(Set(poses.map(\.frame)).count == 5 && poses.allSatisfy { (0..<5).contains($0.frame) })
-        precondition(CompanionPose.at(3,animal:animal,resting:true,reduceMotion:false).frame == 5)
-        precondition(CompanionPose.at(1,animal:animal,resting:false,reduceMotion:true) == CompanionPose.at(10,animal:animal,resting:false,reduceMotion:true))
+        guard let sheet=CompanionDrawing.sheet(animal) else { preconditionFailure("Missing motion artwork: \(animal)") }
+        precondition(sheet.frames.count == 16 && sheet.maximum.width > 0 && sheet.maximum.height > 0)
+        for frame in sheet.frames { precondition(frame.size.width > 0 && frame.size.height > 0) }
     }
-    print("PASS: cross-page dwell, repeat, reverse, cancellation, bounds; nine bundled six-pose illustrations and Reduce Motion")
+    runCompanionMotionTests()
+
     var pet=CompanionState(); let baseline=pet.fullness; pet.advance(to:pet.lastUpdate.addingTimeInterval(86400*30)); precondition(pet.fullness >= baseline-0.4)
     for _ in 0..<20 { pet.feed(); pet.play() }; precondition(pet.fullness==100 && pet.joy==100 && pet.energy >= 25)
     pet.resting=true; let energy=pet.energy; pet.play(); precondition(pet.energy==energy)
     for _ in 0..<3 { pet.reward() }; precondition(pet.level==2 && pet.sessions==3)
     let restoredPet=try JSONDecoder().decode(CompanionState.self,from:JSONEncoder().encode(pet)); precondition(restoredPet == pet)
-    let suite="WaveDock-workspace-tests-"+UUID().uuidString, defaults=UserDefaults(suiteName:suite)!
+    let suite="DockGrove-workspace-tests-"+UUID().uuidString, defaults=UserDefaults(suiteName:suite)!
     defer { defaults.removePersistentDomain(forName:suite) }
     let model=DockModel(defaults:defaults); model.theme="Pearl"; model.widthFraction=0.5; model.alignment=0; model.showUsageCard=false
     let restored=DockModel(defaults:defaults); precondition(restored.theme=="Pearl" && restored.widthFraction==0.5 && restored.alignment==0 && !restored.showUsageCard)

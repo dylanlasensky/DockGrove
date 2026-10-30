@@ -131,7 +131,7 @@ struct CurrencyView: View {
     private var player: AVAudioPlayer?
     private var timer: Timer?
     override init() { super.init(); loadLibrary(); file = recordings.first }
-    private var library: URL { FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("WaveDock/Voice Memos") }
+    private var library: URL { BrandStorage.supportDirectory.appendingPathComponent("Voice Memos") }
     func loadLibrary() {
         recordings = ((try? FileManager.default.contentsOfDirectory(at: library, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles])) ?? [])
             .filter { $0.pathExtension == "m4a" && $0.lastPathComponent.hasPrefix("Memo-") }
@@ -147,9 +147,9 @@ struct CurrencyView: View {
         Task { [self] in
             defer { requesting = false }
             let allowed = await AVCaptureDevice.requestAccess(for: .audio)
-            guard allowed else { status = "Microphone access is required. Enable WaveDock in Privacy & Security > Microphone."; return }
+            guard allowed else { status = "Microphone access is required. Enable DockGrove in Privacy & Security > Microphone."; return }
             do {
-                let folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("WaveDock/Voice Memos")
+                let folder = BrandStorage.supportDirectory.appendingPathComponent("Voice Memos")
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 let url = folder.appendingPathComponent("Memo-\(UUID().uuidString).m4a")
                 let r = try AVAudioRecorder(url: url, settings: [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: 44100, AVNumberOfChannelsKey: 1, AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue])
@@ -172,14 +172,14 @@ struct CurrencyView: View {
         do {
             let audio = try AVAudioPlayer(contentsOf: file); audio.delegate = self
             guard audio.play() else { throw UsageError.service }
-            player = audio; playing = true; status = "Playing locally in WaveDock."
+            player = audio; playing = true; status = "Playing locally in DockGrove."
         } catch { status = "Could not play this recording."; playing = false }
     }
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         Task { @MainActor in self.playing = false; self.player = nil; self.status = flag ? "Playback complete." : "Playback could not finish." }
     }
     func openLibrary() {
-        let folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("WaveDock/Voice Memos")
+        let folder = BrandStorage.supportDirectory.appendingPathComponent("Voice Memos")
         do { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true); NSWorkspace.shared.open(folder) } catch { status = "Could not open the memo folder." }
     }
     func export() {
@@ -205,7 +205,7 @@ struct VoiceMemoView: View {
             else { Button(memo.requesting ? "Requesting microphone…" : "Record new memo", action: memo.start).tint(.red).disabled(memo.requesting) }
             if let file = memo.file, !memo.recording { HStack { Button(memo.playing ? "Stop playback" : "Play", action: memo.play); Button("Export…", action: memo.export); Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([file]) } } }
             Button("All recordings in Finder", action: memo.openLibrary)
-            Text("Recording begins only when you press Record. No audio is uploaded. Memos remain in Application Support/WaveDock/Voice Memos.").font(.caption).foregroundStyle(.secondary)
+            Text("Recording begins only when you press Record. No audio is uploaded. Memos remain in your local application-support library.").font(.caption).foregroundStyle(.secondary)
         }
     }
 }

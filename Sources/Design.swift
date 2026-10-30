@@ -1,24 +1,17 @@
 import AppKit
 import SwiftUI
 
-/// Original WaveDock mark: two flowing strokes that form a quiet W.
-struct WaveMark: Shape {
-    func path(in r: CGRect) -> Path {
-        var p = Path()
-        for offset in [0.0, 0.27] {
-            p.move(to: CGPoint(x: r.minX + r.width * 0.12, y: r.minY + r.height * (0.25 + offset)))
-            p.addCurve(to: CGPoint(x: r.minX + r.width * 0.5, y: r.minY + r.height * (0.34 + offset)), control1: CGPoint(x: r.minX + r.width * 0.29, y: r.minY + r.height * (0.67 + offset)), control2: CGPoint(x: r.minX + r.width * 0.31, y: r.minY + r.height * (0.13 + offset)))
-            p.addCurve(to: CGPoint(x: r.minX + r.width * 0.88, y: r.minY + r.height * (0.22 + offset)), control1: CGPoint(x: r.minX + r.width * 0.7, y: r.minY + r.height * (0.57 + offset)), control2: CGPoint(x: r.minX + r.width * 0.73, y: r.minY + r.height * (0.38 + offset)))
-        }
-        return p
-    }
-}
+/// Exact owner-supplied DockGrove artwork, bundled once for all native surfaces.
 struct BrandIcon: View {
     var body: some View {
-        WaveMark().stroke(.white, style: StrokeStyle(lineWidth: 3.5, lineCap: .round)).padding(9)
-            .background(LinearGradient(colors: [Color(white: 0.23), Color(white: 0.07)], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(.white.opacity(0.2), lineWidth: 0.7))
+        Image(nsImage: Self.artwork).resizable().scaledToFit().accessibilityLabel("DockGrove")
     }
+    static let artwork: NSImage = {
+        guard let url = Bundle.main.url(forResource:"DockGrove-icon",withExtension:"png"), let image=NSImage(contentsOf:url) else {
+            return NSImage(size:NSSize(width:32,height:32))
+        }
+        return image
+    }()
 }
 enum AccentPalette {
     static let names = ["None", "White", "Mint", "Blue", "Lilac", "Coral", "Rose", "Gold"]
@@ -27,7 +20,7 @@ enum AccentPalette {
         case "None": return .primary
         case "White": return .white
         case "Mint": return Color(red: 0.43, green: 0.88, blue: 0.73)
-        case "Blue": return Color(red: 0.36, green: 0.66, blue: 1)
+        case "Blue": return Color(red: 77/255, green: 131/255, blue: 232/255)
         case "Lilac": return Color(red: 0.76, green: 0.65, blue: 1)
         case "Coral": return Color(red: 1, green: 0.57, blue: 0.47)
         case "Rose": return Color(red: 1, green: 0.52, blue: 0.69)
@@ -86,15 +79,13 @@ struct RingMetric: View {
 
 extension BrandIcon {
     static var menuImage: NSImage {
-        let image = NSImage(size: NSSize(width: 20, height: 20), flipped: false) { _ in
-            NSColor.black.setStroke()
-            for offset in [0.0, 5.0] {
-                let path = NSBezierPath(); path.lineWidth = 1.7; path.lineCapStyle = .round
-                path.move(to: NSPoint(x: 2, y: 9 + offset))
-                path.curve(to: NSPoint(x: 10, y: 7 + offset), controlPoint1: NSPoint(x: 5, y: 1 + offset), controlPoint2: NSPoint(x: 6, y: 12 + offset))
-                path.curve(to: NSPoint(x: 18, y: 10 + offset), controlPoint1: NSPoint(x: 14, y: 2 + offset), controlPoint2: NSPoint(x: 15, y: 7 + offset)); path.stroke()
-            }; return true
-        }; image.isTemplate = true; image.accessibilityDescription = "WaveDock"; return image
+        let image = NSImage(size:NSSize(width:20,height:20),flipped:false) { bounds in
+            artwork.draw(in:bounds,from:.zero,operation:.sourceOver,fraction:1)
+            return true
+        }
+        image.isTemplate=false
+        image.accessibilityDescription="DockGrove"
+        return image
     }
 }
 

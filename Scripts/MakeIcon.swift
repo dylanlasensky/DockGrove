@@ -14,17 +14,9 @@ for size in [16, 32, 128, 256, 512] {
         NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
         let context = NSGraphicsContext.current!.cgContext
         context.scaleBy(x: CGFloat(pixels) / 1024, y: CGFloat(pixels) / 1024)
-        let box = NSBezierPath(roundedRect: NSRect(x: 40, y: 40, width: 944, height: 944), xRadius: 220, yRadius: 220)
-        NSGradient(starting: NSColor(white: 0.25, alpha: 1), ending: NSColor(white: 0.055, alpha: 1))!.draw(in: box, angle: -65)
-        NSColor(white: 1, alpha: 0.18).setStroke(); box.lineWidth = 2; box.stroke()
-        NSColor(white: 0.97, alpha: 1).setStroke()
-        for offset in [0.0, 175.0] {
-            let wave = NSBezierPath(); wave.lineWidth = 53; wave.lineCapStyle = .round
-            wave.move(to: NSPoint(x: 230, y: 510 + offset))
-            wave.curve(to: NSPoint(x: 512, y: 448 + offset), controlPoint1: NSPoint(x: 355, y: 208 + offset), controlPoint2: NSPoint(x: 370, y: 600 + offset))
-            wave.curve(to: NSPoint(x: 794, y: 535 + offset), controlPoint1: NSPoint(x: 660, y: 280 + offset), controlPoint2: NSPoint(x: 682, y: 420 + offset))
-            wave.stroke()
-        }
+        // Resample the exact owner's icon crop into standard macOS icon sizes.
+        let source = NSImage(contentsOfFile: "Assets/Brand/DockGrove-icon.png")!
+        source.draw(in: NSRect(x:40,y:40,width:944,height:944), from:.zero, operation:.sourceOver, fraction:1)
         NSGraphicsContext.restoreGraphicsState()
         let suffix = scale == 2 ? "@2x" : ""
         let png = bitmap.representation(using: .png, properties: [:])!

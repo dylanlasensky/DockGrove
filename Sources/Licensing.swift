@@ -10,7 +10,7 @@ enum LicenseConfiguration {
     static let majorVersion = 1
     static let environment = "test"
     static var commercial: Bool {
-        #if WAVEDOCK_COMMERCIAL
+        #if DOCKGROVE_COMMERCIAL
         return true
         #else
         return false
@@ -22,17 +22,17 @@ enum LicenseConfiguration {
         return "com.dylan.wavedock.license." + environment + (isolated ? ".isolated-tests" : qa ? ".commercial-qa" : commercial ? ".commercial" : ".development")
     }
     static var server: URL? {
-        guard let value = Bundle.main.object(forInfoDictionaryKey: "WaveDockLicenseServerURL") as? String,
+        guard let value = Bundle.main.object(forInfoDictionaryKey: "DockGroveLicenseServerURL") as? String,
               let url = URL(string: value), url.scheme == "https", url.host != nil,
               url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
               url.path.isEmpty || url.path == "/" else { return nil }
         return url
     }
     static var publicKey: Data? {
-        guard let value = Bundle.main.object(forInfoDictionaryKey: "WaveDockLicensePublicKeyBase64") as? String else { return nil }
+        guard let value = Bundle.main.object(forInfoDictionaryKey: "DockGroveLicensePublicKeyBase64") as? String else { return nil }
         return Data(base64Encoded: value)
     }
-    static var keyID: String { Bundle.main.object(forInfoDictionaryKey: "WaveDockLicenseKeyID") as? String ?? "test-1" }
+    static var keyID: String { Bundle.main.object(forInfoDictionaryKey: "DockGroveLicenseKeyID") as? String ?? "test-1" }
 }
 struct SignedLicense: Codable {
     var payload: String
@@ -56,7 +56,7 @@ enum LicenseFailure: LocalizedError {
         case .configuration: return "License service is not configured in this release candidate."
         case .invalid: return "This license could not be verified for this Mac."
         case .expired: return "Connect to the internet to refresh your license."
-        case .storage: return "WaveDock could not save activation securely in Keychain."
+        case .storage: return "DockGrove could not save activation securely in Keychain."
         case .server(let message): return message
         }
     }
@@ -76,7 +76,7 @@ enum LicenseVerifier {
               let signature = try? P256.Signing.ECDSASignature(rawRepresentation: signatureData),
               key.isValidSignature(signature, for: Data(signed.payload.utf8)),
               let claims = try? JSONDecoder().decode(LicenseClaims.self, from: payload),
-              claims.iss == "wavedock", claims.aud == "com.dylan.wavedock",
+              claims.iss == "dockgrove", claims.aud == "com.dylan.wavedock",
               claims.majorVersion == LicenseConfiguration.majorVersion,
               claims.environment == LicenseConfiguration.environment,
               !claims.licenseId.isEmpty, claims.deviceHash == deviceHash(device),
@@ -152,7 +152,7 @@ enum LicenseVault {
     }
     func activate(_ input: String) async {
         let key = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard key.hasPrefix("WD1-"), key.count == 47 else { status = "Enter a complete WaveDock license key."; return }
+        guard key.hasPrefix("WD1-"), key.count == 47 else { status = "Enter a complete DockGrove license key."; return }
         await request("activate", key: key)
     }
     func refresh() async {
@@ -208,7 +208,7 @@ struct LicenseSettingsView: View {
     @State private var key = ""
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("WaveDock license").font(.headline)
+            Text("DockGrove license").font(.headline)
             Text("One-time purchase · This major version and its maintenance updates. See the purchase page for pricing and device allowance.").font(.caption)
             if !LicenseConfiguration.commercial { Text("Development build · No purchase required here. Not a commercial release artifact.").font(.caption).foregroundStyle(.secondary) }
             Text("Payment integration is in test mode.").font(.caption).foregroundStyle(.secondary)

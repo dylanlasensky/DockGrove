@@ -44,7 +44,7 @@ enum WindowPlacement: String, CaseIterable, Identifiable {
     func requestAccess() {
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
-        status = "Enable WaveDock in Privacy & Security > Accessibility (Device Control and Data Access on newer macOS), then Refresh."
+        status = "Enable DockGrove in Privacy & Security > Accessibility (Device Control and Data Access on newer macOS), then Refresh."
     }
     func refresh() {
         guard trusted else { windows = []; status = "Accessibility access is required. Use Allow Accessibility, then Refresh."; return }

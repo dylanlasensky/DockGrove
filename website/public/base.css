@@ -35,3 +35,8 @@ h1,h2,h3,.demo-slot strong,.pet-choice{overflow-wrap:anywhere}
 @media(prefers-reduced-transparency:reduce){.demo-dock{color:var(--ink)}.meter i{background:var(--ink)}.usage-tile{background:var(--soft)}}
 
 .notes-tile{max-width:170px;text-align:left;padding:8px}.notes-tile small{display:block;font-size:.6875rem}.notes-tile strong{display:block;font-size:.875rem}@media(max-width:600px){.notes-tile{display:none}}
+
+/* Owner-provided DockGrove branding. Crops retain the original artwork and colors. */
+.brand .brand-wordmark{width:168px;height:40px;object-fit:contain;border-radius:5px;background:#fff;flex-shrink:0}
+:root{--brand-blue:#4d83e8;--ink:#111111;--muted:#62666d}
+:focus-visible{outline-color:var(--brand-blue)}

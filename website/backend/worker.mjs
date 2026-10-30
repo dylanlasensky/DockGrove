@@ -110,7 +110,7 @@ async function findLicense(env,key){
  return l;
 }
 async function entitlement(env,l,deviceHash){
- const claims={iss:'wavedock',aud:'com.dylan.wavedock',licenseId:l.id,deviceHash,majorVersion:l.major_version,environment:'test',iat:now(),exp:now()+PRODUCT.offlineDays*86400};
+ const claims={iss:'dockgrove',aud:'com.dylan.wavedock',licenseId:l.id,deviceHash,majorVersion:l.major_version,environment:'test',iat:now(),exp:now()+PRODUCT.offlineDays*86400};
  const payload=b64(encoder.encode(JSON.stringify(claims)));
  const key=await crypto.subtle.importKey('jwk',JSON.parse(env.ENTITLEMENT_PRIVATE_JWK),{name:'ECDSA',namedCurve:'P-256'},false,['sign']);
  const signature=b64(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},key,encoder.encode(payload)));
@@ -175,7 +175,7 @@ async function api(request,env,path,ctx){
   await limit(env,request,'recover-email',await hash(email));
   const p=await one(env,"SELECT p.id FROM purchases p JOIN licenses l ON l.purchase_id=p.id WHERE p.email=? AND p.status='paid' AND l.status='active' ORDER BY p.created_at DESC LIMIT 1",email);
   if(p){const token=random();await stmt(env,'INSERT INTO recovery_tokens(token_hash,email,expires_at) VALUES(?,?,?)',await hash(token),email,now()+900).run();
-   const message=JSON.stringify({from:env.RECOVERY_FROM,to:[email],subject:'Recover your WaveDock test license',text:`Use this one-time link within 15 minutes to recover your WaveDock license:\n${origin(env)}/recover.html#token=${token}\nIf you did not request this, ignore this email.`});
+   const message=JSON.stringify({from:env.RECOVERY_FROM,to:[email],subject:'Recover your DockGrove test license',text:`Use this one-time link within 15 minutes to recover your DockGrove license:\n${origin(env)}/recover.html#token=${token}\nIf you did not request this, ignore this email.`});
    const id=crypto.randomUUID(),iv=crypto.getRandomValues(new Uint8Array(12));
    const ciphertext=await crypto.subtle.encrypt({name:'AES-GCM',iv},await outboxKey(env),encoder.encode(message));
    await stmt(env,'INSERT INTO email_outbox(id,ciphertext,iv,expires_at) VALUES(?,?,?,?)',id,b64(ciphertext),b64(iv),now()+900).run();
@@ -193,7 +193,7 @@ async function api(request,env,path,ctx){
  if(path==='/api/download' && request.method==='POST'){
   const input=await bodyJSON(request);await findLicense(env,input.licenseKey);
   if(!env.RELEASES||!env.RELEASE_OBJECT)fail('Release download is not ready',503);const object=await env.RELEASES.get(env.RELEASE_OBJECT);if(!object)fail('Release download is not ready',503);
-  return new Response(object.body,{headers:{'Content-Type':'application/zip','Content-Disposition':'attachment; filename="WaveDock.zip"','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+  return new Response(object.body,{headers:{'Content-Type':'application/zip','Content-Disposition':'attachment; filename="DockGrove.zip"','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
  }
  fail('Not found',404);
 }

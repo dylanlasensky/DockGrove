@@ -179,7 +179,7 @@ struct AIUsageView: View {
                 Button("Save & connect") { widget.connect(key); key = "" }.disabled(key.isEmpty || widget.busy)
                 Button(widget.busy ? "Loading…" : "Refresh saved key", action: widget.refresh).disabled(widget.busy)
             }
-            Toggle("Refresh hourly while WaveDock is open", isOn: $widget.autoRefresh)
+            Toggle("Refresh hourly while DockGrove is open", isOn: $widget.autoRefresh)
             Button("Disconnect & forget key", action: widget.forget)
             Text("Keys stay in macOS Keychain and are sent only to the selected provider. No key is included in layouts or logs.").font(.caption).foregroundStyle(.secondary)
             Link("API setup and permissions", destination: widget.provider.documentation)

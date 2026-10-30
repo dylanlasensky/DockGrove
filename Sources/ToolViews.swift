@@ -43,7 +43,7 @@ struct ToolTile: View {
         }
         .popover(isPresented: $interaction.expanded, arrowEdge: kit.edge == "Top" ? .bottom : .top) {
             VStack(alignment: .leading, spacing: 15) {
-                HStack { Label(kind.title, systemImage: kind.icon).font(.headline); Spacer(); WaveMark().stroke(model.color.opacity(0.6), style: StrokeStyle(lineWidth: 1.8, lineCap: .round)).frame(width: 23, height: 23) }
+                HStack { Label(kind.title, systemImage: kind.icon).font(.headline); Spacer(); BrandIcon().frame(width: 23, height: 23) }
                 Divider()
                 contents
             }.padding(22).frame(width: 350).preferredColorScheme(model.scheme)
@@ -154,7 +154,7 @@ struct WorkspaceSettings: View {
         VStack(alignment: .leading, spacing: 18) {
             Label("Layout & profiles", systemImage: "rectangle.3.group").font(.headline)
             Picker("Display", selection: Binding(get: { kit.screenIndex }, set: { kit.screenIndex = $0; if NSScreen.screens.indices.contains($0) { model.screenID = DockModel.displayID(NSScreen.screens[$0]) } })) { ForEach(Array(NSScreen.screens.enumerated()), id: \.offset) { index, screen in Text(screen.localizedName).tag(index) } }
-            Toggle("Automatically hide WaveDock", isOn: $kit.autoHide)
+            Toggle("Automatically hide DockGrove", isOn: $kit.autoHide)
             Toggle("Hide when windows overlap", isOn: $kit.hideOnOverlap)
             Toggle("Include unpinned running apps", isOn: $kit.showRunning)
             HStack { TextField("Name this layout…", text: $kit.profileName); Button("Save layout") { model.saveProfile() }.disabled(kit.profileName.trimmingCharacters(in: .whitespaces).isEmpty) }
@@ -182,7 +182,7 @@ struct LoginSettings: View {
     @ObservedObject var utility: Utilities
     var body: some View {
         VStack(alignment: .leading) {
-            Toggle("Open WaveDock at login", isOn: Binding(get: { utility.loginEnabled }, set: { utility.setLogin($0) }))
+            Toggle("Open DockGrove at login", isOn: Binding(get: { utility.loginEnabled }, set: { utility.setLogin($0) }))
             if let message = utility.status { Text(message).font(.caption).foregroundStyle(.secondary) }
         }
     }

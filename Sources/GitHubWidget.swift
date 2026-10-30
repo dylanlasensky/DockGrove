@@ -36,7 +36,7 @@ enum GitHubReadError: LocalizedError {
     case invalidRepository, missingCLI, access, rateLimited, timeout, response
     var errorDescription: String? {
         switch self {
-        case .invalidRepository: return "Enter a repository as owner/name, such as dylanlasensky/WaveDock."
+        case .invalidRepository: return "Enter a repository as owner/name, such as dylanlasensky/DockGrove."
         case .missingCLI: return "GitHub CLI was not found. Install gh and sign in with gh auth login, or choose public access."
         case .access: return "Repository unavailable. Check its name and access. For a private repo, sign in with gh auth login and enable GitHub CLI access."
         case .rateLimited: return "GitHub rate limit reached. Wait before refreshing, or use your GitHub CLI sign-in."
@@ -78,7 +78,7 @@ enum GitHubClient {
             var request = URLRequest(url: URL(string: "https://api.github.com/" + endpoint)!)
             request.timeoutInterval = 15
             request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-            request.setValue("WaveDock", forHTTPHeaderField: "User-Agent")
+            request.setValue("DockGrove", forHTTPHeaderField: "User-Agent")
             let session = URLSession(configuration: .ephemeral)
             defer { session.invalidateAndCancel() }
             let (body, response) = try await session.data(for: request)
@@ -131,7 +131,7 @@ enum GitHubClient {
     private var timer: Timer?
     init(store: UserDefaults) {
         self.store = store
-        repository = store.string(forKey: "githubRepository") ?? "dylanlasensky/WaveDock"
+        repository = store.string(forKey: "githubRepository") ?? "dylanlasensky/DockGrove"
         useCLI = store.bool(forKey: "githubUseCLI")
         autoRefresh = store.bool(forKey: "githubAutoRefresh")
         timer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in Task { @MainActor in if self?.autoRefresh == true { self?.refresh() } } }

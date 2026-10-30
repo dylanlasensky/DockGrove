@@ -36,7 +36,7 @@ final class DockPanel: NSPanel {
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
         settingsItem.target = self; appMenu.addItem(settingsItem)
         appMenu.addItem(withTitle: "Close Settings", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
-        appMenu.addItem(withTitle: "Quit WaveDock", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "Quit DockGrove", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu; mainMenu.addItem(appItem)
         let editItem = NSMenuItem(), editMenu = NSMenu(title: "Edit")
         editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
@@ -46,7 +46,7 @@ final class DockPanel: NSPanel {
             editMenu.addItem(withTitle: title, action: Selector(action), keyEquivalent: key)
         }
         editItem.submenu = editMenu; mainMenu.addItem(editItem); NSApp.mainMenu = mainMenu
-        model = DockModel(defaults: testing ? UserDefaults(suiteName: "WaveDockUITests")! : .standard)
+        model = DockModel(defaults: testing ? UserDefaults(suiteName: "DockGroveUITests")! : .standard)
         do { if !testing { try SystemDock.restore() } } catch { model.systemError = "Could not restore the original Dock setting. Use Restore Apple Dock to retry." }
         workspace = DockWorkspace(defaults: model.defaults, testing: testing)
         workspace.configure = { [weak self] dock in self?.configureExtra(dock) }
@@ -63,13 +63,13 @@ final class DockPanel: NSPanel {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenNone, .stationary, .ignoresCycle]
         panel.contentView = NSHostingView(rootView: DockView(model: model))
         settings = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 590, height: 720), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
-        settings.title = "WaveDock"; settings.isReleasedWhenClosed = false
+        settings.title = "DockGrove"; settings.isReleasedWhenClosed = false
         settings.contentView = NSHostingView(rootView: SettingsView(model: model))
         settings.center()
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         status.button?.image = BrandIcon.menuImage
         let menu = NSMenu()
-        for (title, action, key) in [("Settings…", #selector(showSettings), ","), ("Show / hide WaveDock", #selector(toggleVisibility), "d"), ("Refresh usage", #selector(refresh), "r"), ("Restore Apple Dock", #selector(restore), ""), ("Quit WaveDock", #selector(quit), "q")] {
+        for (title, action, key) in [("Settings…", #selector(showSettings), ","), ("Show / hide DockGrove", #selector(toggleVisibility), "d"), ("Refresh usage", #selector(refresh), "r"), ("Restore Apple Dock", #selector(restore), ""), ("Quit DockGrove", #selector(quit), "q")] {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: key); item.target = self; menu.addItem(item)
         }
         status.menu = menu
@@ -193,7 +193,7 @@ final class DockPanel: NSPanel {
     @objc func restore() { setReplacement(false) }
     @objc func quit() { NSApp.terminate(nil) }
     func setReplacement(_ enabled: Bool) {
-        guard !enabled || model.canUseFeatures else { model.systemError = "Activate WaveDock before using Dock replacement."; return }
+        guard !enabled || model.canUseFeatures else { model.systemError = "Activate DockGrove before using Dock replacement."; return }
         do {
             if !testing { if enabled { try SystemDock.hide() } else { try SystemDock.restore() } }
             model.replacingDock = enabled; model.systemError = nil
@@ -208,14 +208,14 @@ final class DockPanel: NSPanel {
         do { if !testing { try SystemDock.restore() }; return .terminateNow }
         catch {
             let alert = NSAlert(); alert.messageText = "Apple Dock could not be restored"
-            alert.informativeText = "You can retry, or quit and turn off auto-hide in System Settings > Desktop & Dock. The original setting stays saved for the next WaveDock launch."
+            alert.informativeText = "You can retry, or quit and turn off auto-hide in System Settings > Desktop & Dock. The original setting stays saved for the next DockGrove launch."
             alert.addButton(withTitle: "Retry"); alert.addButton(withTitle: "Quit anyway")
             if alert.runModal() == .alertFirstButtonReturn { do { try SystemDock.restore(); return .terminateNow } catch { return .terminateCancel } }; return .terminateNow
         }
     }
 }
 
-@main struct WaveDockMain {
+@main struct DockGroveMain {
     @MainActor static func main() {
         if CommandLine.arguments.contains("--claude-statusline") { exit(LocalAIStore.capture(.claude)) }
         if CommandLine.arguments.contains("--gemini-report") { exit(LocalAIStore.capture(.gemini)) }
@@ -227,8 +227,8 @@ final class DockPanel: NSPanel {
             Task { @MainActor in
                 var failed = false
                 do {
-                    let snapshot = try await GitHubClient.fetch("dylanlasensky/WaveDock", useCLI: false)
-                    precondition(snapshot.repository.full_name.lowercased() == "dylanlasensky/wavedock")
+                    let snapshot = try await GitHubClient.fetch("dylanlasensky/DockGrove", useCLI: false)
+                    precondition(snapshot.repository.full_name.lowercased() == "dylanlasensky/dockgrove")
                     print("PASS: live GitHub public repository, issues and Actions fetch (partial warning: \(snapshot.activityWarning ?? "none"))")
                 } catch { print("FAIL: live GitHub: \(error.localizedDescription)"); failed = true }
                 do {

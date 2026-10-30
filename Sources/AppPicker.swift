@@ -108,7 +108,7 @@ extension DockModel {
         apps = previous.0; entryOrder = previous.1; persistApps()
     }
     @discardableResult func chooseApp(_ app: DockApp, replacing old: DockApp?) -> Bool {
-        guard canUseFeatures else { systemError = "Activate WaveDock to change apps."; return false }
+        guard canUseFeatures else { systemError = "Activate DockGrove to change apps."; return false }
         guard FileManager.default.fileExists(atPath: app.id), app.url.pathExtension == "app" else { systemError = "This application is no longer installed. Refresh the list."; return false }
         guard !apps.contains(app) else { systemError = "That application is already pinned. Choose another app or cancel."; return false }
         if let old {

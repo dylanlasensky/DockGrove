@@ -21,7 +21,7 @@ func runLocalAIUsageTests() throws {
         let invalid = String(data: gemini, encoding: .utf8)!.replacingOccurrences(of: "\"total\":130", with: "\"total\":" + bad)
         do { _ = try LocalAIStore.decode(Data(invalid.utf8), provider: .gemini); preconditionFailure("Invalid Gemini total accepted") } catch { }
     }
-    let root = FileManager.default.temporaryDirectory.appendingPathComponent("WaveDock-local-ai-tests-" + UUID().uuidString)
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent("DockGrove-local-ai-tests-" + UUID().uuidString)
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: root) }
     try LocalAIStore.save(metrics, provider: .gemini, directory: root)
@@ -33,7 +33,7 @@ func runLocalAIUsageTests() throws {
     precondition(!encodedClaude.contains("PRIVATE") && !encodedClaude.contains("transcript"))
     let mode = try FileManager.default.attributesOfItem(atPath: LocalAIStore.url(.gemini, directory: root).path)[.posixPermissions] as! NSNumber
     precondition(mode.intValue == 0o600)
-    let settings = root.appendingPathComponent("settings.json"), command = "'/Applications/WaveDock.app/Contents/MacOS/WaveDock' --claude-statusline"
+    let settings = root.appendingPathComponent("settings.json"), command = "'/Applications/DockGrove.app/Contents/MacOS/DockGrove' --claude-statusline"
     try Data(#"{"theme":"dark","permissions":{"deny":["secret"]}}"#.utf8).write(to: settings)
     try ClaudeStatusLineSetup.install(at: settings, command: command)
     try ClaudeStatusLineSetup.install(at: settings, command: command)

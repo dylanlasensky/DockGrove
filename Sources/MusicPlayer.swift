@@ -5,7 +5,7 @@ enum MusicReadFailure: Error {
     case automation(Int)
     var message: String {
         switch self {
-        case .automation(-1743): return "macOS denied Automation access. Enable this player for WaveDock in Privacy & Security > Automation, then retry. Rebuilt copies may need a fresh permission grant."
+        case .automation(-1743): return "macOS denied Automation access. Enable this player for DockGrove in Privacy & Security > Automation, then retry. Rebuilt copies may need a fresh permission grant."
         case .automation(-1712): return "The player took too long to respond. Open it, finish any welcome screens, then retry."
         case .automation(-1728): return "No current track is available. Select a track in the player and retry."
         case .automation(let code): return "The player could not complete the request (macOS error \(code)). Open it and retry."
@@ -82,7 +82,7 @@ enum MusicCommand: String, CaseIterable { case previous = "previous track", togg
                 catch { connected = false; track = nil; clearArtwork(); status = "No readable track. Open the player and select music, then reconnect." }
             case .failure:
                 connected = false; track = nil; clearArtwork()
-                status = "Could not read \(name). Allow WaveDock in Privacy & Security > Automation, or select a track and retry."
+                status = "Could not read \(name). Allow DockGrove in Privacy & Security > Automation, or select a track and retry."
             }
         }
     }
