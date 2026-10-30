@@ -12,7 +12,7 @@ Built with Swift, SwiftUI, and AppKit. The 1.0 commercial candidate adds purchas
 
 [DockGrove website](https://dockgrove.com/) · Website source and the test-commerce implementation are under `website/`. Checkout remains unavailable until the test services are configured.
 
-Compatible Macs can enable **Notch quick access** in Settings → Appearance. The resting notch matches the system camera housing. Hover or click to open a short horizontal strip. Home contains controls and searchable widgets; the second Files tab holds the file tray. Scroll sideways within either tab to explore. See [notch behavior and validation](docs/NOTCH.md).
+Compatible Macs can enable **Notch quick access** in Settings → Appearance. The resting notch matches the system camera housing. Hover or click to open a short horizontal strip. Home contains controls and searchable widgets; the second Files tab holds the file tray. Scroll sideways within either tab to explore. Appearance settings control the notch width, and Files has separate Tray and AirDrop drop zones. See [notch behavior and validation](docs/NOTCH.md).
 
 Toolbar dimensions are available in Settings → Appearance → Toolbar size. Drag a number badge left or right, or use its −/+ buttons, to adjust width, height, and icon size. Compact, Balanced, and Spacious previews apply presets; Fit width to content chooses between a content-sized bar and your chosen width. Changes save automatically and support Undo layout. Widget and display choices expand into searchable inline panels, and on/off settings use switches.
 
@@ -256,3 +256,5 @@ Issues and pull requests are welcome. For bugs, include macOS version, processor
 ## License and proposed commercial transition
 
 The existing [MIT license](LICENSE) and required notices are preserved. Legacy copies retain their permissions. The 1.0 paid offer does not itself retroactively close the source or revoke MIT rights. Proposed commercial terms and the file/release boundary require owner approval before live sales; see [the transition document](docs/COMMERCIAL-LICENSE-TRANSITION.md). Apple, Spotify, OpenAI, and other product names belong to their respective owners.
+
+Connection setup lives in **Settings → Connections**. Widget settings shortcuts open the relevant music, calendar, reminders, or usage integration. Provider apps and Internet Accounts handle sign-in; access switches and key setup remain in DockGrove Settings.

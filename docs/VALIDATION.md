@@ -151,3 +151,11 @@ These limits are retained rather than converting fixture or rendering evidence i
 - Dropping accepted files automatically selects Files. The File Shelf card is omitted from Home to avoid a duplicate tray entry.
 - Signed and unrestricted builds and their focused notch suites pass, including automatic Files selection, purchase gating, and fixed-height assertions. Strict code-signature verification passes.
 - Native UI verification confirmed Home contains widgets and no file drop area; selecting the second Files tab shows the drop area and Add files action. The app was left on Files.
+
+## October 30, 2026: Wider components, separate drop zones, and Connections settings
+
+- Widened music, Focus, widget, and file cards while keeping the 112-point content height. Appearance adds a saved 600–1600-point Notch width control and Compact/Balanced/Wide presets. Actual width is capped to the display.
+- Files now contains two persistent 280-point drop zones. Tray stores shortcuts; AirDrop uses the native sharing service and never inserts those files into the tray. Native drop destinations route separately, including while the resting notch expands.
+- Tests cover native pasteboard routing to both destinations, invalid files, purchase gating, no cross-destination effects, saved width, non-finite values, display bounds, and unchanged height. A width-normalization recursion found during testing was fixed before the successful final runs. Signed and unrestricted builds and all 28 regression checks pass.
+- Native checks changed width from 760 to 780 and restored Balanced, and verified the notch music settings button opens Connections with Apple Music selected. Connections centralizes music/calendar access switches, reminders permission, usage keys, and local-usage setup. Widget views retain settings shortcuts and routine controls.
+- Activating the AirDrop zone opened its file picker. Selecting an agent-created temporary text file opened the native AirDrop chooser and listed a nearby device. The chooser was cancelled; no transfer was sent and the tray remained empty. Physical drag gestures and completed device-to-device transfer remain unverified.
