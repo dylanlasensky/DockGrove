@@ -2,7 +2,9 @@
 
 DockGrove is the product name. The canonical website is https://dockgrove.com and the repository is https://github.com/dylanlasensky/DockGrove.
 
-The owner supplied `Assets/Brand/DockGrove-brand-sheet.png`. The production wordmark and app icon are exact raster crops from that image, not AI regenerations or new drawings. `Scripts/ExtractBrand.swift` records the source rectangles; the icon's outside corners are masked to its supplied rounded silhouette. `Scripts/MakeIcon.swift` resamples that crop into the macOS icon sizes. The website and native UI share the same icon PNG. The source is finite-resolution raster artwork; an original vector file would improve very large exports without changing the design.
+The owner supplied `app/Assets.xcassets/Brand/DockGrove-brand-sheet.imageset/DockGrove-brand-sheet.png`. The production wordmark and app icon are exact raster crops from that image, not AI regenerations or new drawings. `app/Scripts/ExtractBrand.swift` records the source rectangles; the icon's outside corners are masked to its supplied rounded silhouette. `app/Scripts/MakeIcon.swift` resamples that crop into the macOS icon sizes. The website and native UI share the same icon PNG. The source is finite-resolution raster artwork; an original vector file would improve very large exports without changing the design.
+
+The native asset catalog also includes `AppIcon.appiconset` with all ten macOS sizes, four brand image sets, eighteen companion image sets, and 16 named color packs (92 accents): Classic, Coastal, Orchard, Dusk, Forest, Arctic, Sorbet, Blossom, Neon, Arcade, Desert, Coffee, Slate, Autumn, Aurora, and Festive. All packs beyond Classic include light/dark variants. Use the Appearance color-pack picker to choose them; arbitrary custom accents remain supported.
 
 Palette: black `#111111`, graphite `#34383F`, cool grey `#A3AAB5`, white `#FFFFFF`, blue `#4D83E8`.
 
