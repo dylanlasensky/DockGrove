@@ -61,10 +61,21 @@ import AppKit
         guard let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: modifiers, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: clicks, pressure: 1) else { return }
         window.sendEvent(event)
     }
+    /// An AppKit control that tracks the mouse runs its own event loop inside mouseDown and
+    /// would wait forever for a real mouse-up; a timer that also fires in the tracking run-loop
+    /// mode hands it one. Controls that don't track return at once and get the normal mouse-up.
     func click(_ point: CGPoint) {
+        var delivered = false
+        let release = Timer(timeInterval: 0.05, repeats: false) { [window] _ in
+            guard let up = NSEvent.mouseEvent(with: .leftMouseUp, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 0) else { return }
+            delivered = true
+            NSApp.postEvent(up, atStart: true)
+        }
+        RunLoop.main.add(release, forMode: .common)
         send(.leftMouseDown, point)
+        release.invalidate()
         RunLoop.main.run(until: Date().addingTimeInterval(0.01))
-        send(.leftMouseUp, point)
+        if !delivered { send(.leftMouseUp, point) }
         settle(0.03)
     }
     func click(_ rect: CGRect) { click(CGPoint(x: rect.midX, y: rect.midY)) }
