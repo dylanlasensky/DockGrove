@@ -126,7 +126,7 @@ private struct StudioLibrary: View {
         ToolKind.allCases.filter { (category == "All" || $0.studioCategory == category) && (query.isEmpty || $0.title.localizedCaseInsensitiveContains(query)) }
     }
     private var apps: [DockApp] {
-        kit.applications.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
+        kit.appIndex.search(query)
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -372,6 +372,7 @@ struct StudioBehavior: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             StudioPanel(title: "At a glance") {
+                Toggle("Show Applications stack first", isOn: $model.showApplicationsStack)
                 Toggle("Show clock and date", isOn: $model.showClock)
                 Toggle(access.canAccessAI(model) ? "Show Codex usage tile" : "Codex usage · Full Access", isOn: $model.showUsageCard).disabled(!access.canAccessAI(model))
                 if !model.isAdditionalDock {

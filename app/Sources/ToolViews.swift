@@ -151,9 +151,9 @@ struct ToolTileContents: View {
         case .search:
             TextField("Find an app…", text: $kit.query).textFieldStyle(.roundedBorder)
             ScrollView { LazyVStack(spacing: 4) {
-                ForEach(kit.applications.filter { kit.query.isEmpty || $0.name.localizedCaseInsensitiveContains(kit.query) }) { app in
+                ForEach(kit.appIndex.search(kit.query)) { app in
                     HStack {
-                        Button { effects(.launch(model, app)); interaction.expanded = false } label: {
+                        Button { kit.recordLaunch(app, query: kit.query); effects(.launch(model, app)); interaction.expanded = false } label: {
                             HStack { Image(nsImage: app.icon).resizable().frame(width: 28, height: 28); Text(app.name); Spacer() }
                         }.buttonStyle(.plain)
                         Button { model.pin(app) } label: { Image(systemName: model.apps.contains(app) ? "pin.fill" : "pin") }.disabled(model.apps.contains(app)).help("Pin app")

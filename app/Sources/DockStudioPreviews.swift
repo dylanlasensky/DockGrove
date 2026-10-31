@@ -141,6 +141,7 @@ struct StudioEntryPreview: View {
             case .usage:
                 VStack(alignment: .leading, spacing: 5) { Text("CODEX USAGE").font(.system(size: 8, weight: .bold)).foregroundStyle(.secondary); Text("68% remaining").font(.system(size: 14, weight: .semibold)); ProgressView(value: 0.68).tint(.purple) }.padding(12).frame(maxWidth: .infinity, maxHeight: .infinity).modifier(WidgetSurface())
             case .add: EmptyView()
+            case .applications: Image(nsImage: NSWorkspace.shared.icon(forFile: "/Applications")).resizable().frame(width: model.iconSize, height: model.iconSize)
             }
         }.frame(width: max(12, entry.width(iconSize: model.iconSize, rich: model.toolkit.richWidgets, shapes: model.toolkit.widgetShapes, tileHeight: model.tileHeight)), height: model.tileHeight)
     }

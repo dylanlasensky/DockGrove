@@ -17,6 +17,7 @@ struct DockApp: Identifiable, Equatable {
     @Published var iconSize: Double { didSet { defaults.set(iconSize, forKey: "iconSize") } }
     @Published var accent: String { didSet { defaults.set(accent, forKey: "accent") } }
     @Published var showClock: Bool { didSet { defaults.set(showClock, forKey: "showClock") } }
+    @Published var showApplicationsStack: Bool { didSet { defaults.set(showApplicationsStack, forKey: "showApplicationsStack") } }
     @Published var usageEnabled: Bool { didSet { defaults.set(usageEnabled, forKey: "usageEnabled") } }
     @Published var customCLI: String { didSet { defaults.set(customCLI, forKey: "customCLI") } }
     @Published var selectedBucket: String { didSet { defaults.set(selectedBucket, forKey: "selectedBucket") } }
@@ -133,6 +134,7 @@ struct DockApp: Identifiable, Equatable {
         iconSize = defaults.double(forKey: "iconSize")
         accent = defaults.string(forKey: "accent") ?? "White"
         showClock = defaults.bool(forKey: "showClock")
+        showApplicationsStack = defaults.object(forKey: "showApplicationsStack") as? Bool ?? true
         usageEnabled = defaults.bool(forKey: "usageEnabled")
         customCLI = defaults.string(forKey: "customCLI") ?? ""
         selectedBucket = defaults.string(forKey: "selectedBucket") ?? "codex"

@@ -24,7 +24,7 @@ struct DockStudioItem: Codable, Transferable, Equatable {
         case .tool(let tool): self.init(kind: .widget, value: tool.rawValue)
         case .clock: self.init(kind: .clock)
         case .usage: self.init(kind: .usage)
-        case .add: return nil
+        case .add, .applications: return nil
         }
     }
 }

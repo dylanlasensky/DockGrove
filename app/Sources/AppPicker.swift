@@ -21,7 +21,7 @@ struct AppPickerView: View {
     }
     var results: [DockApp] {
         let search = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        return catalog.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.id.localizedCaseInsensitiveContains(search) }.sorted {
+        return model.toolkit.appIndex.search(search, includePaths: true).sorted {
             let a = $0.name.localizedCaseInsensitiveCompare(search) == .orderedSame
             let b = $1.name.localizedCaseInsensitiveCompare(search) == .orderedSame
             if a != b { return a }
@@ -73,7 +73,7 @@ struct AppPickerView: View {
                 Button("Cancel", action: close).keyboardShortcut(.cancelAction)
                 Button(replacing == nil ? "Add" : "Replace") {
                     guard let app = results.first(where: { $0.id == selected }) else { return }
-                    if model.chooseApp(app, replacing: replacing) { close() }
+                    if model.chooseApp(app, replacing: replacing) { model.toolkit.recordLaunch(app, query: query); close() }
                 }.keyboardShortcut(.defaultAction).disabled(!results.contains(where: { $0.id == selected }))
             }
         }.padding(20).frame(width: 560).background(Color(nsColor: .windowBackgroundColor)).preferredColorScheme(model.scheme)

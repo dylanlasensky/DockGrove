@@ -29,7 +29,7 @@ struct DockView: View {
         _dragging = GestureState(initialValue: false)
         dragClock = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
     }
-    var entries: [DockEntry] { model.canUseFeatures ? model.orderedEntries : [] }
+    var entries: [DockEntry] { model.canUseFeatures ? model.dockEntries : [] }
     var body: some View {
         let screen = screenLookup(model)
         let widths = entries.map { $0.width(iconSize: model.iconSize, rich: model.toolkit.richWidgets, shapes: model.toolkit.widgetShapes, tileHeight: model.tileHeight) }
@@ -91,7 +91,7 @@ struct DockView: View {
                     let candidates = pages[destination].map { entries[$0].id }.filter { $0 != source }
                     guard let target = direction > 0 ? candidates.first : candidates.last else { return }
                     model.moveEntry(source,onto:target)
-                    let moved = model.orderedEntries
+                    let moved = model.dockEntries
                     let updated = DockPageLayout.pages(widths:moved.map { $0.width(iconSize:model.iconSize,rich:model.toolkit.richWidgets,shapes:model.toolkit.widgetShapes,tileHeight:model.tileHeight) },available:width-DockPageLayout.chrome)
                     if let index = moved.firstIndex(where: { $0.id == source }), let destinationPage = updated.firstIndex(where: { $0.contains(index) }) { page = destinationPage }
                 }
@@ -143,7 +143,7 @@ struct DockView: View {
             .dropDestination(for: DockStudioItem.self) { items, point in
                 guard items.count == 1 else { return false }
                 let next = model.studioEntries.drop(while: { $0.id != item.id }).dropFirst().first?.id
-                let target = item.id == "add" ? nil : point.x < item.width(iconSize: model.iconSize, rich: model.toolkit.richWidgets, shapes: model.toolkit.widgetShapes, tileHeight: model.tileHeight) / 2 ? item.id : next
+                let target = item.id == "add" ? nil : item.id == DockEntry.applicationsID ? next : point.x < item.width(iconSize: model.iconSize, rich: model.toolkit.richWidgets, shapes: model.toolkit.widgetShapes, tileHeight: model.tileHeight) / 2 ? item.id : next
                 return model.placeStudioItem(items[0], before: target)
             } isTargeted: { active in
                 if active { studioDropTarget = item.id }
@@ -152,7 +152,7 @@ struct DockView: View {
     }
     private func acceptStudioPageDrop(_ items: [DockStudioItem], destination: Int, pages: [[Int]]) -> Bool {
         guard items.count == 1, pages.indices.contains(destination) else { return false }
-        let target = pages[destination].map { entries[$0] }.first { $0.id != "add" }?.id
+        let target = pages[destination].map { entries[$0] }.first { $0.id != "add" && $0.id != DockEntry.applicationsID }?.id
         guard model.placeStudioItem(items[0], before: target) else { return false }
         page = destination
         return true
@@ -167,6 +167,7 @@ struct DockView: View {
     @ViewBuilder private func entry(_ item: DockEntry) -> some View {
         switch item {
         case .app(let app): AppTile(app: app, model: model)
+        case .applications: ApplicationsStackTile(model: model)
         case .add: Button(action: model.addApps) { Image(systemName: "plus").frame(width: 28, height: model.iconSize) }.help("Pin an app")
         case .usage: UsageTile(model: model)
         case .tool(let kind):

@@ -152,27 +152,62 @@ struct DockProfile: Codable, Identifiable {
     }
     func addFile(_ url: URL) { guard url.isFileURL, !files.contains(url.path) else { return }; files.append(url.path) }
     @Published private(set) var scanningApps = false
+    @Published private(set) var appIndex = AppSearchIndex()
+    lazy var appIndexStore = AppIndexStore.shared
     func scanApplications(force: Bool = false) {
         guard !scanningApps, force || applications.isEmpty else { return }
         scanningApps = true
         let roots = applicationRoots
+        let store = appIndexStore
         Task {
-            let urls = await Task.detached(priority: .utility) { Self.applicationURLs(roots) }.value
-            let found = urls.map { DockApp(url: $0) }
-            if applications != found { applications = found }
+            // Show the cached catalog at once, then reconcile it with the disk.
+            let cached = await Task.detached(priority: .userInitiated) { store.load() }.value
+            if applications.isEmpty, !cached.isEmpty { publish(AppSearchIndex(cached)) }
+            let scanned = await Task.detached(priority: .utility) { Self.applicationRecords(roots, cached: cached, seeds: store.seedAliases()) }.value
+            // Lookups learned while the scan ran must survive it.
+            let current = appIndex
+            let records = scanned.map { record -> AppSearchIndex.Record in
+                guard let live = current.record(atPath: record.path) else { return record }
+                var merged = record; merged.aliases = live.aliases; merged.lookups = live.lookups; return merged
+            }
+            if records != cached { store.saveLater(records) }
+            if records != appIndex.records { publish(AppSearchIndex(records)) }
             scanningApps = false
         }
     }
-    nonisolated private static func applicationURLs(_ roots: [String]) -> [URL] {
-        var found = Set<URL>()
+    private func publish(_ index: AppSearchIndex) {
+        appIndex = index
+        if applications != index.apps { applications = index.apps }
+    }
+    /// Remember that `query` led to `app`, so the next identical search ranks it first.
+    func recordLaunch(_ app: DockApp, query: String) {
+        guard let next = appIndex.recordingLaunch(of: app, query: query) else { return }
+        appIndex = next
+        appIndexStore.saveLater(next.records)
+    }
+    /// Unchanged bundles keep their cached record; new or modified ones are re-read, keeping their aliases and lookups.
+    /// New apps start with aliases from the bundled seed, matched by bundle identifier, then name.
+    nonisolated static func applicationRecords(_ roots: [String], cached: [AppSearchIndex.Record] = [], seeds: [String: [String]] = [:]) -> [AppSearchIndex.Record] {
+        var found: [URL: Date?] = [:]
         for root in roots {
-            guard let iterator = FileManager.default.enumerator(at: URL(fileURLWithPath: root), includingPropertiesForKeys: nil, options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { continue }
-            for case let url as URL in iterator where url.pathExtension == "app" { found.insert(url.standardizedFileURL) }
+            guard let iterator = FileManager.default.enumerator(at: URL(fileURLWithPath: root), includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles, .skipsPackageDescendants]) else { continue }
+            for case let url as URL in iterator where url.pathExtension == "app" {
+                found[url.standardizedFileURL] = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+            }
         }
         let finder = URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")
-        if FileManager.default.fileExists(atPath: finder.path) { found.insert(finder) }
-        return found.sorted {
-            let comparison = $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent)
+        if FileManager.default.fileExists(atPath: finder.path) { found[finder] = try? finder.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate }
+        let previous = AppSearchIndex(cached)
+        let records = found.map { url, modified -> AppSearchIndex.Record in
+            let old = previous.record(atPath: url.path)
+            if let old, old.modified == modified { return old }
+            let name = FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+            let bundle = Bundle(url: url)?.bundleIdentifier
+            let aliases = old?.aliases ?? bundle.flatMap { seeds[AppSearchIndex.fold($0)] } ?? seeds[AppSearchIndex.fold(name)] ?? []
+            return AppSearchIndex.Record(path: url.path, name: name, bundleIdentifier: bundle, modified: modified, aliases: aliases, lookups: old?.lookups ?? [:])
+        }
+        return records.sorted {
+            let comparison = $0.name.localizedCaseInsensitiveCompare($1.name)
             return comparison == .orderedSame ? $0.path < $1.path : comparison == .orderedAscending
         }
     }
