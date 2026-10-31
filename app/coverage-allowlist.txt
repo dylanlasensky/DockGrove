@@ -63,3 +63,10 @@ WeatherClient.swift: implicit closure #1 in variable initialization expression o
 WeatherClient.swift: static AppleWeatherClient.liveCurrent(_:) # WeatherKit network/entitlement
 WeatherClient.swift: implicit closure #1 in static AppleWeatherClient.liveCurrent(_:) # async let child task of the live call
 WeatherClient.swift: implicit closure #2 in static AppleWeatherClient.liveCurrent(_:) # async let child task of the live call
+
+# Applications launcher
+ApplicationsStack.swift: implicit closure #1 in AppsLauncher.show(model:) # fallback screen when the pointer is on no screen
+ApplicationsStack.swift: implicit closure #2 in implicit closure #1 in AppsLauncher.show(model:) # last-resort fallback screen when there is no main screen
+ApplicationsStack.swift: closure #2 in AppsLauncher.show(model:) # live presentation (activates the app and covers the real desktop); tests replace `present`
+ApplicationsStack.swift: closure #4 in AppsLauncher.show(model:) # local scroll-wheel monitor only receives real hardware events; AppsPager.scroll is tested directly
+ApplicationsStack.swift: implicit closure #1 in closure #1 in AppsLauncherView.emptyState.getter # loading placeholder only during the very first scan of an empty catalog

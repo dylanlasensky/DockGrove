@@ -25,7 +25,7 @@ struct ApplicationsStackTile: View {
         .onHover { interaction.hovered = $0 }
         .animation(.spring(response: 0.23, dampingFraction: 0.65), value: interaction.hovered)
         .contextMenu {
-            Button("Open Applications Folder") { NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications")) }
+            Button("Open Applications Folder") { DockSystemEffect.handler(.open(URL(fileURLWithPath: "/Applications"))) }
             Button("Refresh Applications") { model.toolkit.scanApplications(force: true) }
         }
     }
@@ -37,8 +37,11 @@ struct ApplicationsStackTile: View {
     private final class Panel: NSPanel {
         override var canBecomeKey: Bool { true }
         override func cancelOperation(_ sender: Any?) { AppsLauncher.shared.close() }
+        override func keyDown(with event: NSEvent) { if !AppsLauncher.shared.pager.handleKey(event) { super.keyDown(with: event) } }
     }
     private(set) var panel: NSPanel?
+    /// Brings the launcher on screen; tests replace it so nothing covers the real desktop.
+    var present: (NSPanel) -> Void = { panel in NSApp.activate(); panel.makeKeyAndOrderFront(nil) }
     private var monitors: [Any] = []
     private var resignObserver: NSObjectProtocol?
     let pager = AppsPager()
@@ -51,14 +54,13 @@ struct ApplicationsStackTile: View {
         panel.level = .popUpMenu; panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         panel.isReleasedWhenClosed = false
-        pager.page = 0
+        pager.page = 0; pager.searchIsEmpty = true
         let root = AppsLauncherView(model: model, kit: model.toolkit, pager: pager) { [weak self] in self?.close() }
             .preferredColorScheme(model.scheme)
         panel.contentView = NSHostingView(rootView: root)
         panel.setFrame(screen.frame, display: false)
         panel.alphaValue = 0
-        NSApp.activate()
-        panel.makeKeyAndOrderFront(nil)
+        present(panel)
         NSAnimationContext.runAnimationGroup { $0.duration = 0.18; panel.animator().alphaValue = 1 }
         self.panel = panel
         monitors.append(NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
@@ -87,10 +89,18 @@ struct ApplicationsStackTile: View {
 @MainActor final class AppsPager: ObservableObject {
     @Published var page = 0
     var count = 1
+    /// Arrow keys page only while the search is empty; otherwise they belong to the text.
+    var searchIsEmpty = true
     private var travel: CGFloat = 0
     private var turnedThisGesture = false
 
     func go(_ target: Int) { withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) { page = max(0, min(count - 1, target)) } }
+
+    func handleKey(_ event: NSEvent) -> Bool {
+        guard searchIsEmpty, event.keyCode == 123 || event.keyCode == 124 else { return false }
+        go(page + (event.keyCode == 124 ? 1 : -1))
+        return true
+    }
 
     func scroll(_ event: NSEvent) {
         if event.phase == .began || (event.phase.isEmpty && event.momentumPhase.isEmpty && !event.hasPreciseScrollingDeltas) {
@@ -161,10 +171,8 @@ struct AppsLauncherView: View {
             searchFocused = true
             withAnimation(.easeOut(duration: 0.22)) { shown = true }
         }
-        .onChange(of: query) { pager.page = 0 }
+        .onChange(of: query) { pager.page = 0; pager.searchIsEmpty = query.isEmpty }
         .onChange(of: pages.count) { _, count in pager.count = count; if pager.page >= count { pager.page = max(0, count - 1) } }
-        .onKeyPress(.leftArrow) { guard query.isEmpty else { return .ignored }; pager.go(pager.page - 1); return .handled }
-        .onKeyPress(.rightArrow) { guard query.isEmpty else { return .ignored }; pager.go(pager.page + 1); return .handled }
         .onExitCommand(perform: close)
     }
 
@@ -224,10 +232,11 @@ struct AppsLauncherView: View {
         }
     }
 
-    private func finishDrag(_ value: DragGesture.Value) {
+    private func finishDrag(_ value: DragGesture.Value) { finishDrag(predicted: value.predictedEndTranslation.width) }
+    func finishDrag(predicted: CGFloat) {
         let threshold: CGFloat = 120
-        if value.predictedEndTranslation.width < -threshold { pager.go(pager.page + 1) }
-        else if value.predictedEndTranslation.width > threshold { pager.go(pager.page - 1) }
+        if predicted < -threshold { pager.go(pager.page + 1) }
+        else if predicted > threshold { pager.go(pager.page - 1) }
         withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) { drag = 0 }
     }
 
@@ -262,7 +271,7 @@ private struct AppsLauncherIcon: View {
         .contextMenu {
             Button("Open", action: launch)
             Button("Keep in Dock", action: pin).disabled(pinned)
-            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([app.url]) }
+            Button("Show in Finder") { DockSystemEffect.handler(.reveal([app.url])) }
         }
     }
 }

@@ -52,7 +52,13 @@ struct DockProfile: Codable, Identifiable {
     @Published var query = ""
     @Published var draftTask = ""
     @Published var profileName = ""
-    @Published var applications: [DockApp] = []
+    /// Assigning apps directly (instead of scanning) rebuilds the search index to match.
+    @Published var applications: [DockApp] = [] {
+        didSet {
+            guard appIndex.apps != applications else { return }
+            appIndex = AppSearchIndex(applications.map { AppSearchIndex.Record(path: $0.url.path, name: $0.name, bundleIdentifier: Bundle(url: $0.url)?.bundleIdentifier, modified: nil, aliases: [], lookups: [:]) })
+        }
+    }
     @Published var seconds = 25 * 60
     @Published var focusEnd: Date?
     @Published var focusFinished = false

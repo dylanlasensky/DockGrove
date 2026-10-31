@@ -177,16 +177,18 @@ enum AppIndexYAML {
     }
     private static func list(_ value: String) -> [String] {
         guard value.hasPrefix("["), value.hasSuffix("]") else { return value.isEmpty ? [] : [scalar(value)] }
-        var items: [String] = [], rest = Substring(value.dropFirst().dropLast())
-        while true {
-            rest = rest.drop { $0 == " " || $0 == "," }
-            guard !rest.isEmpty else { return items }
+        var items: [String] = []
+        let separator: (Character) -> Bool = { $0 == " " || $0 == "," }
+        var rest = Substring(value.dropFirst().dropLast()).drop(while: separator)
+        while !rest.isEmpty {
             if rest.hasPrefix("\""), let (item, remainder) = quoted(String(rest)) { items.append(item); rest = remainder }
             else {
                 let end = rest.firstIndex(of: ",") ?? rest.endIndex
                 items.append(rest[..<end].trimmingCharacters(in: .whitespaces)); rest = rest[end...]
             }
+            rest = rest.drop(while: separator)
         }
+        return items
     }
 }
 

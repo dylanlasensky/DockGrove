@@ -1,4 +1,5 @@
 import Foundation
+@testable import DockGrove
 
 @MainActor func runAppIndexTests() throws {
     let records = [

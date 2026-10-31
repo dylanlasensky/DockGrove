@@ -149,7 +149,9 @@ import AppKit
         let full = SettingsHarness(StudioBehavior(model: model).environment(\.studioAccess, .fixed(tier: .full)).padding(), width: 900, height: 2400)
         // Only DockGrove's own toggles (top panel) and Account settings (last panel); the
         // workspace and snapping controls belong to other screens.
-        for index in 0..<3 { full.click(full.controls()[index]) }
+        let stackShown = model.showApplicationsStack
+        for index in 0..<4 { full.click(full.controls()[index]) }
+        XCTAssertNotEqual(model.showApplicationsStack, stackShown)
         XCTAssertTrue(model.showClock)
         XCTAssertTrue(model.showUsageCard)
         XCTAssertEqual(log, ["visibility"])
@@ -161,8 +163,8 @@ import AppKit
         model.isAdditionalDock = false
         let main = SettingsHarness(StudioBehavior(model: model).environment(\.studioAccess, .fixed(tier: .free)).padding(), width: 900, height: 2400)
         defer { main.close() }
-        // Without AI access the usage toggle is disabled and has no proxy: clock, Dock, Show.
-        main.click(main.controls()[1])
+        // Without AI access the usage toggle is disabled and has no proxy: stack, clock, Dock, Show.
+        main.click(main.controls()[2])
         XCTAssertEqual(log.last, "dock:true")
     }
 

@@ -72,6 +72,7 @@
 		9E8C7D6E7913F97D18C680DF /* IntegrationsCoverageTests3.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CFF611FBFE868FA18C81A2 /* IntegrationsCoverageTests3.swift */; };
 		A139E9A4BA74FE8C6560C330 /* DockStudioModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E294424534B94B9727CA7D26 /* DockStudioModel.swift */; };
 		A3B3A178E8B596583BB6D7AB /* UtilityViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6DAC2DBB2DAA4445CDBE836 /* UtilityViews.swift */; };
+		A49E2ADF5BDADF710E3F31E0 /* ApplicationsStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF993BC2AC32330933B26246 /* ApplicationsStackTests.swift */; };
 		A551E89EB7B6F8CD3CC058FD /* CompanionSpriteKit.swift in Sources */ = {isa = PBXBuildFile; fileRef = E629E58ED3BC8179A2FE812C /* CompanionSpriteKit.swift */; };
 		A63EEC186460E8A6E5E281BC /* SettingsCoverageTestsPurchases.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9D2A991E5A6936C808BAAA /* SettingsCoverageTestsPurchases.swift */; };
 		AE6DA16B2A0609EB8CBADF24 /* AppPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A1F2BC63ABA6078ADFE63DF /* AppPicker.swift */; };
@@ -244,6 +245,7 @@
 		D462CC48950CC6D4EC45A9BC /* CompanionMotionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionMotionTests.swift; sourceTree = "<group>"; };
 		DA255BDDFC87FDE0AF37F31B /* AISignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISignIn.swift; sourceTree = "<group>"; };
 		DA9D2A991E5A6936C808BAAA /* SettingsCoverageTestsPurchases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsCoverageTestsPurchases.swift; sourceTree = "<group>"; };
+		DF993BC2AC32330933B26246 /* ApplicationsStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationsStackTests.swift; sourceTree = "<group>"; };
 		E1E6DBDFC58B69C3A0E01A36 /* ApplicationsStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationsStack.swift; sourceTree = "<group>"; };
 		E294424534B94B9727CA7D26 /* DockStudioModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockStudioModel.swift; sourceTree = "<group>"; };
 		E629E58ED3BC8179A2FE812C /* CompanionSpriteKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionSpriteKit.swift; sourceTree = "<group>"; };
@@ -379,6 +381,7 @@
 			children = (
 				B28B6CD550CD49B59B1F6D71 /* AISignInTests.swift */,
 				389DFED06844F6CB9A7D7F97 /* AppIndexTests.swift */,
+				DF993BC2AC32330933B26246 /* ApplicationsStackTests.swift */,
 				F14CB8467017BE6DBCEA6432 /* AppManagementTests.swift */,
 				902009151D4FE7E304EB7545 /* AssetCatalogTests.swift */,
 				54F9DA069AA911D14B919DF7 /* BehaviorTests.swift */,
@@ -783,6 +786,7 @@
 				CB641956F2511234E7E5DDEB /* AISignInTests.swift in Sources */,
 				6C4FEF0AC27B2B8EE11FAD79 /* AppIndexTests.swift in Sources */,
 				6C74A26E578C77A0C37FD78D /* AppManagementTests.swift in Sources */,
+				A49E2ADF5BDADF710E3F31E0 /* ApplicationsStackTests.swift in Sources */,
 				23EBBADEBC2E23276E9BD2F9 /* AssetCatalogTests.swift in Sources */,
 				53BD2A60C16153DEEC30008B /* BehaviorTests.swift in Sources */,
 				D3A48D4D5F5BA1EDA7E0AEC1 /* CompanionMotionTests.swift in Sources */,
