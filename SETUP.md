@@ -67,7 +67,7 @@ Live network checks are skipped unless you opt in, for example `TEST_RUNNER_DOCK
    - `DockGrove-commercial-private`: commercial zips, kept 7 days. Move them to private R2 storage; never publish them.
 3. `native` (manual run with **native** ticked): the native rendering UI test, with renders attached to the result bundle.
 
-**`web.yml` (website)** runs on pushes to `main` and `v*` tags, and on pull requests when `website/**`, `docker-compose.yml` or the workflow changes:
+**`web.yml` (website)** runs on `v*` tags, manually, and on pushes to `main` or pull requests that change `website/**`, `docker-compose.yml` or the workflow:
 1. `test`: `npm ci`, lint, typecheck, build, website tests and backend tests. Uploads the `web-export` artifact.
 2. `images`: builds `dockgrove-web` and `dockgrove-api`. Outside pull requests it pushes them to `ghcr.io/<owner>/` with `sha-<commit>`, branch, `latest` (default branch) and `X.Y.Z` / `X.Y` (on `v*` tags) tags.
 3. `deploy` (pushes to `main` only): runs `wrangler deploy --config website/wrangler.jsonc` with the built export, through the `production` environment. It skips with a notice when `CLOUDFLARE_API_TOKEN` isn't set.
