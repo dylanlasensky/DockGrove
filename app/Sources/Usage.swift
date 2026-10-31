@@ -69,7 +69,8 @@ enum UsageClient {
     }
 
     // Read-only account RPCs: no turns, prompts, token-file parsing, or inference requests.
-    static func fetch(custom: String) throws -> UsageResponse {
+    static func fetch(custom: String) throws -> UsageResponse { try fetch(custom: custom, timeout: 25) }
+    static func fetch(custom: String, timeout: TimeInterval) throws -> UsageResponse {
         guard let executable = executable(custom: custom) else { throw UsageError.missingCLI }
         let child = Process()
         let input = Pipe(), output = Pipe()
@@ -102,7 +103,7 @@ enum UsageClient {
         }
         try send(["id": 0, "method": "initialize", "params": ["clientInfo": ["name": "dockgrove", "title": "DockGrove", "version": "0.8.0"]]])
         var buffer = Data()
-        let deadline = Date().addingTimeInterval(25)
+        let deadline = Date().addingTimeInterval(timeout)
         let fd = output.fileHandleForReading.fileDescriptor
         while Date() < deadline {
             var descriptor = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)

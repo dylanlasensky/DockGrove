@@ -46,7 +46,7 @@ enum DockGeometry {
         model.settingsAction = { [weak self] in self?.showSettings() }
         model.closeSettingsAction = { [weak self] in self?.settings.orderOut(nil) }
     }
-    func showSettings() { settings.title = model.dockName; settings.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps:true) }
+    func showSettings() { settings.title = model.dockName; DockSystemEffect.handler(.present(settings)) }
 }
 @MainActor final class DockWorkspace: ObservableObject {
     @Published var docks: [ExtraDock] = []
@@ -94,13 +94,14 @@ struct DockWorkspaceRow: View {
 }
 struct DockAppearanceSettings: View {
     @ObservedObject var model: DockModel
+    var edge: Binding<String> { Binding(get:{model.toolkit.edge},set:{model.toolkit.edge=$0}) }
     var body: some View {
         VStack(alignment:.leading,spacing:12) {
             TextField("Dock name",text:$model.dockName).textFieldStyle(.roundedBorder)
             Picker("Appearance",selection:$model.theme) { ForEach(["Automatic","Glass","Graphite","Pearl","System"],id:\.self) { Text($0) } }
             HStack { Text("Maximum width"); Slider(value:$model.widthFraction,in:0.35...1); Text("\(Int(model.widthFraction*100))%").monospacedDigit() }
             HStack { Text("Horizontal position"); Slider(value:$model.alignment,in:0...1) }
-            Picker("Position",selection:Binding(get:{model.toolkit.edge},set:{model.toolkit.edge=$0})) { Text("Bottom").tag("Bottom"); Text("Top").tag("Top"); Text("Floating").tag("Floating") }.disabled(model.replacingDock)
+            Picker("Position",selection:edge) { Text("Bottom").tag("Bottom"); Text("Top").tag("Top"); Text("Floating").tag("Floating") }.disabled(model.replacingDock)
             if model.toolkit.edge == "Floating" { HStack { Text("Floating height"); Slider(value:$model.elevation,in:0...1) }; Text("Floating docks stay visible on the desktop; edge auto-hide applies to top and bottom docks.").font(.caption).foregroundStyle(.secondary) }
             Button("Reset position") { model.alignment=0.5; model.elevation=0.5; model.widthFraction=1; model.toolkit.edge=model.isAdditionalDock ? "Top" : "Bottom" }
             Toggle("Show Codex usage tile",isOn:$model.showUsageCard)

@@ -102,10 +102,10 @@ enum LocalAIStore {
         }
         return data
     }
-    static func capture(_ provider: LocalAIProvider) -> Int32 {
+    static func capture(_ provider: LocalAIProvider, input: FileHandle = .standardInput, directory: URL = folder) -> Int32 {
         do {
-            let report = try decode(boundedInput(.standardInput), provider: provider)
-            try save(report, provider: provider)
+            let report = try decode(boundedInput(input), provider: provider)
+            try save(report, provider: provider, directory: directory)
             if provider == .claude {
                 print(report.windows.isEmpty ? "Claude · DockGrove connected" : report.windows.map { "\($0.name): \(Int(100 - $0.used))% left" }.joined(separator: " · "))
             } else { print("Gemini session saved to DockGrove: \(report.totalTokens) tokens. Response text was not retained.") }
@@ -145,7 +145,13 @@ enum ClaudeStatusLineSetup {
     let signIn = AISignIn()
     @Published var report: LocalAIReport?
     @Published var status = ""
-    private var timer: Timer?
+    private(set) var timer: Timer?
+    /// File locations and system services. Tests point these at temporary files and fakes.
+    var directory = LocalAIStore.folder
+    var settingsURL = ClaudeStatusLineSetup.settingsURL
+    var command = ClaudeStatusLineSetup.command
+    var chooseFile: (NSOpenPanel) -> URL? = SystemPicker.run
+    var pasteboard = NSPasteboard.general
     init(_ provider: LocalAIProvider) { self.provider = provider }
     func start() {
         refresh(); guard timer == nil else { return }
@@ -153,32 +159,39 @@ enum ClaudeStatusLineSetup {
     }
     func stop() { timer?.invalidate(); timer = nil }
     func refresh() {
-        do { report = try LocalAIStore.load(provider); status = "Last received " + report!.observed.formatted(date: .abbreviated, time: .shortened) }
+        do { report = try LocalAIStore.load(provider, directory: directory); status = "Last received " + report!.observed.formatted(date: .abbreviated, time: .shortened) }
         catch { report = nil; status = (error as? LocalAIError ?? .invalid).localizedDescription }
     }
     func connectClaude() {
-        do { try ClaudeStatusLineSetup.install(); status = "Connected. Start a new Claude Code session and send a prompt to receive its report." }
+        do { try ClaudeStatusLineSetup.install(at: settingsURL, command: command); status = "Connected. Start a new Claude Code session and send a prompt to receive its report." }
         catch { status = (error as? LocalAIError ?? .invalid).localizedDescription }
     }
     func disconnectClaude() {
-        do { try ClaudeStatusLineSetup.remove(); status = "DockGrove status line removed. Existing Claude settings preserved." }
+        do { try ClaudeStatusLineSetup.remove(at: settingsURL, command: command); status = "DockGrove status line removed. Existing Claude settings preserved." }
         catch { status = (error as? LocalAIError ?? .invalid).localizedDescription }
     }
     func importReport() {
         let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.allowsMultipleSelection = false; panel.message = "Choose a Gemini CLI --output-format json report. Only usage statistics are retained."
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do { let parsed = try LocalAIStore.decode(LocalAIStore.boundedFile(url), provider: .gemini); try LocalAIStore.save(parsed, provider: .gemini); refresh() }
+        guard let url = chooseFile(panel) else { return }
+        do { let parsed = try LocalAIStore.decode(LocalAIStore.boundedFile(url), provider: .gemini); try LocalAIStore.save(parsed, provider: .gemini, directory: directory); refresh() }
         catch { status = (error as? LocalAIError ?? .invalid).localizedDescription }
     }
     func clear() {
-        do { let url = LocalAIStore.url(provider); if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }; report = nil; status = "Local usage snapshot cleared." }
+        do { let url = LocalAIStore.url(provider, directory: directory); if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }; report = nil; status = "Local usage snapshot cleared." }
         catch { status = "Could not clear the local snapshot." }
+    }
+    func copyCaptureCommand() {
+        pasteboard.clearContents()
+        pasteboard.setString("gemini --output-format json -p 'YOUR PROMPT' | " + ClaudeStatusLineSetup.quote(Bundle.main.executableURL!.path) + " --gemini-report", forType: .string)
     }
     deinit { timer?.invalidate() }
 }
 struct LocalAIUsageView: View {
-    @Environment(\.connectionSetupAllowed) private var setupAllowed
+    @Environment(\.connectionSetupAllowed) private var environmentSetupAllowed
     @ObservedObject var widget: LocalAIWidget
+    /// Overrides the environment's setup permission so tests can drive both layouts directly.
+    var setupAllowedOverride: Bool?
+    private var setupAllowed: Bool { setupAllowedOverride ?? environmentSetupAllowed }
     var automaticallyRefresh = true
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -219,7 +232,7 @@ struct LocalAIUsageView: View {
                 Text("Adds a command to ~/.claude/settings.json. Custom status lines are never overwritten. Keep DockGrove in the same location after connecting.").font(.caption2).foregroundStyle(.secondary)
             } else {
                 Button("Import Gemini session JSON…", action: widget.importReport)
-                Button("Copy CLI capture command") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString("gemini --output-format json -p 'YOUR PROMPT' | " + ClaudeStatusLineSetup.quote(Bundle.main.executableURL!.path) + " --gemini-report", forType: .string) }
+                Button("Copy CLI capture command", action: widget.copyCaptureCommand)
                 Text("Use with a run you choose to make. DockGrove never runs a prompt or charges your AI account to refresh.").font(.caption2).foregroundStyle(.secondary)
             }
             } else { ConnectionSettingsButton() }

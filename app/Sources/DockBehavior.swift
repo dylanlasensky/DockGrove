@@ -74,10 +74,13 @@ struct DockRestoration {
 }
 
 enum SystemDock {
+    /// Process execution and preference storage; tests replace both so com.apple.dock is never touched.
+    static var runner: (String, [String]) throws -> (Int32, Data) = SystemDock.run
+    static var store: UserDefaults = .standard
     static var manager: DockRestoration {
-        DockRestoration(store: .standard, read: { key in
+        DockRestoration(store: store, read: { key in
             // Read the complete domain so an I/O failure cannot be mistaken for an absent key.
-            let (code, data) = try run("/usr/bin/defaults", ["export", "com.apple.dock", "-"])
+            let (code, data) = try runner("/usr/bin/defaults", ["export", "com.apple.dock", "-"])
             guard code == 0, let domain = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else { throw UsageError.service }
             guard let value = domain[key] as? NSNumber else {
                 if domain[key] != nil { throw UsageError.service }; return nil
@@ -86,15 +89,15 @@ enum SystemDock {
         }, write: { key, value in
             if let value {
                 guard ["boolean", "float"].contains(value.type) else { throw UsageError.service }
-                guard try run("/usr/bin/defaults", ["write", "com.apple.dock", key, value.type == "boolean" ? "-bool" : "-float", try cliValue(value)]).0 == 0 else { throw UsageError.service }
+                guard try runner("/usr/bin/defaults", ["write", "com.apple.dock", key, value.type == "boolean" ? "-bool" : "-float", try cliValue(value)]).0 == 0 else { throw UsageError.service }
             } else {
-                let (code, _) = try run("/usr/bin/defaults", ["delete", "com.apple.dock", key])
+                let (code, _) = try runner("/usr/bin/defaults", ["delete", "com.apple.dock", key])
                 if code != 0 {
-                    let (_, data) = try run("/usr/bin/defaults", ["export", "com.apple.dock", "-"])
+                    let (_, data) = try runner("/usr/bin/defaults", ["export", "com.apple.dock", "-"])
                     guard let domain = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any], domain[key] == nil else { throw UsageError.service }
                 }
             }
-        }, restart: { _ = try run("/usr/bin/killall", ["Dock"]) })
+        }, restart: { _ = try runner("/usr/bin/killall", ["Dock"]) })
     }
     static func cliValue(_ preference: DockPreference) throws -> String {
         if preference.type == "boolean" {
@@ -111,7 +114,6 @@ enum SystemDock {
     static func restore() throws {
         try manager.restore()
         // Upgrade recovery for v0.2, which only recorded autohide.
-        let store = UserDefaults.standard
         if let old = store.string(forKey: "originalDockAutohide") {
             try manager.write("autohide", old == "missing" ? nil : DockPreference(type: "boolean", value: old))
             try manager.restart()

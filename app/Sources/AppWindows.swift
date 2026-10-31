@@ -2,8 +2,43 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-struct AppWindowsView: View {
-    @ObservedObject var manager: WindowManager
+/// The window list an app tile's Windows sheet reads; WindowManager is the live source.
+@MainActor protocol AppWindowListing: ObservableObject {
+    var windows: [ManagedWindow] { get }
+    var status: String { get }
+    var trusted: Bool { get }
+    var selectedID: String { get set }
+    func requestAccess()
+    func refresh()
+    func focus()
+}
+extension WindowManager: AppWindowListing {}
+
+/// System work behind Dock tiles and windows, replaceable so tests never activate DockGrove,
+/// open Finder or other apps, or hide or quit real applications.
+@MainActor enum DockSystemEffect {
+    case present(NSWindow)
+    case open(URL)
+    case reveal([URL])
+    case openFiles([URL], application: URL, completion: (NSRunningApplication?, Error?) -> Void)
+    case setHidden(NSRunningApplication, Bool)
+    case terminate(NSRunningApplication)
+    static var handler: (DockSystemEffect) -> Void = DockSystemEffect.perform
+    static func perform(_ effect: DockSystemEffect) {
+        switch effect {
+        case .present(let window): window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+        case .open(let url): NSWorkspace.shared.open(url)
+        case .reveal(let urls): NSWorkspace.shared.activateFileViewerSelecting(urls)
+        case .openFiles(let urls, let application, let completion):
+            NSWorkspace.shared.open(urls, withApplicationAt: application, configuration: NSWorkspace.OpenConfiguration(), completionHandler: completion)
+        case .setHidden(let app, let hidden): if hidden { app.hide() } else { app.unhide() }
+        case .terminate(let app): app.terminate()
+        }
+    }
+}
+
+struct AppWindowsView<Manager: AppWindowListing>: View {
+    @ObservedObject var manager: Manager
     let app: DockApp
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -25,7 +60,7 @@ extension DockModel {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 360), styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false; window.title = "App windows"
         window.contentView = NSHostingView(rootView: AppWindowsView(manager: toolkit.windows, app: app).preferredColorScheme(scheme))
-        appPickerWindow = window; window.center(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+        appPickerWindow = window; window.center(); DockSystemEffect.handler(.present(window))
     }
     func acceptFiles(_ providers: [NSItemProvider], for app: DockApp) -> Bool {
         guard canUseFeatures else { return false }
@@ -37,9 +72,9 @@ extension DockModel {
                 guard let url, url.isFileURL else { return }
                 Task { @MainActor in
                     guard self.canUseFeatures else { return }
-                    NSWorkspace.shared.open([url], withApplicationAt: app.url, configuration: NSWorkspace.OpenConfiguration()) { _, error in
+                    DockSystemEffect.handler(.openFiles([url], application: app.url) { _, error in
                         if error != nil { Task { @MainActor in self.systemError = "This app could not open the dropped file." } }
-                    }
+                    })
                 }
             }
         }

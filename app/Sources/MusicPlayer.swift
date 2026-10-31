@@ -37,21 +37,28 @@ enum MusicCommand: String, CaseIterable { case previous = "previous track", togg
     @Published var busy = false
     @Published var status = "Connect to your running music player. macOS may ask for Automation permission."
     private var generation = 0
-    private var timer: Timer?
+    private(set) var timer: Timer?
+    /// System services. Tests replace these so no other app is located, launched or scripted.
+    var locate: (String) -> URL? = { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) }
+    var launch: (URL) -> Void = { NSWorkspace.shared.openApplication(at: $0, configuration: NSWorkspace.OpenConfiguration()) { _, _ in } }
+    var isRunning: (String) -> Bool = { id in NSWorkspace.shared.runningApplications.contains { $0.bundleIdentifier == id } }
+    var runScript: @Sendable (String, TimeInterval) throws -> Data = MusicPlayer.osascript
+    var fetchArtwork: (URL) async throws -> Data = { try await AlbumArtwork.fetch($0) }
+    nonisolated static func osascript(_ source: String, timeout: TimeInterval) throws -> Data { try BoundedProcess.run("/usr/bin/osascript", arguments: ["-e", source], timeout: timeout) }
     init(name: String, bundleID: String) {
         self.name = name; self.bundleID = bundleID
         timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in Task { @MainActor in if self?.connected == true { self?.refresh() } } }
     }
     deinit { timer?.invalidate(); artworkTask?.cancel() }
     func openPlayer() {
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { status = "\(name) is not installed on this Mac."; return }
-        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, _ in }
+        guard let url = locate(bundleID) else { status = "\(name) is not installed on this Mac."; return }
+        launch(url)
     }
     func disconnect() { generation += 1; connected = false; track = nil; clearArtwork(); busy = false; status = "Disconnected." }
     func refresh(command: MusicCommand? = nil) {
         guard !busy else { return }
-        guard NSWorkspace.shared.runningApplications.contains(where: { $0.bundleIdentifier == bundleID }) else { connected = false; track = nil; clearArtwork(); status = "Open \(name), then allow access in Connection settings."; return }
-        busy = true; let requestID = generation, bundle = bundleID
+        guard isRunning(bundleID) else { connected = false; track = nil; clearArtwork(); status = "Open \(name), then allow access in Connection settings."; return }
+        busy = true; let requestID = generation, bundle = bundleID, runScript = runScript
         // Only fixed application IDs and enumerated transport commands enter the script.
         let script = """
         try
@@ -73,7 +80,7 @@ enum MusicCommand: String, CaseIterable { case previous = "previous track", togg
         end try
         """
         Task { @MainActor in
-            let result = await Task.detached(priority: .utility) { Result { try BoundedProcess.run("/usr/bin/osascript", arguments: ["-e", script], timeout: 8) } }.value
+            let result = await Task.detached(priority: .utility) { Result { try runScript(script, 8) } }.value
             guard requestID == generation else { return }; busy = false
             switch result {
             case .success(let data):
@@ -92,14 +99,14 @@ enum MusicCommand: String, CaseIterable { case previous = "previous track", togg
         let key=track.title + "\u{1f}" + track.artist + "\u{1f}" + track.artworkReference
         guard key != artworkKey else { return }
         clearArtwork(); artworkKey=key
-        let reference=track.artworkReference, bundle=bundleID
+        let reference=track.artworkReference, bundle=bundleID, runScript=runScript, fetchArtwork=fetchArtwork
         artworkTask=Task { @MainActor [weak self] in
             do {
                 let data:Data
                 if bundle == "com.spotify.client" {
-                    guard let url=URL(string:reference) else { return }; data=try await AlbumArtwork.fetch(url)
+                    guard let url=URL(string:reference) else { return }; data=try await fetchArtwork(url)
                 } else {
-                    let output=try await Task.detached(priority:.utility) { try BoundedProcess.run("/usr/bin/osascript",arguments:["-e", "tell application id \"com.apple.Music\" to get raw data of artwork 1 of current track"],timeout:6) }.value
+                    let output=try await Task.detached(priority:.utility) { try runScript("tell application id \"com.apple.Music\" to get raw data of artwork 1 of current track", 6) }.value
                     guard let decoded=AlbumArtwork.appleData(output) else { return }; data=decoded
                 }
                 guard !Task.isCancelled, let self, self.artworkKey == key, let image=AlbumArtwork.decode(data) else { return }
@@ -144,8 +151,11 @@ enum BoundedProcess {
     }
 }
 struct MusicPlayerView: View {
-    @Environment(\.connectionSetupAllowed) private var setupAllowed
+    @Environment(\.connectionSetupAllowed) private var environmentSetupAllowed
     @ObservedObject var player: MusicPlayer
+    /// Overrides the environment's setup permission so tests can drive both layouts directly.
+    var setupAllowedOverride: Bool?
+    private var setupAllowed: Bool { setupAllowedOverride ?? environmentSetupAllowed }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing:12) { MusicArtworkView(player:player,size:64); Text(player.track?.title ?? player.name).font(.headline).lineLimit(3) }

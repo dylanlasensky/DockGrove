@@ -49,11 +49,13 @@ enum AICommand {
     private var process: Process?
     private var timeoutTask: Task<Void, Never>?
     private var generation = 0
+    /// Finds the provider's CLI. Tests point this at fixtures or report a missing install.
+    var resolve: (AISignInProvider, String) -> String? = { $0.executable(custom: $1) }
 
     func start(_ provider: AISignInProvider, custom: String = "", checkOnly: Bool = false,
                timeout: TimeInterval? = nil, onSuccess: @escaping () -> Void = {}) {
         guard !busy else { return }
-        guard let path = provider.executable(custom: custom) else {
+        guard let path = resolve(provider, custom) else {
             authenticated = false
             status = "Install \(provider.title) to continue."
             return
@@ -149,8 +151,21 @@ struct CodexConnectionView: View {
 struct GeminiSignInControls: View {
     var compact = false
     var onImport: () -> Void = {}
-    @State private var opened = false
-    @State private var status = "Google sign-in is managed by the Gemini CLI in Terminal."
+    /// Locations and launcher for the Terminal sign-in script. Tests use temporary files and fakes.
+    var executable: () -> String? = { AICommand.executable("gemini") }
+    var folder = BrandStorage.supportDirectory.appendingPathComponent("Gemini Sign In", isDirectory: true)
+    var terminal = URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app")
+    var openScript: (URL, URL, @escaping (Error?) -> Void) -> Void = GeminiSignInControls.open
+    static func open(_ script: URL, with application: URL, completion: @escaping (Error?) -> Void) {
+        NSWorkspace.shared.open([script], withApplicationAt: application, configuration: NSWorkspace.OpenConfiguration()) { _, error in completion(error) }
+    }
+    @State private var opened: Bool
+    @State private var status: String
+    static let initialStatus = "Google sign-in is managed by the Gemini CLI in Terminal."
+    /// `opened` and `status` start a fresh sign-in; tests pass other values to render later states.
+    init(compact: Bool = false, onImport: @escaping () -> Void = {}, opened: Bool = false, status: String = GeminiSignInControls.initialStatus) {
+        self.compact = compact; self.onImport = onImport; _opened = State(initialValue: opened); _status = State(initialValue: status)
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if compact {
@@ -158,7 +173,7 @@ struct GeminiSignInControls: View {
                 Button(action: opened ? onImport : openGemini) {
                     FontAwesomeLabel(opened ? "Import usage" : "Sign in", icon: opened ? .code : .google)
                 }.buttonStyle(.bordered)
-                if status != "Google sign-in is managed by the Gemini CLI in Terminal." && !opened { Text(status).font(.caption).foregroundStyle(.secondary) }
+                if status != Self.initialStatus && !opened { Text(status).font(.caption).foregroundStyle(.secondary) }
             } else {
             Text(status).font(.callout)
             HStack {
@@ -171,14 +186,13 @@ struct GeminiSignInControls: View {
         }
     }
     private func openGemini() {
-        guard let executable = AICommand.executable("gemini") else { status = "Install Gemini CLI first, then return here to sign in."; return }
+        guard let executable = executable() else { status = "Install Gemini CLI first, then return here to sign in."; return }
         do {
-            let folder = BrandStorage.supportDirectory.appendingPathComponent("Gemini Sign In", isDirectory: true)
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
             let script = folder.appendingPathComponent("Sign in to Gemini.command")
             try AICommand.geminiScript(executable: executable, directory: folder.path).write(to: script, atomically: true, encoding: .utf8)
             try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: script.path)
-            NSWorkspace.shared.open([script], withApplicationAt: URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"), configuration: NSWorkspace.OpenConfiguration()) { _, error in
+            openScript(script, terminal) { error in
                 DispatchQueue.main.async { opened = error == nil; status = error == nil ? "Continue in Terminal, then import a usage report below." : "Could not open Terminal. Run gemini manually to sign in." }
             }
         } catch { status = "Could not prepare Gemini sign-in. Run gemini in Terminal to sign in." }

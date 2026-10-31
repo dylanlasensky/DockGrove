@@ -30,9 +30,12 @@ struct AIConnectionSettings: View {
     @ObservedObject var model: DockModel
     let provider: StudioAIProvider
     @State private var method: AIConnectionMethod
-    init(model: DockModel, provider: StudioAIProvider, initialMethod: AIConnectionMethod) {
+    @State private var optionsExpanded: Bool
+    /// `optionsExpanded` opens every Options group, for rendering the settings in that state.
+    init(model: DockModel, provider: StudioAIProvider, initialMethod: AIConnectionMethod, optionsExpanded: Bool = false) {
         self.model = model; self.provider = provider
         _method = State(initialValue: initialMethod)
+        _optionsExpanded = State(initialValue: optionsExpanded)
     }
     private var apiWidget: AIUsageWidget? {
         switch provider { case .openai: return model.toolkit.openaiUsage; case .claude: return model.toolkit.anthropicUsage; case .cursor: return model.toolkit.cursorUsage; case .gemini: return nil }
@@ -53,7 +56,7 @@ struct AIConnectionSettings: View {
                 }
             }.padding(4).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 12))
             if method == .token, let widget = apiWidget {
-                CompactAPITokenSetup(widget: widget)
+                CompactAPITokenSetup(widget: widget, optionsExpanded: optionsExpanded)
             } else {
                 switch provider {
                 case .openai:
@@ -61,7 +64,7 @@ struct AIConnectionSettings: View {
                         model.reloadSignedInUsage()
                     }
                     CompactCodexUsage(model: model)
-                    DisclosureGroup("Options") {
+                    DisclosureGroup("Options", isExpanded: $optionsExpanded) {
                         VStack(alignment: .leading, spacing: 12) {
                             TextField("Codex executable (automatic)", text: $model.customCLI).textFieldStyle(.roundedBorder)
                             Toggle("Auto-refresh", isOn: $model.usageEnabled)
@@ -71,9 +74,9 @@ struct AIConnectionSettings: View {
                         }.padding(.top, 10)
                     }
                 case .claude:
-                    CompactClaudeSetup(widget: model.toolkit.claudeCodeUsage, useCLI: method == .cli)
+                    CompactClaudeSetup(widget: model.toolkit.claudeCodeUsage, useCLI: method == .cli, optionsExpanded: optionsExpanded)
                 case .gemini:
-                    CompactGeminiSetup(widget: model.toolkit.geminiUsage, useCLI: method == .cli)
+                    CompactGeminiSetup(widget: model.toolkit.geminiUsage, useCLI: method == .cli, optionsExpanded: optionsExpanded)
                 case .cursor:
                     Text("View usage on Cursor. Add a team token to show it here.").font(.callout).foregroundStyle(.secondary)
                     Link(destination: model.toolkit.cursorUsage.provider.accountURL) {
@@ -134,6 +137,7 @@ private struct CompactCodexUsage: View {
 private struct CompactAPITokenSetup: View {
     @ObservedObject var widget: AIUsageWidget
     @State private var token = ""
+    @State var optionsExpanded: Bool
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(widget.provider == .cursor ? "Team admin token · last 7 days" : "Organization admin token · API usage, last 7 days")
@@ -150,7 +154,7 @@ private struct CompactAPITokenSetup: View {
                 }
             }
             if !widget.status.isEmpty { Text(widget.status).font(.caption).foregroundStyle(.secondary) }
-            DisclosureGroup("Options") {
+            DisclosureGroup("Options", isExpanded: $optionsExpanded) {
                 VStack(alignment: .leading, spacing: 12) {
                     Toggle("Auto-refresh hourly", isOn: $widget.autoRefresh)
                     Button("Refresh saved token", action: widget.refresh).disabled(widget.busy)
@@ -170,6 +174,7 @@ private struct CompactAPITokenSetup: View {
 private struct CompactClaudeSetup: View {
     @ObservedObject var widget: LocalAIWidget
     let useCLI: Bool
+    @State var optionsExpanded: Bool
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             CompactCLISetup(signIn: widget.signIn, provider: .claude, useCLI: useCLI) {
@@ -180,7 +185,7 @@ private struct CompactClaudeSetup: View {
                 Text(widget.status.isEmpty || widget.status.hasPrefix("No local report") ? "Usage appears after your next Claude Code response." : widget.status)
                     .font(.caption).foregroundStyle(.secondary)
             }
-            DisclosureGroup("Options") {
+            DisclosureGroup("Options", isExpanded: $optionsExpanded) {
                 VStack(alignment: .leading, spacing: 12) {
                     Button("Enable usage capture", action: widget.connectClaude)
                     Button("Remove usage capture", action: widget.disconnectClaude)
@@ -196,6 +201,7 @@ private struct CompactClaudeSetup: View {
 private struct CompactGeminiSetup: View {
     @ObservedObject var widget: LocalAIWidget
     let useCLI: Bool
+    @State var optionsExpanded: Bool
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if useCLI {
@@ -206,13 +212,10 @@ private struct CompactGeminiSetup: View {
             else if !widget.status.isEmpty && !widget.status.hasPrefix("No local report") {
                 Text(widget.status).font(.caption).foregroundStyle(.secondary)
             }
-            DisclosureGroup("Options") {
+            DisclosureGroup("Options", isExpanded: $optionsExpanded) {
                 VStack(alignment: .leading, spacing: 12) {
                     Button("Import session JSON", action: widget.importReport)
-                    Button("Copy capture command") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString("gemini --output-format json -p 'YOUR PROMPT' | " + ClaudeStatusLineSetup.quote(Bundle.main.executableURL!.path) + " --gemini-report", forType: .string)
-                    }
+                    Button("Copy capture command", action: widget.copyCaptureCommand)
                     Button("Clear saved usage", action: widget.clear)
                     Link("Install Gemini CLI", destination: URL(string: "https://geminicli.com/docs/get-started/installation/")!)
                     Text("Session tokens only. Gemini does not expose remaining plan usage through these API tokens.").font(.caption).foregroundStyle(.secondary)

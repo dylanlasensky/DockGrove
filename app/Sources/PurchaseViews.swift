@@ -1,9 +1,38 @@
 import SwiftUI
 import StoreKit
 
-struct PurchaseSettingsView: View {
-    @ObservedObject private var purchases = PurchaseManager.shared
+/// What the purchase screen reads and does. PurchaseManager is the only production store;
+/// the protocol lets the screen be rendered against fixed purchase states.
+@MainActor protocol PurchaseStore: ObservableObject {
+    var tier: AccessTier { get }
+    var hasLoadedEntitlements: Bool { get }
+    var loadingProducts: Bool { get }
+    var busy: Bool { get }
+    var message: String? { get }
+    var hasAllProducts: Bool { get }
+    func displayPrice(for tier: AccessTier) -> String?
+    func load() async
+    func loadProducts() async
+    func purchase(_ requested: AccessTier) async
+    func restore() async
+}
+
+extension PurchaseManager: PurchaseStore {
+    var hasAllProducts: Bool { products.count >= AccessTier.productIDs.count }
+    func displayPrice(for tier: AccessTier) -> String? { product(for: tier)?.displayPrice }
+}
+
+extension PurchaseSettingsView where Store == PurchaseManager {
+    init() { self.init(store: .shared) }
+}
+
+struct PurchaseSettingsView<Store: PurchaseStore>: View {
+    @ObservedObject private var purchases: Store
     @State private var expandedTier: AccessTier?
+    init(store: Store, expandedTier: AccessTier? = nil) {
+        purchases = store
+        _expandedTier = State(initialValue: expandedTier)
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
@@ -51,7 +80,7 @@ struct PurchaseSettingsView: View {
             }
             HStack {
                 Button("Restore Purchases") { Task { await purchases.restore() } }.disabled(purchases.busy)
-                if purchases.products.count < AccessTier.productIDs.count {
+                if !purchases.hasAllProducts {
                     Button("Reload prices") { Task { await purchases.loadProducts() } }.disabled(purchases.loadingProducts || purchases.busy)
                 }
                 if purchases.busy || purchases.loadingProducts { ProgressView().controlSize(.small) }
@@ -86,7 +115,7 @@ struct PurchaseSettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text(tier == .free ? "Free" : purchases.product(for: tier)?.displayPrice ?? (purchases.loadingProducts ? "Loading…" : "Price unavailable"))
+                Text(tier == .free ? "Free" : purchases.displayPrice(for: tier) ?? (purchases.loadingProducts ? "Loading…" : "Price unavailable"))
                     .font(.system(size: 24, weight: .bold, design: .rounded)).minimumScaleFactor(0.7).lineLimit(1)
                 Text(tier == .free ? "Included with DockGrove" : "One-time purchase").font(.caption).foregroundStyle(.secondary)
             }
@@ -110,10 +139,10 @@ struct PurchaseSettingsView: View {
             Text("Checking purchases…").font(.caption).foregroundStyle(.secondary)
         } else if tier == .free || purchases.tier >= tier {
             Label(tier == .free ? "Included" : "Unlocked", systemImage: "checkmark.circle.fill").font(.caption.weight(.semibold)).foregroundStyle(.green)
-        } else if let product = purchases.product(for: tier) {
+        } else if let price = purchases.displayPrice(for: tier) {
             Button { Task { await purchases.purchase(tier) } } label: { FontAwesomeLabel("Get " + tier.title, icon: .purchase) }
                 .buttonStyle(.bordered).disabled(purchases.busy)
-                .accessibilityLabel("Buy \(tier.title) for \(product.displayPrice), one time")
+                .accessibilityLabel("Buy \(tier.title) for \(price), one time")
         } else {
             Text(purchases.loadingProducts ? "Loading price…" : "Currently unavailable").font(.caption).foregroundStyle(.secondary)
         }

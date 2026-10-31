@@ -22,15 +22,15 @@ struct DockPageLayout {
 }
 
 enum DockEntry: Identifiable {
-    case app(DockApp), add, usage, tool(ToolKind), clock
+    case app(DockApp), add, usage, tool(ToolKind), clock, applications
     var id: String {
-        switch self { case .app(let a): return "app:" + a.id; case .add: return "add"; case .usage: return "usage"; case .tool(let k): return k.rawValue; case .clock: return "clock" }
+        switch self { case .app(let a): return "app:" + a.id; case .add: return "add"; case .usage: return "usage"; case .tool(let k): return k.rawValue; case .clock: return "clock"; case .applications: return DockEntry.applicationsID }
     }
     var title: String {
-        switch self { case .app(let a): return a.name; case .add: return "Add app"; case .usage: return "Codex usage"; case .tool(let k): return k.title; case .clock: return "Clock" }
+        switch self { case .app(let a): return a.name; case .add: return "Add app"; case .usage: return "Codex usage"; case .tool(let k): return k.title; case .clock: return "Clock"; case .applications: return "Applications" }
     }
     func width(iconSize: Double, rich: Bool = true, shapes: [String: String] = [:], tileHeight: Double? = nil) -> CGFloat {
-        switch self { case .app: return iconSize + 8; case .add: return 28; case .usage: return rich ? 202 : 177; case .clock: return rich ? 136 : 100
+        switch self { case .app, .applications: return iconSize + 8; case .add: return 28; case .usage: return rich ? 202 : 177; case .clock: return rich ? 136 : 100
         case .tool(let kind):
             if kind == .separator { return 1 }; if kind == .spacer { return 24 }
             if let shape = WidgetShapeStyle(rawValue: shapes[kind.rawValue] ?? ""), let width = shape.width(height: tileHeight ?? max(64, iconSize + 20)) { return width }; if !rich { return 72 }

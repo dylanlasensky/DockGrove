@@ -3,6 +3,7 @@ import AppKit
 
 struct RichWidgetCard: View {
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.widgetEffects) private var effects
     let kind: ToolKind
     @ObservedObject var model: DockModel
     @ObservedObject var kit: Toolkit
@@ -111,7 +112,7 @@ struct RichWidgetCard: View {
         case .water: transport("plus", label: "Log a glass of water") { kit.utilities.drink(1) }
         case .spotify, .appleMusic, .music:
             let player = kind == .appleMusic ? kit.appleMusic : kit.spotify
-            if player.connected { transport(player.track?.playing == true ? "pause.fill" : "play.fill", label: player.track?.playing == true ? "Pause music" : "Play music") { player.refresh(command: .toggle) }.disabled(player.busy) }
+            if player.connected { transport(player.track?.playing == true ? "pause.fill" : "play.fill", label: player.track?.playing == true ? "Pause music" : "Play music") { effects(.music(player, .toggle)) }.disabled(player.busy) }
         default: EmptyView()
         }
     }

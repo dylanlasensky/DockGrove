@@ -18,6 +18,8 @@ Toolbar dimensions are available in Settings → Appearance → Toolbar size. Dr
 
 ## Repository layout
 
+To set up a local environment or the CI/CD pipeline, start with [SETUP.md](SETUP.md) and [`.env.example`](.env.example).
+
 - [`app/`](app/) contains the native macOS app, assets, build scripts, tests, and Xcode project.
 - [`website/`](website/) contains the website, commerce backend, and web tests.
 - [`docs/`](docs/) contains shared product and release documentation.
@@ -50,12 +52,12 @@ Builds are ad-hoc signed for local testing, **not Developer ID signed or notariz
 ```sh
 git clone https://github.com/dylanlasensky/DockGrove.git
 cd DockGrove/app
-zsh build.sh --development
+xcodebuild -project DockGrove.xcodeproj -scheme DockGrove -configuration Development -derivedDataPath .build/xcode build
 # Open the development build only when ready to review:
-open dist/DockGrove.app
+open .build/xcode/Build/Products/Development/DockGrove.app
 ```
 
-The development build uses the installed Apple toolchain and creates `dist/DockGrove.app` with a separate development bundle identifier. `zsh build.sh --commercial` creates `dist/DockGrove-Commercial.app` with activation enforced; configure only the public license-server URL, verification public key and key ID as described in the build script. An unconfigured commercial build fails closed. It packages the exact owner-supplied icon into standard macOS icon sizes. Build outputs are excluded from version control. Ad-hoc rebuilds may require you to re-enable macOS privacy permissions; stable distribution requires a consistent Developer ID signature.
+The **Development** configuration builds a universal, ad-hoc-signed app with a separate development bundle identifier. The **Commercial** configuration (scheme **DockGrove Commercial**) enforces activation; first run `swift Scripts/ValidateLicenseConfig.swift`, then pass only the public license-server URL, verification public key and key ID as build settings (`DOCKGROVE_LICENSE_SERVER_URL`, `DOCKGROVE_LICENSE_PUBLIC_KEY`, `DOCKGROVE_LICENSE_KEY_ID`) — see [commerce setup](docs/COMMERCE.md). **CommercialQA** builds the locked state under its own bundle identifier. An unconfigured commercial build fails closed. It packages the exact owner-supplied icon into standard macOS icon sizes. Build outputs are excluded from version control. Ad-hoc rebuilds may require you to re-enable macOS privacy permissions; stable distribution requires a consistent Developer ID signature.
 
 ## First setup
 
@@ -201,15 +203,12 @@ DockGrove excludes native full-screen Spaces and suppresses its panel when the a
 Run these commands from `app/`:
 
 ```sh
-zsh build.sh
-chmod +x Tests/fixture_codex.py
-dist/DockGrove.app/Contents/MacOS/DockGrove --self-test --fixture-cli "$PWD/Tests/fixture_codex.py"
-codesign --verify --strict dist/DockGrove.app
+xcodebuild test -project DockGrove.xcodeproj -scheme "DockGrove Tests" -configuration Development -derivedDataPath .build/xcode
 ```
 
-For two complete build/test passes, run `zsh Tests/validate.sh`. Logs and local widget render captures are written under `.build/validation/`. On a logged-in desktop, pass `--native` to include native view and window-state checks; pass `--live` to also check public GitHub and the existing Codex sign-in. Live service checks are explicitly separate from offline regression tests.
+All testing runs through Xcode (⌘U on the **DockGrove Tests** scheme, or `xcodebuild test`). The `DockGroveTests` XCTest bundle runs inside the app and collects code coverage. Native view and window-state checks are a UI test: run the **DockGrove Native Tests** scheme on a logged-in desktop. Live GitHub, Codex, currency, system, audio and Apple Weather checks are skipped unless you opt in with `TEST_RUNNER_DOCKGROVE_LIVE_TESTS=1 xcodebuild test …` (optionally `TEST_RUNNER_DOCKGROVE_WEATHER_CITY`). Live service checks are explicitly separate from offline regression tests.
 
-The fixture runs locally without credentials or network calls. It checks the actual subprocess handshake, notification handling, and split response framing. Decoder tests cover multiple usage buckets, legacy fallback, missing windows, percentage bounds, and persistence formats for layouts and tasks. Regression tests also cover Dock visibility timing, negative display coordinates, durable preference restoration and failure retries, local utility persistence, stopwatch timing, folder search, bookmark validation, unit conversions, and GitHub response states. GitHub Actions runs two independent universal builds and offline test jobs on pushes and pull requests. See [validation details](docs/VALIDATION.md).
+The Swift `CodexFixture` tool runs locally without credentials or network calls. It checks the actual subprocess handshake, notification handling, and split response framing. Decoder tests cover multiple usage buckets, legacy fallback, missing windows, percentage bounds, and persistence formats for layouts and tasks. Regression tests also cover Dock visibility timing, negative display coordinates, durable preference restoration and failure retries, local utility persistence, stopwatch timing, folder search, bookmark validation, unit conversions, and GitHub response states. GitHub Actions runs two independent universal builds and offline test jobs on pushes and pull requests. See [validation details](docs/VALIDATION.md).
 
 ## Current limitations and roadmap
 
@@ -244,9 +243,13 @@ app/Sources/Views.swift      Main Dock, app tiles, usage details, settings
 app/Sources/Toolkit.swift    Widget state, persistence, timers, integrations
 app/Sources/ToolViews.swift  Widget popovers and library settings
 app/Sources/SelfTests.swift  Decoding and persistence-format checks
-app/Tests/fixture_codex.py   Offline app-server protocol fixture
+app/DockGroveTests/          XCTest suites (offline regressions, opt-in live checks)
+app/DockGroveUITests/        Native rendering and window-state UI test
+app/CodexFixture/            Offline app-server protocol fixture tool
+app/SignInFixture/           Deterministic sign-in fixture tool
+app/DockTestHost/            Full-screen AppKit test host
 app/Scripts/MakeIcon.swift   Exact-logo macOS icon packaging
-app/build.sh                Universal app build and local signing
+app/project.yml              XcodeGen source for the project, configurations and schemes
 ```
 
 ## Contributing

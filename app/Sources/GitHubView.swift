@@ -2,9 +2,10 @@ import SwiftUI
 
 struct GitHubView: View {
     @ObservedObject var github: GitHubWidget
+    @Environment(\.widgetEffects) private var effects
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            TextField("owner/repository", text: $github.repository).textFieldStyle(.roundedBorder).onSubmit { github.refresh() }
+            TextField("owner/repository", text: $github.repository).textFieldStyle(.roundedBorder).onSubmit { effects(.refreshGitHub(github)) }
             Toggle("Use existing GitHub CLI sign-in", isOn: $github.useCLI)
             Toggle("Refresh every five minutes", isOn: $github.autoRefresh)
             Text("Public mode reads api.github.com. CLI mode uses gh’s existing sign-in. DockGrove does not read or store your token.").font(.caption).foregroundStyle(.secondary)
@@ -21,7 +22,7 @@ struct GitHubView: View {
             }
             if let error = github.error { Text(error).font(.caption).foregroundStyle(.orange) }
             if let refreshed = github.refreshed { Text("Updated \(refreshed.formatted(date: .omitted, time: .shortened))\(github.error == nil ? "" : " · Previous reading")").font(.caption).foregroundStyle(.secondary) }
-            Button(github.loading ? "Refreshing…" : "Refresh GitHub", action: github.refresh).disabled(github.loading)
+            Button(github.loading ? "Refreshing…" : "Refresh GitHub") { effects(.refreshGitHub(github)) }.disabled(github.loading)
         }
     }
 }

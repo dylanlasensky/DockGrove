@@ -37,14 +37,17 @@ Regression coverage includes delayed Accessibility layout acknowledgement, bound
 ## Reproduce
 
 ```sh
-zsh app/Tests/validate.sh --native --live
+cd app
+xcodebuild test -project DockGrove.xcodeproj -scheme "DockGrove Tests" -configuration Development -derivedDataPath .build/xcode
+xcodebuild test -project DockGrove.xcodeproj -scheme "DockGrove Native Tests" -configuration Development -derivedDataPath .build/xcode
+TEST_RUNNER_DOCKGROVE_LIVE_TESTS=1 xcodebuild test -project DockGrove.xcodeproj -scheme "DockGrove Tests" -configuration Development -derivedDataPath .build/xcode -only-testing:DockGroveTests/LiveTests
 ```
 
-This performs two complete universal builds with offline regression tests, signature/plist/architecture verification, native rendering and window-state tests, and explicitly opted-in live GitHub/Codex reads. Omit `--native` on a headless session; omit `--live` for offline tests. Logs are local under `app/.build/validation/` and excluded from Git.
+The first command runs the offline XCTest regressions with code coverage. The second is the native rendering and window-state UI test (needs a logged-in desktop; renders are attached to the result bundle). The third opts into live GitHub, Codex, currency, system, audio and Apple Weather checks. CI runs the offline suite in two independent passes, then builds and verifies the universal app (signature, plist, architectures).
 
 ## Results on October 28, 2026
 
-Both full passes of `zsh app/Tests/validate.sh --native --live` passed for 0.4. Each built arm64 and x86_64, ran all offline regressions, checked signature/plist/architectures, rendered all 30 functional widgets, checked native window states, and successfully read live public GitHub and Codex allowances.
+Both full passes of the former validation script with native and live checks passed for 0.4. Each built arm64 and x86_64, ran all offline regressions, checked signature/plist/architectures, rendered all 30 functional widgets, checked native window states, and successfully read live public GitHub and Codex allowances.
 
 The prior CI run 40750383530 was cancelled before either job ran: GitHub reported that no hosted runner acquired the jobs and cited macOS ARM capacity constraints. The workflow now uses the documented `macos-15-intel` standard runner, still builds both architectures, and runs two independent test jobs. The first Intel run built the app and passed every regression, then exposed an Xcode 16 `lipo` argument-order incompatibility. Both CI and the local validation script now place the input binary before `-verify_arch`. CI run [40756654494](https://github.com/dylanlasensky/DockGrove/actions/runs/40756654494) then passed both Intel jobs, including builds, every regression, architecture checks and artifact uploads. Runtime refinement commit e7cb66e also passed both jobs in run [40758439489](https://github.com/dylanlasensky/DockGrove/actions/runs/40758439489). Subsequent changes must pass CI on their own commit; see the PR for the latest exact-commit results.
 
@@ -68,7 +71,7 @@ The prior CI run 40750383530 was cancelled before either job ran: GitHub reporte
 
 The development host reports macOS 27.2, Apple Silicon, one built-in display. The app targets macOS 14+ and is compiled for both arm64 and x86_64; a universal binary does not establish execution on Intel hardware or every supported OS.
 
-A dedicated AppKit test host is included as `app/Tests/DockTestHost.swift`. Run `zsh app/Tests/fullscreen-host.sh` to open it. It provides a real native full-screen window without using personal documents. Verify twice: enter full screen, confirm the bar is hidden, exit, confirm the bar returns. Test replacement enable/disable/quit while checking that `com.apple.dock autohide` and `autohide-delay` return to their original values.
+A dedicated AppKit test host is included as the `DockTestHost` target. Run the **DockTestHost** scheme in Xcode to open it. It provides a real native full-screen window without using personal documents. Verify twice: enter full screen, confirm the bar is hidden, exit, confirm the bar returns. Test replacement enable/disable/quit while checking that `com.apple.dock autohide` and `autohide-delay` return to their original values.
 
 The 0.3 baseline manual checks exercised native full-screen entry/exit twice, GitHub refresh and close/reopen retention, and converter input plus reverse conversion. Quit restoration returned the development machine’s original auto-hide value (`false`) and removed the previously absent reveal-delay key. The command-line recovery path was also verified after an interrupted test process. The test suite's view captures establish successful layout/rendering; they do not prove every external permission or every click action.
 
@@ -93,9 +96,9 @@ These limits are retained rather than converting fixture or rendering evidence i
 ## October 30, 2026: Settings studio and asset catalog
 
 - The signed Xcode Debug build succeeds. The separate unrestricted Debug build passes all 25 offline regression checks.
-- `--studio-test` passes insertion, reorder, duplicate prevention, remove/undo, persistence, invalid payload/target rejection, and purchase enforcement.
+- The studio regression tests pass insertion, reorder, duplicate prevention, remove/undo, persistence, invalid payload/target rejection, and purchase enforcement.
 - The user manually confirmed dragging library cards into both the preview bar and the actual Dock. Preview page arrows were verified through the native UI.
-- `--assets-test /tmp/dockgrove-sprites` passes app-icon/catalog lookup, light/dark palette resolution, nine transparent SpriteKit renders, animation bounds, texture reuse, and Reduce Motion/rest.
+- The asset catalog test (`DockGroveTests.testAssetCatalog`) passes app-icon/catalog lookup, light/dark palette resolution, nine transparent SpriteKit renders, animation bounds, texture reuse, and Reduce Motion/rest.
 - Standalone `actool` packaging produces `AppIcon.icns`, `Assets.car`, and a valid partial Info.plist. The signed app passes `codesign --verify --strict`.
 - Nine StoreKitTest purchase tests passed locally. App Store Connect products are saved drafts; no App Store production sale, review approval, or distribution build is claimed.
 

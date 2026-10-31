@@ -6,12 +6,8 @@ struct BrandIcon: View {
     var body: some View {
         Image(nsImage: Self.artwork).resizable().scaledToFit().accessibilityLabel("DockGrove")
     }
-    static let artwork: NSImage = {
-        guard let image = NSImage(named: "DockGrove-icon") else {
-            return NSImage(size:NSSize(width:32,height:32))
-        }
-        return image
-    }()
+    static let artwork: NSImage = loadArtwork("DockGrove-icon")
+    static func loadArtwork(_ name: String) -> NSImage { NSImage(named: name) ?? NSImage(size: NSSize(width: 32, height: 32)) }
 }
 enum AccentPalette {
     static let names = ["None", "White", "Mint", "Blue", "Lilac", "Coral", "Rose", "Gold"]

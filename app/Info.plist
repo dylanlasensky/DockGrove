@@ -6,6 +6,12 @@
 	<string>$(PRODUCT_DISPLAY_NAME)</string>
 	<key>CFBundleExecutable</key>
 	<string>DockGrove</string>
+	<key>DockGroveLicenseKeyID</key>
+	<string>$(DOCKGROVE_LICENSE_KEY_ID)</string>
+	<key>DockGroveLicensePublicKeyBase64</key>
+	<string>$(DOCKGROVE_LICENSE_PUBLIC_KEY)</string>
+	<key>DockGroveLicenseServerURL</key>
+	<string>$(DOCKGROVE_LICENSE_SERVER_URL)</string>
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>

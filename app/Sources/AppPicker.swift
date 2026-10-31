@@ -9,12 +9,19 @@ struct AppPickerView: View {
     @State private var catalog: [DockApp] = []
     @State private var scanning = false
     @FocusState private var searchFocused: Bool
-    private let refreshTimer = Timer.publish(every: 10, on: .main, in: .common).autoconnect()
+    static var refreshInterval: TimeInterval = 10
+    private let refreshTimer: Publishers.Autoconnect<Timer.TimerPublisher>
     var replacing: DockApp?
     var close: () -> Void
+    init(model: DockModel, replacing: DockApp? = nil, close: @escaping () -> Void) {
+        _model = ObservedObject(wrappedValue: model)
+        self.replacing = replacing
+        self.close = close
+        refreshTimer = Timer.publish(every: Self.refreshInterval, on: .main, in: .common).autoconnect()
+    }
     var results: [DockApp] {
         let search = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        return catalog.filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.id.localizedCaseInsensitiveContains(search) }.sorted {
+        return model.toolkit.appIndex.search(search, includePaths: true).sorted {
             let a = $0.name.localizedCaseInsensitiveCompare(search) == .orderedSame
             let b = $1.name.localizedCaseInsensitiveCompare(search) == .orderedSame
             if a != b { return a }
@@ -66,7 +73,7 @@ struct AppPickerView: View {
                 Button("Cancel", action: close).keyboardShortcut(.cancelAction)
                 Button(replacing == nil ? "Add" : "Replace") {
                     guard let app = results.first(where: { $0.id == selected }) else { return }
-                    if model.chooseApp(app, replacing: replacing) { close() }
+                    if model.chooseApp(app, replacing: replacing) { model.toolkit.recordLaunch(app, query: query); close() }
                 }.keyboardShortcut(.defaultAction).disabled(!results.contains(where: { $0.id == selected }))
             }
         }.padding(20).frame(width: 560).background(Color(nsColor: .windowBackgroundColor)).preferredColorScheme(model.scheme)
@@ -100,7 +107,7 @@ extension DockModel {
         window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: AppPickerView(model: self, replacing: replacing, close: { [weak window] in window?.close() }))
         appPickerWindow = window
-        window.center(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+        window.center(); DockSystemEffect.handler(.present(window))
     }
     func rememberApps() { appHistory.append((apps, entryOrder)); if appHistory.count > 20 { appHistory.removeFirst() } }
     func undoAppChange() {

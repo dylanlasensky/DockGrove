@@ -17,13 +17,23 @@ enum StudioSection: String, CaseIterable {
     }
 }
 
-struct SettingsView: View {
-    @ObservedObject var model: DockModel
-    @ObservedObject private var purchases = PurchaseManager.shared
-    @State private var section: StudioSection = .library
+extension SettingsView where Store == PurchaseManager {
     init(model: DockModel, section: StudioSection = .library) {
+        self.init(model: model, section: section, purchases: .shared, terminate: NSApplication.shared.terminate)
+    }
+}
+
+struct SettingsView<Store: PurchaseStore>: View {
+    @ObservedObject var model: DockModel
+    @ObservedObject private var purchases: Store
+    @Environment(\.studioAccess) private var access
+    @State private var section: StudioSection = .library
+    private let terminate: (Any?) -> Void
+    init(model: DockModel, section: StudioSection, purchases: Store, terminate: @escaping (Any?) -> Void) {
         self.model = model
+        self.purchases = purchases
         _section = State(initialValue: section)
+        self.terminate = terminate
     }
     var body: some View {
         HStack(spacing: 0) {
@@ -38,7 +48,7 @@ struct SettingsView: View {
                     Spacer()
                     Button("Done") { model.closeSettingsAction?() }.keyboardShortcut(.cancelAction)
                 }
-                if model.canUseFeatures && section != .purchases && section != .connections {
+                if access.canUseFeatures(model) && section != .purchases && section != .connections {
                     DockStudioPreview(model: model)
                     HStack(spacing: 5) {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
@@ -49,16 +59,16 @@ struct SettingsView: View {
                     Group {
                         switch section {
                         case .library:
-                            if model.canUseFeatures { StudioLibrary(model: model, openPurchases: { section = .purchases }) }
+                            if access.canUseFeatures(model) { StudioLibrary(model: model, openPurchases: { section = .purchases }) }
                             else { LicenseSettingsView() }
                         case .appearance:
-                            if model.canUseFeatures { StudioAppearance(model: model) }
+                            if access.canUseFeatures(model) { StudioAppearance(model: model) }
                         case .behavior:
-                            if model.canUseFeatures { StudioBehavior(model: model) }
+                            if access.canUseFeatures(model) { StudioBehavior(model: model) }
                         case .connections:
-                            if model.canUseFeatures { StudioConnections(model: model) }
+                            if access.canUseFeatures(model) { StudioConnections(model: model) }
                         case .purchases:
-                            if PurchaseConfiguration.enabled { PurchaseSettingsView() }
+                            if access.purchasesEnabled { PurchaseSettingsView(store: purchases) }
                             else { LicenseSettingsView() }
                         }
                     }.frame(maxWidth: .infinity, alignment: .topLeading).padding(.bottom, 16)
@@ -89,12 +99,12 @@ struct SettingsView: View {
             }
             Spacer()
             VStack(alignment: .leading, spacing: 10) {
-                if PurchaseConfiguration.enabled {
+                if access.purchasesEnabled {
                     Label(purchases.tier.title, systemImage: purchases.tier == .free ? "leaf" : "checkmark.seal.fill").font(.caption.weight(.medium)).foregroundStyle(.secondary)
                 }
                 if !model.isAdditionalDock { Button("Manage docks…") { model.manageDocksAction?() }.buttonStyle(.link) }
                 Button("Restore Apple Dock") { model.changeDockAction?(false) }.buttonStyle(.link)
-                Button("Quit DockGrove") { NSApp.terminate(nil) }.buttonStyle(.link)
+                Button("Quit DockGrove") { terminate(nil) }.buttonStyle(.link)
                 Text("Thoughtfully at hand.").font(.system(size: 10)).foregroundStyle(.tertiary).padding(.top, 10)
             }
         }.padding(18).frame(width: 200).frame(maxHeight: .infinity)
@@ -116,7 +126,7 @@ private struct StudioLibrary: View {
         ToolKind.allCases.filter { (category == "All" || $0.studioCategory == category) && (query.isEmpty || $0.title.localizedCaseInsensitiveContains(query)) }
     }
     private var apps: [DockApp] {
-        kit.applications.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
+        kit.appIndex.search(query)
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -149,10 +159,11 @@ private struct StudioLibrary: View {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 12)], spacing: 12) {
                     ForEach(apps) { app in
                         let pinned = model.apps.contains(app)
-                        Button {
+                        let toggle = {
                             let item = DockStudioItem(kind: .app, value: app.id)
                             if pinned { _ = model.removeStudioItem(item) } else { _ = model.placeStudioItem(item) }
-                        } label: {
+                        }
+                        Button(action: toggle) {
                             VStack(spacing: 9) {
                                 Image(nsImage: app.icon).resizable().frame(width: 44, height: 44)
                                 Text(app.name).font(.system(size: 11, weight: .medium)).lineLimit(1)
@@ -162,10 +173,7 @@ private struct StudioLibrary: View {
                                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(pinned ? Color.accentColor.opacity(0.6) : Color.primary.opacity(0.06)))
                         }.buttonStyle(.plain)
                             .overlay {
-                                NativeStudioDragSource(item: DockStudioItem(kind: .app, value: app.id)) {
-                                    let item = DockStudioItem(kind: .app, value: app.id)
-                                    if pinned { _ = model.removeStudioItem(item) } else { _ = model.placeStudioItem(item) }
-                                }
+                                NativeStudioDragSource(item: DockStudioItem(kind: .app, value: app.id), clicked: toggle)
                             }
                             .accessibilityLabel((pinned ? "Remove " : "Add ") + app.name + " from Dock library")
                     }
@@ -179,14 +187,15 @@ private struct StudioWidgetCard: View {
     let kind: ToolKind
     @ObservedObject var model: DockModel
     let openPurchases: () -> Void
-    private var enabled: Bool { model.toolkit.enabled.contains(kind.rawValue) && model.canAccess(kind) }
+    @Environment(\.studioAccess) private var access
+    private var enabled: Bool { model.toolkit.enabled.contains(kind.rawValue) && access.canAccess(model, kind) }
     private func activate() {
-        guard model.canAccess(kind) else { openPurchases(); return }
+        guard access.canAccess(model, kind) else { openPurchases(); return }
         let item = model.studioItem(.tool(kind))!
         if enabled { _ = model.removeStudioItem(item) } else { _ = model.placeStudioItem(item) }
     }
     var body: some View {
-        if model.canAccess(kind) {
+        if access.canAccess(model, kind) {
             card.overlay { NativeStudioDragSource(item: model.studioItem(.tool(kind))!, clicked: activate) }
         } else { card }
     }
@@ -204,21 +213,21 @@ private struct StudioWidgetCard: View {
                 HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(kind.title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
-                        Text(enabled ? "In your Dock" : model.canAccess(kind) ? "Drag or click to add" : kind.requiredAccess.title)
+                        Text(enabled ? "In your Dock" : access.canAccess(model, kind) ? "Drag or click to add" : kind.requiredAccess.title)
                             .font(.system(size: 10)).foregroundStyle(enabled ? Color.accentColor : .secondary)
                     }
                     Spacer(minLength: 3)
-                    Image(systemName: enabled ? "checkmark.circle.fill" : model.canAccess(kind) ? "plus.circle" : "lock.fill")
+                    Image(systemName: enabled ? "checkmark.circle.fill" : access.canAccess(model, kind) ? "plus.circle" : "lock.fill")
                         .foregroundStyle(enabled ? Color.accentColor : .secondary).font(.system(size: 14))
                 }
             }.padding(12).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 17))
                 .overlay(RoundedRectangle(cornerRadius: 17).stroke(enabled ? Color.accentColor.opacity(0.6) : Color.primary.opacity(0.08), lineWidth: 1))
         }.buttonStyle(.plain)
-            .accessibilityLabel(kind.title + (enabled ? ", in your Dock, click to remove" : model.canAccess(kind) ? ", drag or click to add" : ", requires " + kind.requiredAccess.title))
+            .accessibilityLabel(kind.title + (enabled ? ", in your Dock, click to remove" : access.canAccess(model, kind) ? ", drag or click to add" : ", requires " + kind.requiredAccess.title))
     }
 }
 
-private struct StudioAppearance: View {
+struct StudioAppearance: View {
     @ObservedObject var model: DockModel
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
@@ -256,7 +265,7 @@ private struct StudioAppearance: View {
     }
 }
 
-private struct StudioWidgetShapes: View {
+struct StudioWidgetShapes: View {
     @ObservedObject var model: DockModel
     @State private var selected: ToolKind = .focus
     var body: some View {
@@ -282,7 +291,7 @@ private struct StudioWidgetShapes: View {
     }
 }
 
-private struct StudioColorPacks: View {
+struct StudioColorPacks: View {
     @ObservedObject var model: DockModel
     @State private var group = "All"
     @State private var selectedPack = "Classic"
@@ -357,13 +366,15 @@ private struct StudioColorPacks: View {
     }
 }
 
-private struct StudioBehavior: View {
+struct StudioBehavior: View {
     @ObservedObject var model: DockModel
+    @Environment(\.studioAccess) private var access
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             StudioPanel(title: "At a glance") {
+                Toggle("Show Applications stack first", isOn: $model.showApplicationsStack)
                 Toggle("Show clock and date", isOn: $model.showClock)
-                Toggle(model.canAccessAI ? "Show Codex usage tile" : "Codex usage · Full Access", isOn: $model.showUsageCard).disabled(!model.canAccessAI)
+                Toggle(access.canAccessAI(model) ? "Show Codex usage tile" : "Codex usage · Full Access", isOn: $model.showUsageCard).disabled(!access.canAccessAI(model))
                 if !model.isAdditionalDock {
                     Toggle("Use DockGrove as my Dock", isOn: Binding(get: { model.replacingDock }, set: { model.changeDockAction?($0) }))
                     Text("Apple’s Dock returns when you turn this off or quit DockGrove.").font(.caption).foregroundStyle(.secondary)
@@ -373,7 +384,7 @@ private struct StudioBehavior: View {
             }
             WorkspaceSettings(model: model, kit: model.toolkit)
             if !model.isAdditionalDock { SnapSettings(model: model) }
-            if model.canAccessAI {
+            if access.canAccessAI(model) {
                 StudioPanel(title: "Codex usage") {
                     Text("Manage your ChatGPT sign-in and usage refresh in Connections.").font(.callout).foregroundStyle(.secondary)
                     Button("Account settings") { model.openCodexConnection() }
@@ -461,8 +472,9 @@ struct StudioNumberControl: View {
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.accentColor.opacity(dragOrigin == nil ? 0.15 : 0.6)))
                 .contentShape(Rectangle())
                 .gesture(DragGesture(minimumDistance: 2).onChanged { gesture in
-                    if dragOrigin == nil { onBegin(); dragOrigin = value }
-                    change((dragOrigin ?? value) + Double(gesture.translation.width / 4) * step)
+                    let origin = dragOrigin ?? value
+                    if dragOrigin == nil { onBegin(); dragOrigin = origin }
+                    change(origin + Double(gesture.translation.width / 4) * step)
                 }.onEnded { _ in dragOrigin = nil })
                 .help("Drag left or right to adjust " + title.lowercased())
                 .accessibilityElement(children: .ignore).accessibilityLabel(title).accessibilityValue("\(Int((value * scale).rounded())) \(unit)")

@@ -1,0 +1,103 @@
+/* .personal-dock appearance states from home.css: light by default, dark when the
+   preview radio sets html[data-appearance=dark] or the system is dark and the radio
+   is not forcing light. */
+.dock {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  position: relative;
+  padding: 25px 30px;
+  border: 1px solid #c8d0c5;
+  border-radius: 26px;
+  background: #f7f8f6;
+  color: #28312a;
+  box-shadow: 0 25px 50px #11121424;
+  transition: background 0.25s, color 0.25s;
+}
+
+.kicker {
+  color: #59625c;
+}
+
+.ring {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 5px solid var(--accent);
+  border-right-color: #ffffff1c;
+  display: grid;
+  place-items: center;
+  color: #29372e;
+  font-size: 1.1875rem;
+  transition: color 0.3s, border-color 0.3s;
+}
+
+.chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 43px;
+  margin-left: 14px;
+}
+
+.chart i {
+  width: 7px;
+  background: var(--accent);
+  height: 60%;
+  border-radius: 3px;
+  transition: background 0.3s;
+}
+
+.chart i:nth-child(2) { height: 85%; }
+.chart i:nth-child(3) { height: 45%; }
+.chart i:nth-child(4) { height: 100%; }
+.chart i:nth-child(5) { height: 75%; }
+
+:global(html[data-appearance="dark"]) .dock {
+  background: #242a27;
+  color: #f0f4ef;
+  border-color: #526052;
+}
+:global(html[data-appearance="dark"]) .kicker { color: #b5bfb3; }
+:global(html[data-appearance="dark"]) .ring { color: #f0f4ef; }
+
+@media (prefers-color-scheme: dark) {
+  :global(html:not([data-appearance="light"])) .dock {
+    background: #242a27;
+    color: #f0f4ef;
+    border-color: #526052;
+  }
+  :global(html:not([data-appearance="light"])) .kicker { color: #b5bfb3; }
+  :global(html:not([data-appearance="light"])) .ring { color: #f0f4ef; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .dock { backdrop-filter: none; }
+}
+
+@media (max-width: 1000px) {
+  .dock { gap: 20px; }
+}
+
+@media (max-width: 700px) {
+  .dock {
+    padding: 19px;
+    gap: 17px;
+    border-radius: 22px;
+    width: 100%;
+    max-width: 370px;
+    flex-wrap: wrap;
+  }
+  .dock > img {
+    width: 40px;
+    height: 40px;
+  }
+  .ring {
+    width: 49px;
+    height: 49px;
+    flex-shrink: 0;
+    font-size: 1rem;
+    border-width: 4px;
+  }
+  .chart { display: none; }
+}

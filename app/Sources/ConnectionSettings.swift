@@ -2,6 +2,16 @@ import SwiftUI
 
 private struct ConnectionSetupKey: EnvironmentKey { static let defaultValue = false }
 private struct ConnectionSettingsActionKey: EnvironmentKey { static let defaultValue: () -> Void = {} }
+/// Purchase access the Studio settings consult. Production reads the model's StoreKit-derived
+/// access; injecting another value renders the screens for a given purchase state.
+struct StudioAccess {
+    var purchasesEnabled = PurchaseConfiguration.enabled
+    var canUseFeatures: @MainActor (DockModel) -> Bool
+    var canAccess: @MainActor (DockModel, ToolKind) -> Bool
+    var canAccessAI: @MainActor (DockModel) -> Bool
+    static let live = StudioAccess(canUseFeatures: { $0.canUseFeatures }, canAccess: { $0.canAccess($1) }, canAccessAI: { $0.canAccessAI })
+}
+private struct StudioAccessKey: EnvironmentKey { static let defaultValue = StudioAccess.live }
 extension EnvironmentValues {
     var connectionSetupAllowed: Bool {
         get { self[ConnectionSetupKey.self] }
@@ -11,6 +21,10 @@ extension EnvironmentValues {
         get { self[ConnectionSettingsActionKey.self] }
         set { self[ConnectionSettingsActionKey.self] = newValue }
     }
+    var studioAccess: StudioAccess {
+        get { self[StudioAccessKey.self] }
+        set { self[StudioAccessKey.self] = newValue }
+    }
 }
 struct ConnectionSettingsButton: View {
     @Environment(\.connectionSettingsAction) private var openSettings
@@ -19,11 +33,12 @@ struct ConnectionSettingsButton: View {
 
 struct StudioConnections: View {
     @ObservedObject var model: DockModel
+    @Environment(\.studioAccess) private var access
     private var available: [ToolKind] {
-        [.appleMusic, .spotify, .calendar, .googleCalendar, .reminders].filter { model.canAccess($0) }
+        [.appleMusic, .spotify, .calendar, .googleCalendar, .reminders].filter { access.canAccess(model, $0) }
     }
     private var selectedAI: StudioAIProvider? {
-        guard model.canAccessAI else { return nil }
+        guard access.canAccessAI(model) else { return nil }
         if model.codexConnectionSelected { return .openai }
         return model.connectionSettingsKind.flatMap { StudioAIProvider(kind: $0) }
     }
@@ -39,7 +54,7 @@ struct StudioConnections: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 175))], spacing: 10) {
-                if model.canAccessAI {
+                if access.canAccessAI(model) {
                     ForEach(StudioAIProvider.allCases) { provider in
                         Button {
                             model.codexConnectionSelected = provider == .openai

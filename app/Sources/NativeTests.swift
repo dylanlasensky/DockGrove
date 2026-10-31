@@ -129,6 +129,7 @@ import SwiftUI
             print("Native dock visible on current desktop: \(delegate.panel.isVisible)")
             print("PASS: native rendering and window-state checks completed")
             fflush(stdout)
+            try? Data("PASS".utf8).write(to: output.appendingPathComponent("native-result.txt"))
             NSApp.terminate(nil)
         }
     } catch { fatalError("Native test failure: \(error)") }
