@@ -72,3 +72,11 @@ ApplicationsStack.swift: closure #4 in AppsLauncher.show(model:) # local scroll-
 ApplicationsStack.swift: implicit closure #1 in closure #1 in AppsLauncherView.emptyState.getter # loading placeholder only during the very first scan of an empty catalog
 Utilities.swift: static SystemPicker.chooseFolder() # builds and runs a modal NSOpenPanel
 Utilities.swift: static SystemPicker.chooseFile(message:) # builds and runs a modal NSOpenPanel
+
+# Runner-dependent: fully covered on Xcode 27 / Apple silicon laptops, not on the GitHub macos-26 VM.
+~ ApplicationsStack.swift: closure #1 in closure #1 in AppsLauncherView.body.getter # backdrop DragGesture onChanged; the CI VM's window server does not deliver the synthesized drag to the borderless panel
+~ ApplicationsStack.swift: AppsLauncherView.finishDrag(_:) # ends that backdrop drag; AppsPager.go is tested directly
+~ Design.swift: closure #1 in DockPlate.body.getter # the CI VM takes the material fallback, so the Liquid Glass line never runs there
+~ Design.swift: NativeDockGlass.makeNSView(context:) # NSGlassEffectView is only created when the macOS 26 renderer draws the dock plate
+~ Design.swift: NativeDockGlass.updateNSView(_:context:) # as above
+~ Toolkit.swift: Toolkit.sampleSystem() # battery line runs only on machines with a power source (CI VMs have none)

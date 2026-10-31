@@ -4,7 +4,13 @@ import Foundation
 // entries in coverage-allowlist.txt. Usage: swift Scripts/CheckCoverage.swift <result.xcresult>
 //
 // Allowlist lines are `File.swift` (whole file) or `File.swift: function name` exactly as xccov
-// prints it, each followed by ` # reason`. Entries that no longer match anything also fail.
+// prints it, each followed by ` # reason`. Entries that no longer match anything also fail, except
+// ones starting with `~ `: those cover code whose coverage depends on the runner (hardware, SDK
+// renderer) and may be fully covered on one machine and not on another.
+//
+// Older Xcode releases report a property wrapper's default value (`@State private var x = 0`) as a
+// separate "variable initialization expression of T._x" function that SwiftUI may never evaluate;
+// those synthesized initializers are skipped.
 
 func stop(_ message: String) -> Never { FileHandle.standardError.write(Data((message + "\n").utf8)); exit(1) }
 guard CommandLine.arguments.count == 2 else { stop("Usage: swift Scripts/CheckCoverage.swift <result.xcresult>") }
@@ -30,10 +36,12 @@ guard let app = report.targets.first(where: { $0.name == "DockGrove.app" }) else
 let allowlistURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("coverage-allowlist.txt")
 var allowed: [String: Bool] = [:]
 for raw in (try String(contentsOf: allowlistURL, encoding: .utf8)).components(separatedBy: .newlines) {
-    let entry = raw.components(separatedBy: " # ")[0].trimmingCharacters(in: .whitespaces)
+    var entry = raw.components(separatedBy: " # ")[0].trimmingCharacters(in: .whitespaces)
     guard !entry.isEmpty, !entry.hasPrefix("#") else { continue }
     guard raw.contains(" # ") else { stop("Allowlist entry needs a ` # reason`: \(raw)") }
-    allowed[entry] = false
+    let runnerDependent = entry.hasPrefix("~ ")
+    if runnerDependent { entry = String(entry.dropFirst(2)) }
+    allowed[entry] = runnerDependent
 }
 
 var gaps: [String] = []
@@ -42,6 +50,7 @@ for file in app.files.sorted(by: { $0.name < $1.name }) {
     if allowed[file.name] != nil { allowed[file.name] = true; continue }
     covered += file.coveredLines; executable += file.executableLines
     for function in file.functions where function.coveredLines < function.executableLines {
+        if function.name.hasPrefix("variable initialization expression of "), function.name.contains("._") { continue }
         let key = "\(file.name): \(function.name)"
         if allowed[key] != nil { allowed[key] = true; continue }
         gaps.append("\(file.name):\(function.lineNumber) \(function.name) — \(function.coveredLines)/\(function.executableLines) lines")
