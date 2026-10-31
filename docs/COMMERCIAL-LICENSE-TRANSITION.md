@@ -30,6 +30,6 @@ The website `terms.html` is visibly a draft. It must not be presented as accepte
 
 ## Connected-service commercial-use review
 
-Checked October 29, 2026 against [Open-Meteo terms](https://open-meteo.com/en/terms) and [pricing](https://open-meteo.com/en/pricing). The hosted free API is restricted to non-commercial use; the provider expressly lists commercial products as commercial use. Commercial plans provide an appropriate customer endpoint and API key. The data license and hosted-service access terms are separate.
+The native app now uses Apple’s WeatherKit Swift API and Apple geocoding for manually entered cities. The previous Open-Meteo integration has been removed. Weather is available to development and commercial code paths when the app is signed and provisioned with WeatherKit access. Apple Weather attribution is included with results.
 
-The commercial candidate must not call the free weather endpoint. Weather remains unavailable in that build until an owner-approved commercial service configuration exists. No paid weather plan was purchased or enabled. The website does not advertise weather as an active commercial feature.
+Live access depends on the owner’s Apple Developer membership, App ID capability and service configuration, and a matching provisioning profile. See [WeatherKit setup](WEATHERKIT.md) for the current verification boundary. No additional weather subscription was purchased.

@@ -1,0 +1,229 @@
+name: DockGrove
+options:
+  deploymentTarget:
+    macOS: "14.0"
+# Development, Commercial and CommercialQA are the distributable universal builds.
+configs:
+  Debug: debug
+  Release: release
+  Development: release
+  Commercial: release
+  CommercialQA: release
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    CODE_SIGN_IDENTITY: Apple Development
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: G563Q4D3XW
+    CODE_SIGN_ENTITLEMENTS: DockGrove.entitlements
+    ENABLE_APP_SANDBOX: NO
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+  # Distributable builds are ad-hoc signed without entitlements, like the former build script;
+  # Developer ID signing and notarization happen afterwards.
+  configs:
+    Development:
+      CODE_SIGN_IDENTITY: "-"
+      CODE_SIGN_STYLE: Manual
+      DEVELOPMENT_TEAM: ""
+      CODE_SIGN_ENTITLEMENTS: ""
+    Commercial:
+      CODE_SIGN_IDENTITY: "-"
+      CODE_SIGN_STYLE: Manual
+      DEVELOPMENT_TEAM: ""
+      CODE_SIGN_ENTITLEMENTS: ""
+    CommercialQA:
+      CODE_SIGN_IDENTITY: "-"
+      CODE_SIGN_STYLE: Manual
+      DEVELOPMENT_TEAM: ""
+      CODE_SIGN_ENTITLEMENTS: ""
+targets:
+  DockGrove:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+      - path: Scripts
+        buildPhase: none
+      - path: Resources
+        buildPhase: resources
+      - path: Assets.xcassets
+        buildPhase: resources
+      - path: DockGrove.storekit
+        buildPhase: none
+      - path: DockGrove.entitlements
+        buildPhase: none
+    settings:
+      base:
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DOCKGROVE_STOREKIT"
+        PRODUCT_BUNDLE_IDENTIFIER: com.dylan.wavedock.development
+        PRODUCT_DISPLAY_NAME: DockGrove Development
+        INFOPLIST_FILE: Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        COMBINE_HIDPI_IMAGES: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+      configs:
+        Development:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited)"
+          ENABLE_TESTABILITY: YES
+          ONLY_ACTIVE_ARCH: NO
+        Commercial:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DOCKGROVE_COMMERCIAL"
+          PRODUCT_BUNDLE_IDENTIFIER: com.dylan.wavedock
+          PRODUCT_DISPLAY_NAME: DockGrove
+          ONLY_ACTIVE_ARCH: NO
+        CommercialQA:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DOCKGROVE_COMMERCIAL"
+          PRODUCT_BUNDLE_IDENTIFIER: com.dylan.wavedock.commercial-qa
+          PRODUCT_DISPLAY_NAME: DockGrove Commercial QA
+          ONLY_ACTIVE_ARCH: NO
+  DockGroveTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: DockGroveTests
+    dependencies:
+      - target: DockGrove
+      - target: CodexFixture
+        link: false
+        copy:
+          destination: resources
+      - target: SignInFixture
+        link: false
+        copy:
+          destination: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dylan.wavedock.tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_ENTITLEMENTS: ""
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/DockGrove.app/Contents/MacOS/DockGrove"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+  DockGroveUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: DockGroveUITests
+    dependencies:
+      - target: DockGrove
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dylan.wavedock.ui-tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_ENTITLEMENTS: ""
+        TEST_TARGET_NAME: DockGrove
+  CodexFixture:
+    type: tool
+    platform: macOS
+    sources:
+      - path: CodexFixture
+    settings:
+      base:
+        CODE_SIGN_ENTITLEMENTS: ""
+  SignInFixture:
+    type: tool
+    platform: macOS
+    sources:
+      - path: SignInFixture
+    settings:
+      base:
+        CODE_SIGN_ENTITLEMENTS: ""
+  DockTestHost:
+    type: application
+    platform: macOS
+    sources:
+      - path: DockTestHost
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dylan.wavedock.testhost
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_ENTITLEMENTS: ""
+  PurchaseTestHost:
+    type: application
+    platform: macOS
+    sources:
+      - path: PurchaseTestHost
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dylan.wavedock.purchase-test-host
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_LSUIElement: YES
+        CODE_SIGN_ENTITLEMENTS: ""
+  PurchaseTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: PurchaseTests
+      - path: Sources/Purchases.swift
+      - path: Sources/WidgetCatalog.swift
+      - path: DockGrove.storekit
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dylan.wavedock.purchase-tests
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_ENTITLEMENTS: ""
+    dependencies:
+      - target: PurchaseTestHost
+      - sdk: StoreKitTest.framework
+        developer: true
+schemes:
+  DockGrove:
+    build:
+      targets:
+        DockGrove: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+  DockGrove StoreKit Testing:
+    build:
+      targets:
+        DockGrove: all
+        PurchaseTests: [test]
+    run:
+      config: Debug
+      storeKitConfiguration: DockGrove.storekit
+    test:
+      config: Debug
+      targets:
+        - name: PurchaseTests
+          parallelizable: false
+  DockGrove Tests:
+    build:
+      targets:
+        DockGrove: all
+        DockGroveTests: [test]
+    run:
+      config: Development
+    test:
+      config: Development
+      gatherCoverageData: true
+      coverageTargets:
+        - DockGrove
+      targets:
+        - name: DockGroveTests
+          parallelizable: false
+  DockGrove Native Tests:
+    build:
+      targets:
+        DockGrove: all
+        DockGroveUITests: [test]
+    test:
+      config: Development
+      targets:
+        - DockGroveUITests
+  DockGrove Commercial:
+    build:
+      targets:
+        DockGrove: all
+    run:
+      config: Commercial
+    archive:
+      config: Commercial
+  DockTestHost:
+    build:
+      targets:
+        DockTestHost: all
+    run:
+      config: Debug

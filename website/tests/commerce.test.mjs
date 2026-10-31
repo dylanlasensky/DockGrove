@@ -57,14 +57,15 @@ test('complete purchase, activation cap, verified entitlement, deactivation and 
  const devices=Array.from({length:4},()=>crypto.randomUUID());
  const replies=await Promise.all(devices.map(deviceId=>f.call('/api/activate',{licenseKey,deviceId})));
  assert.deepEqual(replies.map(x=>x.status).sort(),[200,200,200,409]);
- const signed=(await replies[0].json()).entitlement;
+ const winner=replies.findIndex(x=>x.status===200),loser=replies.findIndex(x=>x.status===409); // concurrent activations finish in any order
+ const signed=(await replies[winner].json()).entitlement;
  assert.equal(await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},f.pair.publicKey,Buffer.from(signed.signature,'base64url'),encoded(signed.payload)),true);
- const claims=JSON.parse(Buffer.from(signed.payload,'base64url'));assert.equal(claims.deviceHash,await hash(devices[0]));assert.equal(claims.exp-claims.iat,30*86400);assert.equal(claims.environment,'test');
- assert.equal((await f.call('/api/refresh',{licenseKey,deviceId:devices[0]})).status,200);
- assert.equal((await f.call('/api/deactivate',{licenseKey,deviceId:devices[0]})).status,200);
- assert.equal((await f.call('/api/refresh',{licenseKey,deviceId:devices[0]})).status,409);
- assert.equal((await f.call('/api/activate',{licenseKey,deviceId:devices[3]})).status,200);
- assert.equal((await f.call('/api/activate',{licenseKey,deviceId:devices[0]})).status,409);
+ const claims=JSON.parse(Buffer.from(signed.payload,'base64url'));assert.equal(claims.deviceHash,await hash(devices[winner]));assert.equal(claims.exp-claims.iat,30*86400);assert.equal(claims.environment,'test');
+ assert.equal((await f.call('/api/refresh',{licenseKey,deviceId:devices[winner]})).status,200);
+ assert.equal((await f.call('/api/deactivate',{licenseKey,deviceId:devices[winner]})).status,200);
+ assert.equal((await f.call('/api/refresh',{licenseKey,deviceId:devices[winner]})).status,409);
+ assert.equal((await f.call('/api/activate',{licenseKey,deviceId:devices[loser]})).status,200);
+ assert.equal((await f.call('/api/activate',{licenseKey,deviceId:devices[winner]})).status,409);
  assert.equal((await f.call('/api/recover',{email:'buyer@example.test'})).status,200);
  const token=f.email().match(/#token=([\w-]+)/)[1];
  const recovered=await f.call('/api/recover/complete',{token});assert.equal((await recovered.json()).licenseKey,licenseKey);

@@ -1,0 +1,60 @@
+# DockGrove website, local stack.
+#
+#   docker compose up --build          site at http://localhost:8080 (/api proxied to the Worker)
+#   WEB_PORT=8089 docker compose up    if 8080 is taken (API_PORT likewise, default 8787)
+#   docker compose --profile test run --rm web-tests       website tests against the export
+#   docker compose --profile test run --rm backend-tests   commerce Worker tests
+#
+# Optional settings and test-mode backend secrets go in .env (copy .env.example;
+# gitignored). See SETUP.md.
+name: dockgrove
+
+services:
+  web:
+    build:
+      context: website
+      dockerfile: web/Dockerfile
+    image: dockgrove-web:local
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    environment:
+      API_UPSTREAM: http://api:8787
+    depends_on:
+      api:
+        condition: service_started
+
+  api:
+    build:
+      context: website
+      dockerfile: backend/Dockerfile
+    image: dockgrove-api:local
+    ports:
+      - "${API_PORT:-8787}:8787"
+    env_file:
+      - path: .env
+        required: false
+      - path: website/backend/.dev.vars
+        required: false
+    environment:
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:${WEB_PORT:-8080}}
+    volumes:
+      - api-state:/data
+
+  web-tests:
+    profiles: [test]
+    build:
+      context: website
+      dockerfile: web/Dockerfile
+      target: test
+    image: dockgrove-web:test
+
+  backend-tests:
+    profiles: [test]
+    image: node:24-bookworm-slim
+    working_dir: /src
+    volumes:
+      - ./website:/src:ro
+    command: ["node", "--test", "tests/commerce.test.mjs", "backend/*.test.mjs"]
+
+volumes:
+  api-state:

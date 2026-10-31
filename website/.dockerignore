@@ -1,0 +1,18 @@
+# Build context for both images is website/ (see /docker-compose.yml).
+**/node_modules
+**/.next
+**/out
+**/.wrangler
+**/.dev.vars
+**/.dev.vars.*
+**/.env
+**/.env.*
+**/.DS_Store
+**/*.tsbuildinfo
+# Reference copy of the original static site; the Next.js app under web/ replaces it.
+public
+# Local D1/R2 state and secrets must never enter an image.
+license-secrets
+*.p12
+*.p8
+*.key
