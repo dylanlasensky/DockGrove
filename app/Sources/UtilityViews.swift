@@ -72,7 +72,7 @@ struct UtilityView: View {
             } }
             ScrollView { VStack(alignment: .leading, spacing: 12) { ForEach(utility.habits) { habit in
                 HStack {
-                    Button { if let i = utility.habits.firstIndex(where: { $0.id == habit.id }) { utility.habits[i].toggle(at: Date()) } } label: { Image(systemName: habit.completedDays.contains(Habit.day(Date())) ? "checkmark.circle.fill" : "circle") }
+                    Button { if let i = utility.habits.firstIndex(where: { $0.id == habit.id }) { utility.habits[i].toggle(at: Date()) } } label: { Image(systemName: habit.completedDays.contains(Habit.day(Date())) ? "checkmark.circle.fill" : "circle") }.accessibilityLabel(habit.completedDays.contains(Habit.day(Date())) ? "Mark not done today" : "Mark done today")
                     VStack(alignment: .leading) { Text(habit.title); Text("\(habit.completedDays.count) recorded days").font(.caption).foregroundStyle(.secondary) }
                     Spacer(); Button("Remove") { utility.habits.removeAll { $0.id == habit.id } }
                 }
@@ -104,7 +104,7 @@ struct UtilityView: View {
             TextField("Amount", text: $amount)
             HStack {
                 Picker("From", selection: $from) { ForEach(UnitConversion.units(category), id: \.self) { Text($0).tag($0) } }
-                Button { swap(&from, &to) } label: { Image(systemName: "arrow.left.arrow.right") }
+                Button { swap(&from, &to) } label: { Image(systemName: "arrow.left.arrow.right") }.accessibilityLabel("Swap units")
                 Picker("To", selection: $to) { ForEach(UnitConversion.units(category), id: \.self) { Text($0).tag($0) } }
             }
             if let value = Double(amount), let result = UnitConversion.convert(value, from: from, to: to, category: category) {
@@ -130,7 +130,7 @@ struct UtilityView: View {
         case .reminders:
             Text(utility.remindersStatus).font(.caption).foregroundStyle(.secondary)
             ScrollView { VStack(alignment: .leading, spacing: 12) { ForEach(utility.reminders, id: \.calendarItemIdentifier) { reminder in
-                HStack { Button { effects(.completeReminder(utility, reminder)) } label: { Image(systemName: "circle") }.help("Mark complete in Apple Reminders"); Text(reminder.title ?? "Untitled") }
+                HStack { Button { effects(.completeReminder(utility, reminder)) } label: { Image(systemName: "circle") }.accessibilityLabel("Mark complete").help("Mark complete in Apple Reminders"); Text(reminder.title ?? "Untitled") }
             } }}.frame(maxHeight: 250)
             if setupAllowed { Button("Allow / refresh Reminders access") { effects(.loadReminders(utility)) } }
             else { ConnectionSettingsButton() }

@@ -21,9 +21,14 @@ jobs:
     strategy:
       matrix:
         validation-pass: [1, 2]
-    runs-on: macos-15-intel
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+      - name: Select the newest Xcode
+        run: |
+          xcode=$(find /Applications -maxdepth 1 -name "Xcode_*.app" | sort -V | tail -1)
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -65,7 +70,7 @@ jobs:
     needs: build
     if: github.event_name != 'pull_request'
     timeout-minutes: 40
-    runs-on: macos-15-intel
+    runs-on: macos-26
     env:
       DOCKGROVE_LICENSE_SERVER_URL: ${{ secrets.DOCKGROVE_LICENSE_SERVER_URL }}
       DOCKGROVE_LICENSE_PUBLIC_KEY: ${{ secrets.DOCKGROVE_LICENSE_PUBLIC_KEY }}
@@ -73,6 +78,11 @@ jobs:
       OUT: app/.build/artifacts
     steps:
       - uses: actions/checkout@v4
+      - name: Select the newest Xcode
+        run: |
+          xcode=$(find /Applications -maxdepth 1 -name "Xcode_*.app" | sort -V | tail -1)
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
       - name: Build Development and CommercialQA
         run: |
           for config in Development CommercialQA; do
@@ -123,9 +133,14 @@ jobs:
   native:
     if: github.event_name == 'workflow_dispatch' && inputs.native
     timeout-minutes: 30
-    runs-on: macos-15-intel
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+      - name: Select the newest Xcode
+        run: |
+          xcode=$(find /Applications -maxdepth 1 -name "Xcode_*.app" | sort -V | tail -1)
+          sudo xcode-select -s "$xcode"
+          xcodebuild -version
       - name: Native rendering and window-state UI tests
         run: >
           xcodebuild test -project "$PROJECT" -scheme "DockGrove Native Tests" -configuration Development

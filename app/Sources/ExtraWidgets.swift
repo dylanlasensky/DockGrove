@@ -107,7 +107,7 @@ struct CurrencyView: View {
             TextField("Amount", text: $widget.amount).font(.title2)
             HStack {
                 Picker("From", selection: $widget.base) { ForEach(CurrencyWidget.currencies, id: \.self) { Text($0) } }
-                Button { let old = widget.base; widget.base = widget.quote; widget.quote = old } label: { Image(systemName: "arrow.left.arrow.right") }.help("Swap currencies")
+                Button { let old = widget.base; widget.base = widget.quote; widget.quote = old } label: { Image(systemName: "arrow.left.arrow.right") }.accessibilityLabel("Swap currencies").help("Swap currencies")
                 Picker("To", selection: $widget.quote) { ForEach(CurrencyWidget.currencies, id: \.self) { Text($0) } }
             }
             if let result = widget.converted { Text(result.formatted(.number.precision(.fractionLength(2))) + " " + widget.quote).font(.title).textSelection(.enabled) }

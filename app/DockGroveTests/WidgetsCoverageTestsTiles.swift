@@ -140,7 +140,7 @@ struct WidgetsContentsHost: View {
         kit.draftTask = "Review"; tasks.pump()
         tasks.press("Add")
         XCTAssertEqual(kit.tasks.map(\.title), ["Write tests", "Ship", "Plan", "Review"])
-        tasks.press("Circle")
+        tasks.press("Mark done")
         XCTAssertTrue(kit.tasks[0].done)
         tasks.press("Remove task")
         tasks.press("Clear completed")

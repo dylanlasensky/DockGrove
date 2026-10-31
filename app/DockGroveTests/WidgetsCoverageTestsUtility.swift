@@ -98,7 +98,7 @@ final class WidgetsUntitledReminder: EKReminder {
         XCTAssertTrue(utility.habits.isEmpty)
         host.type("Stretch"); host.press("Add")
         XCTAssertEqual(utility.habits.map(\.title), ["Stretch"])
-        host.press("Circle")
+        host.press("Mark done today")
         XCTAssertEqual(utility.habits[0].completedDays.count, 1)
         XCTAssertTrue(host.has("1 recorded days"))
         host.press("Remove")
@@ -125,7 +125,7 @@ final class WidgetsUntitledReminder: EKReminder {
     func testConverterCategorySwapAndInvalid() {
         let host = view(.converter)
         XCTAssertTrue(host.has("3.280839895 ft"))
-        host.press("Left And Right Arrows")
+        host.press("Swap units")
         host.choose("Temperature", in: "Length")
         XCTAssertTrue(host.contains("°F"), "\(host.labels())")
         host.type("warm")

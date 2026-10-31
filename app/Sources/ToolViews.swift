@@ -168,7 +168,7 @@ struct ToolTileContents: View {
             ScrollView { VStack(alignment: .leading, spacing: 12) {
                 ForEach(kit.tasks) { task in
                     HStack {
-                        Button { if let i = kit.tasks.firstIndex(where: { $0.id == task.id }) { kit.tasks[i].done.toggle() } } label: { Image(systemName: task.done ? "checkmark.circle.fill" : "circle") }.buttonStyle(.plain).foregroundStyle(model.color)
+                        Button { if let i = kit.tasks.firstIndex(where: { $0.id == task.id }) { kit.tasks[i].done.toggle() } } label: { Image(systemName: task.done ? "checkmark.circle.fill" : "circle") }.accessibilityLabel(task.done ? "Mark not done" : "Mark done").buttonStyle(.plain).foregroundStyle(model.color)
                         Text(task.title).strikethrough(task.done).foregroundStyle(task.done ? .secondary : .primary)
                         Spacer()
                         Button { kit.tasks.removeAll { $0.id == task.id } } label: { Image(systemName: "xmark") }.buttonStyle(.plain).help("Remove task")
