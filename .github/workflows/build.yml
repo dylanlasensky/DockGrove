@@ -17,7 +17,7 @@ env:
   PRODUCTS: app/.build/xcode/Build/Products/Development
 jobs:
   build:
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       matrix:
         validation-pass: [1, 2]
@@ -31,6 +31,7 @@ jobs:
         run: >
           xcodebuild test -project "$PROJECT" -scheme "DockGrove Tests" -configuration Development
           -derivedDataPath app/.build/xcode -resultBundlePath "app/.build/DockGrove-Tests-${{ matrix.validation-pass }}.xcresult"
+          -test-timeouts-enabled YES -default-test-execution-time-allowance 120 -maximum-test-execution-time-allowance 300
       - name: Require 100% coverage outside the reviewed allowlist
         run: swift app/Scripts/CheckCoverage.swift "app/.build/DockGrove-Tests-${{ matrix.validation-pass }}.xcresult"
       - name: Build universal app

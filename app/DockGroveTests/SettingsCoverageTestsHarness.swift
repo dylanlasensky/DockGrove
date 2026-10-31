@@ -9,7 +9,13 @@ import AppKit
 @MainActor final class SettingsHarness {
     let window: NSWindow
     let host: NSView
+    private var menuGuard: NSObjectProtocol?
     init<V: View>(_ view: V, width: CGFloat = 1080, height: CGFloat = 1400) {
+        // A synthesized click that lands on a pop-up or menu button starts modal menu tracking,
+        // which waits for a real mouse forever. Cancel any menu the moment it opens.
+        menuGuard = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: nil) { note in
+            (note.object as? NSMenu)?.cancelTrackingWithoutAnimation()
+        }
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: width, height: height), styleMask: [.borderless], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.alphaValue = 0
@@ -23,7 +29,11 @@ import AppKit
         window.orderFrontRegardless()
         settle(0.2)
     }
-    func close() { window.makeFirstResponder(nil); window.orderOut(nil); window.contentView = nil }
+    func close() {
+        if let menuGuard { NotificationCenter.default.removeObserver(menuGuard) }
+        menuGuard = nil
+        window.makeFirstResponder(nil); window.orderOut(nil); window.contentView = nil
+    }
 
     /// Lets SwiftUI apply updates, then draws: key-view proxies move to new control frames
     /// only when the hosting view displays.
@@ -134,6 +144,10 @@ import AppKit
     configure(defaults)
     test.addTeardownBlock { defaults.removePersistentDomain(forName: name) }
     let model = DockModel(defaults: defaults, purchasesEnabled: purchasesEnabled)
+    // Live launches, panels, pasteboard, network and music scripting all fail or no-op, so a
+    // stray click (control positions vary with fonts and display scale) can never block on a
+    // modal panel or touch the real system. Tests that exercise one of these replace it.
+    widgetsIsolate(model)
     model.fetchUsage = { _ in throw UsageError.service }
     return model
 }
