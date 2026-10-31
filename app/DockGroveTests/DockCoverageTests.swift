@@ -744,14 +744,16 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
     /// Delivers a fake drop to whatever SwiftUI drop target sits under `point` (window coordinates).
     @discardableResult private func drop(_ pasteboard: NSPasteboard, at point: CGPoint, in harness: DockHarness, perform: Bool = true) -> Bool {
         let info = DockFakeDrag(pasteboard: pasteboard, location: point, window: harness.window)
-        // SwiftUI registers one platform view per drop destination; deliver to the topmost under the point.
-        var targets: [NSView] = []
+        // SwiftUI registers one platform view per drop destination; deliver to the innermost (smallest)
+        // under the point, since subview order does not follow the SwiftUI hierarchy on every runner.
+        var targets: [(view: NSView, area: CGFloat)] = []
         func collect(_ view: NSView) {
-            if !view.registeredDraggedTypes.isEmpty, !view.isHiddenOrHasHiddenAncestor, view.convert(view.bounds, to: nil).contains(point) { targets.append(view) }
+            let frame = view.convert(view.bounds, to: nil)
+            if !view.registeredDraggedTypes.isEmpty, !view.isHiddenOrHasHiddenAncestor, frame.contains(point) { targets.append((view, frame.width * frame.height)) }
             view.subviews.forEach(collect)
         }
         collect(harness.host)
-        guard let host = targets.last as? NSDraggingDestination else { XCTFail("No drop destination at \(point)"); return false }
+        guard let host = targets.min(by: { $0.area < $1.area })?.view as? NSDraggingDestination else { XCTFail("No drop destination at \(point)"); return false }
         let entered = host.draggingEntered?(info)
         let updated = host.draggingUpdated?(info)
         _ = (entered, updated)
