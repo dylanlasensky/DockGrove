@@ -449,9 +449,9 @@ extension Binding: IntegrationsAnyBinding {
 
         let report = root.appendingPathComponent("gemini.json")
         try geminiReport.write(to: report)
-        var panels: [NSOpenPanel] = []
-        widget.chooseFile = { panels.append($0); return nil }
-        widget.importReport(); XCTAssertEqual(panels.count, 1); XCTAssertFalse(panels[0].allowsMultipleSelection)
+        var prompts: [String] = []
+        widget.chooseFile = { prompts.append($0); return nil }
+        widget.importReport(); XCTAssertEqual(prompts.count, 1); XCTAssertTrue(prompts[0].contains("Gemini CLI"))
         widget.chooseFile = { _ in report }
         widget.importReport()
         XCTAssertEqual(try LocalAIStore.load(.gemini, directory: widget.directory).totalTokens, 130)

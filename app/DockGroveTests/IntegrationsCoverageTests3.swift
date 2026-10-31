@@ -15,7 +15,7 @@ import ServiceManagement
         let utility = Utilities(store: IntegrationsUI.defaults(self))
         let access = IntegrationsEventAccess()
         utility.reminderStore = access
-        utility.chooseDirectory = { _ in XCTFail("Unexpected folder panel"); return nil }
+        utility.chooseDirectory = { XCTFail("Unexpected folder panel"); return nil }
         utility.sampleColor = { _ in XCTFail("Unexpected color sampler") }
         utility.capture = { XCTFail("Unexpected capture"); return nil }
         utility.setLoginItem = { _ in XCTFail("Unexpected login item change") }
@@ -60,11 +60,11 @@ import ServiceManagement
         let folder = try IntegrationsUI.temporaryDirectory(self)
         try Data().write(to: folder.appendingPathComponent("item.txt"))
         let (utility, _) = utilities()
-        var panels: [NSOpenPanel] = []
-        utility.chooseDirectory = { panels.append($0); return nil }
+        var asked = 0
+        utility.chooseDirectory = { asked += 1; return nil }
         utility.chooseFolder()
-        XCTAssertTrue(panels[0].canChooseDirectories); XCTAssertFalse(panels[0].canChooseFiles)
-        utility.chooseDirectory = { _ in folder }
+        XCTAssertEqual(asked, 1)
+        utility.chooseDirectory = { folder }
         utility.chooseFolder()
         XCTAssertEqual(utility.folder, folder); XCTAssertEqual(utility.folderItems.map(\.lastPathComponent), ["item.txt"])
 

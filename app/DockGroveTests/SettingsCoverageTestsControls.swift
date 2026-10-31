@@ -97,9 +97,10 @@ import AppKit
         // Color wells open the shared color panel; set them directly instead.
         harness.clickAll { frame in !wells().contains { $0.intersects(frame) } }
         XCTAssertTrue(["Automatic", "Glass", "Graphite", "Pearl"].contains(model.theme))
-        // Filtering color groups shifts later controls, so click the toggles (16 pt rows) again.
+        // Filtering color groups shifts later controls, so click the toggles again. A toggle's
+        // frame is its whole labelled row: wide and short (16 pt here, taller on older SDKs).
         let rich = model.toolkit.richWidgets
-        harness.clickAll { $0.height <= 16 }
+        harness.clickAll { $0.height <= 22 && $0.width >= 100 }
         XCTAssertNotEqual(model.toolkit.richWidgets, rich)
         harness.select(2, in: harness.segments().last!)
         XCTAssertEqual(model.toolkit.edge, "Floating")

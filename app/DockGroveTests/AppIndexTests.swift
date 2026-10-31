@@ -35,6 +35,7 @@ import Foundation
     let yaml = AppIndexYAML.encode(learned.records)
     precondition(yaml.contains("path: \"/Applications/Xcode-beta.app\"") && yaml.contains("aliases: [\"browser\", \"web\"]"))
     precondition(AppIndexYAML.decode(yaml) == learned.records)
+    precondition(AppIndexYAML.decode("apps:\n  - name: \"Unterminated\n    path: /Apps/U.app\n").first?.name == "", "unterminated quotes read as empty")
     let handwritten = """
     apps:
       - name: Notes

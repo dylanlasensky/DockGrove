@@ -323,7 +323,7 @@ func widgetDefaults() -> UserDefaults { UserDefaults(suiteName: "WidgetsCoverage
     for player in [kit.spotify, kit.appleMusic] { widgetsIsolate(player) }
 }
 @MainActor func widgetsIsolate(_ utilities: Utilities, file: StaticString = #filePath, line: UInt = #line) {
-    utilities.chooseDirectory = { _ in XCTFail("live folder panel", file: file, line: line); return nil }
+    utilities.chooseDirectory = { XCTFail("live folder panel", file: file, line: line); return nil }
     utilities.sampleColor = { $0(nil) }
     utilities.capture = { nil }
     utilities.setLoginItem = { _ in }

@@ -73,7 +73,7 @@ struct UnitConversion {
     @Published var busy = false
     /// System services. Tests replace these with fakes; the defaults are the real macOS services.
     var reminderStore: EventStoreAccess = EKEventStore()
-    var chooseDirectory: (NSOpenPanel) -> URL? = SystemPicker.run
+    var chooseDirectory: () -> URL? = SystemPicker.chooseFolder
     var sampleColor: (@escaping (NSColor?) -> Void) -> Void = SystemPicker.sampleColor
     var capture: @Sendable () -> Int32? = Utilities.interactiveCapture
     var setLoginItem: (Bool) throws -> Void = LoginService.set
@@ -136,7 +136,7 @@ struct UnitConversion {
     }
     static func playChime() { NSSound(named: "Glass")?.play() }
     nonisolated static func interactiveCapture() -> Int32? { (try? SystemDock.run("/usr/sbin/screencapture", ["-i", "-c"]))?.0 }
-    func chooseFolder() { let p = NSOpenPanel(); p.canChooseFiles = false; p.canChooseDirectories = true; if let url = chooseDirectory(p) { loadFolder(url) } }
+    func chooseFolder() { if let url = chooseDirectory() { loadFolder(url) } }
     func pickColor() {
         sampleColor { [weak self] color in
             guard let color = color?.usingColorSpace(.sRGB) else { return }
@@ -179,6 +179,11 @@ struct UnitConversion {
 /// Modal system pickers. Callers expose instance seams so tests never present them.
 @MainActor enum SystemPicker {
     static func run(_ panel: NSOpenPanel) -> URL? { panel.runModal() == .OK ? panel.url : nil }
+    /// Panels are created only here, so tests that replace these never start the panel service.
+    static func chooseFolder() -> URL? { let p = NSOpenPanel(); p.canChooseFiles = false; p.canChooseDirectories = true; return run(p) }
+    static func chooseFile(message: String) -> URL? {
+        let p = NSOpenPanel(); p.canChooseDirectories = false; p.allowsMultipleSelection = false; p.message = message; return run(p)
+    }
     static func sampleColor(_ handler: @escaping (NSColor?) -> Void) { NSColorSampler().show(selectionHandler: handler) }
 }
 /// The app's login item. `set` registers or unregisters DockGrove with macOS.

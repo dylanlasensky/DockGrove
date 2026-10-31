@@ -150,7 +150,7 @@ enum ClaudeStatusLineSetup {
     var directory = LocalAIStore.folder
     var settingsURL = ClaudeStatusLineSetup.settingsURL
     var command = ClaudeStatusLineSetup.command
-    var chooseFile: (NSOpenPanel) -> URL? = SystemPicker.run
+    var chooseFile: (String) -> URL? = SystemPicker.chooseFile(message:)
     var pasteboard = NSPasteboard.general
     init(_ provider: LocalAIProvider) { self.provider = provider }
     func start() {
@@ -171,8 +171,7 @@ enum ClaudeStatusLineSetup {
         catch { status = (error as? LocalAIError ?? .invalid).localizedDescription }
     }
     func importReport() {
-        let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.allowsMultipleSelection = false; panel.message = "Choose a Gemini CLI --output-format json report. Only usage statistics are retained."
-        guard let url = chooseFile(panel) else { return }
+        guard let url = chooseFile("Choose a Gemini CLI --output-format json report. Only usage statistics are retained.") else { return }
         do { let parsed = try LocalAIStore.decode(LocalAIStore.boundedFile(url), provider: .gemini); try LocalAIStore.save(parsed, provider: .gemini, directory: directory); refresh() }
         catch { status = (error as? LocalAIError ?? .invalid).localizedDescription }
     }
