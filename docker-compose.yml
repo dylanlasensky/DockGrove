@@ -5,8 +5,8 @@
 #   docker compose --profile test run --rm web-tests       website tests against the export
 #   docker compose --profile test run --rm backend-tests   commerce Worker tests
 #
-# Optional backend secrets (test mode only) go in website/backend/.dev.vars
-# (gitignored); see website/backend/dev.mjs for the list.
+# Optional settings and test-mode backend secrets go in .env (copy .env.example;
+# gitignored). See SETUP.md.
 name: dockgrove
 
 services:
@@ -31,6 +31,8 @@ services:
     ports:
       - "${API_PORT:-8787}:8787"
     env_file:
+      - path: .env
+        required: false
       - path: website/backend/.dev.vars
         required: false
     environment:

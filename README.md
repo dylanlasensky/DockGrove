@@ -18,6 +18,8 @@ Toolbar dimensions are available in Settings → Appearance → Toolbar size. Dr
 
 ## Repository layout
 
+To set up a local environment or the CI/CD pipeline, start with [SETUP.md](SETUP.md) and [`.env.example`](.env.example).
+
 - [`app/`](app/) contains the native macOS app, assets, build scripts, tests, and Xcode project.
 - [`website/`](website/) contains the website, commerce backend, and web tests.
 - [`docs/`](docs/) contains shared product and release documentation.
