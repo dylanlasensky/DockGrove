@@ -833,7 +833,13 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
 
         // Studio items dropped on tiles, arrows and the bar.
         let widget = try studioPasteboard(DockStudioItem(kind: .widget, value: "calculator"))
-        harness.spin(0.1)
+        // The bar was just dragged between edges; slower runners report tile frames late.
+        var settled = model.tileFrames
+        for _ in 0..<40 {
+            harness.spin(0.1)
+            if model.tileFrames["notes"] != nil, model.tileFrames == settled { break }
+            settled = model.tileFrames
+        }
         let notes = try XCTUnwrap(model.tileFrames["notes"] ?? model.tileFrames.values.first)
         drop(widget, at: harness.windowPoint(CGPoint(x: notes.minX + 4, y: notes.midY)), in: harness, perform: false)
         drop(widget, at: harness.windowPoint(CGPoint(x: notes.minX + 4, y: notes.midY)), in: harness)
