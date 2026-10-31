@@ -20,17 +20,24 @@ struct DockView: View {
     @State private var turnedDuringDrag = false
     @State private var studioDropTarget: String?
     @State private var studioBarTarget = false
-    @GestureState private var dragging = false
-    private let dragClock = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
+    @GestureState private var dragging: Bool
+    private let dragClock: Publishers.Autoconnect<Timer.TimerPublisher>
+    var screenLookup: @MainActor (DockModel) -> NSScreen?
+    init(model: DockModel, screenLookup: @escaping @MainActor (DockModel) -> NSScreen? = { $0.selectedScreen }) {
+        self.model = model
+        self.screenLookup = screenLookup
+        _dragging = GestureState(initialValue: false)
+        dragClock = Timer.publish(every: 0.05, on: .main, in: .common).autoconnect()
+    }
     var entries: [DockEntry] { model.canUseFeatures ? model.orderedEntries : [] }
     var body: some View {
-        let screen = model.selectedScreen
+        let screen = screenLookup(model)
         let widths = entries.map { $0.width(iconSize: model.iconSize, rich: model.toolkit.richWidgets, shapes: model.toolkit.widgetShapes, tileHeight: model.tileHeight) }
         let width = model.toolbarWidth(screenWidth: screen?.frame.width ?? 1440, widths: widths)
         let pages = DockPageLayout.pages(widths: widths, available: width - DockPageLayout.chrome)
         let current = min(page, pages.count - 1)
         HStack(spacing: 8) {
-            if !model.canUseFeatures { Button("Activate DockGrove") { model.settingsAction?() } }
+            DockActivateButton(model: model, locked: !model.canUseFeatures)
             Button { page = max(0, current - 1) } label: { Image(systemName: "chevron.left").frame(width: 24, height: 46) }
                 .background(arrowGeometry(-1))
                 .foregroundStyle(dwell.direction == -1 ? model.color : .primary)
@@ -177,6 +184,15 @@ struct DockView: View {
     }
 }
 
+/// Leads the Dock's controls until DockGrove is activated; empty once it is.
+struct DockActivateButton: View {
+    @ObservedObject var model: DockModel
+    let locked: Bool
+    var body: some View {
+        if locked { Button("Activate DockGrove") { model.settingsAction?() } }
+    }
+}
+
 struct AppTile: View {
     let app: DockApp
     @ObservedObject var model: DockModel
@@ -207,10 +223,10 @@ struct AppTile: View {
             if model.apps.contains(app) { Button("Unpin") { model.remove(app) } }
             else { Button("Pin to Dock") { model.pin(app) } }
             if let running = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL?.standardizedFileURL.path == app.id }) {
-                Button(running.isHidden ? "Show app" : "Hide app") { if running.isHidden { running.unhide() } else { running.hide() } }
+                Button(running.isHidden ? "Show app" : "Hide app") { DockSystemEffect.handler(.setHidden(running, !running.isHidden)) }
             }
-            Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([app.url]) }
-            Button("Quit app") { NSWorkspace.shared.runningApplications.first { $0.bundleURL?.standardizedFileURL.path == app.id }?.terminate() }.disabled(!app.isRunning)
+            Button("Show in Finder") { DockSystemEffect.handler(.reveal([app.url])) }
+            Button("Quit app") { if let running = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL?.standardizedFileURL.path == app.id }) { DockSystemEffect.handler(.terminate(running)) } }.disabled(!app.isRunning)
         }
     }
 }

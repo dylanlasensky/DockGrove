@@ -31,6 +31,31 @@ enum WindowPlacement: String, CaseIterable, Identifiable {
         return rect
     }
 }
+/// Accessibility and window-server calls behind closures so window logic can run against fakes.
+/// `copy` returns nil when the attribute could not be read.
+struct AccessibilityClient {
+    var isTrusted: () -> Bool = AXIsProcessTrusted
+    var promptForTrust: () -> Void = { _ = AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary) }
+    var application: (pid_t) -> AXUIElement = AXUIElementCreateApplication
+    var systemWide: () -> AXUIElement = AXUIElementCreateSystemWide
+    var setTimeout: (AXUIElement, Float) -> Void = { _ = AXUIElementSetMessagingTimeout($0, $1) }
+    var copy: (AXUIElement, String) -> CFTypeRef? = { element, attribute in
+        var value: CFTypeRef?
+        return AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success ? value : nil
+    }
+    var set: (AXUIElement, String, CFTypeRef) -> AXError = { AXUIElementSetAttributeValue($0, $1 as CFString, $2) }
+    var perform: (AXUIElement, String) -> AXError = { AXUIElementPerformAction($0, $1 as CFString) }
+    var element: (AXUIElement, CGPoint) -> AXUIElement? = { root, point in
+        var hit: AXUIElement?
+        return AXUIElementCopyElementAtPosition(root, Float(point.x), Float(point.y), &hit) == .success ? hit : nil
+    }
+    var pid: (AXUIElement) -> pid_t = { var pid: pid_t = 0; AXUIElementGetPid($0, &pid); return pid }
+    var runningApplications: () -> [NSRunningApplication] = { NSWorkspace.shared.runningApplications }
+    var runningApplication: (pid_t) -> NSRunningApplication? = { NSRunningApplication(processIdentifier: $0) }
+    var activate: (NSRunningApplication) -> Void = { $0.activate(options: []) }
+    var pause: (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) }
+    static var current = AccessibilityClient()
+}
 @MainActor final class WindowManager: ObservableObject {
     @Published var windows: [ManagedWindow] = []
     @Published var status = "Allow Accessibility to list, move and resize app windows."
@@ -39,11 +64,10 @@ enum WindowPlacement: String, CaseIterable, Identifiable {
     @Published var displayIndex = 0
     private var undo: [String: CGRect] = [:]
     var usableFrameProvider: ((NSScreen)->CGRect)?
-    var trusted: Bool { AXIsProcessTrusted() }
+    var trusted: Bool { AccessibilityClient.current.isTrusted() }
     var selected: ManagedWindow? { windows.first { $0.id == selectedID } }
     func requestAccess() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-        _ = AXIsProcessTrustedWithOptions(options)
+        AccessibilityClient.current.promptForTrust()
         status = "Enable DockGrove in Privacy & Security > Accessibility (Device Control and Data Access on newer macOS), then Refresh."
     }
     func refresh() {
@@ -59,34 +83,36 @@ enum WindowPlacement: String, CaseIterable, Identifiable {
         }
     }
     nonisolated private static func discover() -> [ManagedWindow] {
+        let ax = AccessibilityClient.current
         var found: [ManagedWindow] = []
-        for app in NSWorkspace.shared.runningApplications where app.activationPolicy != .prohibited && app.processIdentifier != ProcessInfo.processInfo.processIdentifier {
-            let element = AXUIElementCreateApplication(app.processIdentifier)
-            AXUIElementSetMessagingTimeout(element, 2)
-            var value: CFTypeRef?
-            guard AXUIElementCopyAttributeValue(element, kAXWindowsAttribute as CFString, &value) == .success, let list = value as? [AXUIElement] else { continue }
+        for app in ax.runningApplications() where app.activationPolicy != .prohibited && app.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+            let element = ax.application(app.processIdentifier)
+            ax.setTimeout(element, 2)
+            guard let list = ax.copy(element, kAXWindowsAttribute) as? [AXUIElement] else { continue }
             for window in list {
-                var role: CFTypeRef?
-                AXUIElementCopyAttributeValue(window, kAXSubroleAttribute as CFString, &role)
+                let role = ax.copy(window, kAXSubroleAttribute)
                 guard [kAXStandardWindowSubrole, kAXDialogSubrole].contains(role as? String ?? "") else { continue }
-                var title: CFTypeRef?; AXUIElementCopyAttributeValue(window, kAXTitleAttribute as CFString, &title)
-                let name = (title as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Untitled window"
-                found.append(ManagedWindow(id: "\(app.processIdentifier):\(CFHash(window))", owner: app, element: window, title: "\(app.localizedName ?? "App") · \(name)"))
+                let name = (ax.copy(window, kAXTitleAttribute) as? String).flatMap { $0.isEmpty ? nil : $0 }
+                found.append(ManagedWindow(id: "\(app.processIdentifier):\(CFHash(window))", owner: app, element: window, title: windowTitle(app: app.localizedName, window: name, fallback: "Untitled window")))
             }
         }
         return found.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
+    nonisolated static func windowTitle(app: String?, window: String?, fallback: String) -> String {
+        (app ?? "App") + " · " + (window ?? fallback)
+    }
+    /// Top of the primary display, the origin flip between AppKit and Accessibility coordinates.
+    static func globalTop(_ screens: [NSScreen] = NSScreen.screens) -> CGFloat { screens.first?.frame.maxY ?? 0 }
     nonisolated static func bounds(_ window: AXUIElement) -> CGRect? {
-        var p: CFTypeRef?, s: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(window, kAXPositionAttribute as CFString, &p) == .success,
-              AXUIElementCopyAttributeValue(window, kAXSizeAttribute as CFString, &s) == .success,
-              let p, let s, CFGetTypeID(p) == AXValueGetTypeID(), CFGetTypeID(s) == AXValueGetTypeID() else { return nil }
+        let ax = AccessibilityClient.current
+        guard let p = ax.copy(window, kAXPositionAttribute), let s = ax.copy(window, kAXSizeAttribute),
+              CFGetTypeID(p) == AXValueGetTypeID(), CFGetTypeID(s) == AXValueGetTypeID() else { return nil }
         var point = CGPoint.zero, size = CGSize.zero
         guard AXValueGetValue(p as! AXValue, .cgPoint, &point), AXValueGetValue(s as! AXValue, .cgSize, &size) else { return nil }
         return CGRect(origin: point, size: size)
     }
     static func usableFrame(screen: NSScreen, dockHeight: CGFloat) -> CGRect {
-        let globalTop = NSScreen.screens.first?.frame.maxY ?? 0
+        let globalTop = globalTop()
         var usable = screen.visibleFrame
         // visibleFrame already reserves Apple's Dock in companion mode.
         usable.origin.y += dockHeight; usable.size.height = max(100, usable.height - dockHeight)
@@ -94,8 +120,7 @@ enum WindowPlacement: String, CaseIterable, Identifiable {
     }
     func place(_ placement: WindowPlacement, dockHeight: CGFloat = 0) {
         guard !loading, trusted, let selected, !NSScreen.screens.isEmpty, let current = Self.bounds(selected.element) else { status = "Window unavailable. Refresh the window list."; return }
-        var full: CFTypeRef?
-        AXUIElementCopyAttributeValue(selected.element, "AXFullScreen" as CFString, &full)
+        let full = AccessibilityClient.current.copy(selected.element, "AXFullScreen")
         guard (full as? Bool) != true else { status = "Leave native full screen before arranging this window."; return }
         let screen = NSScreen.screens[min(max(0, displayIndex), NSScreen.screens.count - 1)]
         let target = placement.frame(in: usableFrameProvider?(screen) ?? Self.usableFrame(screen: screen, dockHeight: dockHeight), current: current)
@@ -110,7 +135,7 @@ enum WindowPlacement: String, CaseIterable, Identifiable {
     private func arrange(_ frame: CGRect, selected: ManagedWindow, undoing: Bool = false) {
         guard !loading else { return }
         loading = true; status = "Arranging window…"
-        selected.owner.activate(options: [])
+        AccessibilityClient.current.activate(selected.owner)
         let element = selected.element, id = selected.id, pid = selected.owner.processIdentifier
         Task {
             let result = await Task.detached(priority: .userInitiated) {
@@ -135,14 +160,15 @@ enum WindowPlacement: String, CaseIterable, Identifiable {
     func focus() {
         guard trusted else { status = "Allow Accessibility to select and restore windows."; return }
         guard let selected else { status = "Select a window first."; return }
-        let restored = AXUIElementSetAttributeValue(selected.element, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
-        selected.owner.activate(options: [])
-        let raised = AXUIElementPerformAction(selected.element, kAXRaiseAction as CFString)
+        let ax = AccessibilityClient.current
+        let restored = ax.set(selected.element, kAXMinimizedAttribute, kCFBooleanFalse)
+        ax.activate(selected.owner)
+        let raised = ax.perform(selected.element, kAXRaiseAction)
         status = raised == .success && (restored == .success || restored == .attributeUnsupported)
             ? "Window brought forward."
             : "This app could not restore or focus the window. Refresh and check Accessibility access."
     }
-    func minimize() { guard let selected else { return }; if AXUIElementSetAttributeValue(selected.element, kAXMinimizedAttribute as CFString, kCFBooleanTrue) != .success { status = "This window cannot be minimized." } }
+    func minimize() { guard let selected else { return }; if AccessibilityClient.current.set(selected.element, kAXMinimizedAttribute, kCFBooleanTrue) != .success { status = "This window cannot be minimized." } }
 }
 struct WindowManagerView: View {
     @ObservedObject var manager: WindowManager
@@ -182,25 +208,25 @@ enum WindowFrameWriter {
         return .unavailable
     }
     static func apply(_ frame: CGRect, window: AXUIElement, pid: pid_t) -> Result {
-        let app = AXUIElementCreateApplication(pid)
-        AXUIElementSetMessagingTimeout(window, 1)
-        AXUIElementSetMessagingTimeout(app, 1)
+        let ax = AccessibilityClient.current
+        let app = ax.application(pid)
+        ax.setTimeout(window, 1)
+        ax.setTimeout(app, 1)
         // Electron and some accessibility clients change resize behavior while enhanced
         // UI is enabled. Restore the exact value, and only touch it when it was enabled.
-        var enhanced: CFTypeRef?
-        let enhancedKey = "AXEnhancedUserInterface" as CFString
-        let restoreEnhanced = AXUIElementCopyAttributeValue(app, enhancedKey, &enhanced) == .success && (enhanced as? Bool) == true
-        if restoreEnhanced { _ = AXUIElementSetAttributeValue(app, enhancedKey, kCFBooleanFalse) }
-        defer { if restoreEnhanced { _ = AXUIElementSetAttributeValue(app, enhancedKey, kCFBooleanTrue) } }
-        _ = AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
-        _ = AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+        let enhancedKey = "AXEnhancedUserInterface"
+        let restoreEnhanced = (ax.copy(app, enhancedKey) as? Bool) == true
+        if restoreEnhanced { _ = ax.set(app, enhancedKey, kCFBooleanFalse) }
+        defer { if restoreEnhanced { _ = ax.set(app, enhancedKey, kCFBooleanTrue) } }
+        _ = ax.set(window, kAXMinimizedAttribute, kCFBooleanFalse)
+        _ = ax.perform(window, kAXRaiseAction)
         return settle(target: frame, write: {
             var point = frame.origin, size = frame.size
             guard let p = AXValueCreate(.cgPoint, &point), let s = AXValueCreate(.cgSize, &size) else { return false }
-            let firstSize = AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, s)
-            let move = AXUIElementSetAttributeValue(window, kAXPositionAttribute as CFString, p)
-            let secondSize = AXUIElementSetAttributeValue(window, kAXSizeAttribute as CFString, s)
+            let firstSize = ax.set(window, kAXSizeAttribute, s)
+            let move = ax.set(window, kAXPositionAttribute, p)
+            let secondSize = ax.set(window, kAXSizeAttribute, s)
             return move == .success && (firstSize == .success || secondSize == .success)
-        }, read: { WindowManager.bounds(window) }, pause: { Thread.sleep(forTimeInterval: 0.08) })
+        }, read: { WindowManager.bounds(window) }, pause: { ax.pause(0.08) })
     }
 }

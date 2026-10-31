@@ -1,6 +1,7 @@
 import Foundation
+@testable import DockGrove
 
-@MainActor func runSelfTests() {
+@MainActor func runSelfTests(codexFixture: String? = nil) {
     let modern = #"{"rateLimits":{"limitId":"codex","primary":{"usedPercent":70,"windowDurationMins":300,"resetsAt":2000000000}},"rateLimitsByLimitId":{"codex":{"limitId":"codex","primary":{"usedPercent":30.5,"windowDurationMins":300,"resetsAt":2000000000},"secondary":{"usedPercent":10,"windowDurationMins":10080}},"other":{"limitId":"other","limitName":"Other model","primary":{"usedPercent":100,"windowDurationMins":60}}}}"#
     do {
         try runBehaviorTests()
@@ -49,8 +50,8 @@ import Foundation
         print("PASS: reorder in both directions, profile sanitization, early subprocess exit")
         print("PASS: layouts and tasks persist losslessly; widget identifiers are unique")
         print("PASS: multi-bucket response, legacy fallback, window labels, percentage bounds, missing windows")
-        if let index = CommandLine.arguments.firstIndex(of: "--fixture-cli"), CommandLine.arguments.indices.contains(index + 1) {
-            let fixture = try UsageClient.fetch(custom: CommandLine.arguments[index + 1])
+        if let codexFixture {
+            let fixture = try UsageClient.fetch(custom: codexFixture)
             precondition(fixture.buckets.first?.1.primary?.remaining == 63)
             print("PASS: subprocess initialize/initialized handshake and rate-limits response")
         }

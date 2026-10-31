@@ -1,5 +1,6 @@
 import AppKit
 import SpriteKit
+@testable import DockGrove
 
 @MainActor func runAssetCatalogTests(output: URL? = nil) throws {
     for name in ["DockGrove-icon", "DockGrove-mark", "DockGrove-wordmark", "DockGrove-brand-sheet"] {

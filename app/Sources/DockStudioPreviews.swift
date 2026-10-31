@@ -163,7 +163,7 @@ struct DockStudioPreview: View {
                 let entries = model.studioEntries
                 let widths = entries.map { max(12, $0.width(iconSize: model.iconSize, rich: model.toolkit.richWidgets, shapes: model.toolkit.widgetShapes, tileHeight: model.tileHeight)) } + [42]
                 let natural = widths.reduce(0, +) + CGFloat(max(0, widths.count - 1)) * DockPageLayout.gap + 112
-                let requested = min(geometry.size.width, max((widths.max() ?? 236) + 112, geometry.size.width * model.widthFraction))
+                let requested = min(geometry.size.width, max(widths.reduce(0, max) + 112, geometry.size.width * model.widthFraction))
                 let previewWidth = model.fitToolbarToContent ? min(requested, natural) : requested
                 let pages = DockPageLayout.pages(widths: widths, available: max(1, previewWidth - 112))
                 let current = min(page, pages.count - 1)
@@ -214,21 +214,23 @@ struct DockStudioPreview: View {
     }
 }
 
-private struct StudioDraggableTile: View {
+struct StudioDraggableTile: View {
     let entry: DockEntry
     let nextID: String?
     @ObservedObject var model: DockModel
     @State private var targeted = false
+    /// Places one dropped item before this tile, or after it when dropped on its right half.
+    func drop(_ items: [DockStudioItem], at x: CGFloat) -> Bool {
+        guard items.count == 1 else { return false }
+        let width = max(12, entry.width(iconSize: model.iconSize, rich: model.toolkit.richWidgets, shapes: model.toolkit.widgetShapes, tileHeight: model.tileHeight))
+        return model.placeStudioItem(items[0], before: x < width / 2 ? entry.id : nextID)
+    }
     var body: some View {
         StudioEntryPreview(entry: entry, model: model)
             .contentShape(RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(targeted ? Color.accentColor : .clear, lineWidth: 2))
             .draggable(model.studioItem(entry)!) { StudioEntryPreview(entry: entry, model: model) }
-            .dropDestination(for: DockStudioItem.self) { items, point in
-                guard items.count == 1 else { return false }
-                let width = max(12, entry.width(iconSize: model.iconSize, rich: model.toolkit.richWidgets, shapes: model.toolkit.widgetShapes, tileHeight: model.tileHeight))
-                return model.placeStudioItem(items[0], before: point.x < width / 2 ? entry.id : nextID)
-            } isTargeted: { targeted = $0 }
+            .dropDestination(for: DockStudioItem.self) { items, point in drop(items, at: point.x) } isTargeted: { targeted = $0 }
             .contextMenu {
                 if case .tool(let kind) = entry, kind != .spacer, kind != .separator {
                     Menu("Widget shape") {

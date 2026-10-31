@@ -1,6 +1,48 @@
 import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
+import EventKit
+
+/// Work a widget view hands to the system or to a model's system-facing method: Finder, browser,
+/// pasteboard, open and save panels, login items, app launches, and network or automation refreshes.
+/// Views send these through `\.widgetEffects` so tests can observe them without touching the Mac.
+enum WidgetEffect {
+    case open(URL), reveal([URL]), copy(String), characterPalette
+    case launch(DockModel, DockApp), exportProfiles(DockModel), importProfiles(DockModel)
+    case setLogin(Utilities, Bool), browse(Utilities, URL), chooseFolder(Utilities), screenshot(Utilities), pickColor(Utilities), loadReminders(Utilities), completeReminder(Utilities, EKReminder)
+    case addFiles(Toolkit), fetchWeather(Toolkit), refreshGitHub(GitHubWidget), music(MusicPlayer, MusicCommand)
+    @MainActor static func perform(_ effect: WidgetEffect) -> Bool {
+        switch effect {
+        case .open(let url): return NSWorkspace.shared.open(url)
+        case .reveal(let urls): NSWorkspace.shared.activateFileViewerSelecting(urls)
+        case .copy(let text): NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
+        case .characterPalette: NSApp.orderFrontCharacterPalette(nil)
+        case .launch(let model, let app): model.open(app)
+        case .exportProfiles(let model): model.exportProfiles()
+        case .importProfiles(let model): model.importProfiles()
+        case .setLogin(let utility, let enabled): utility.setLogin(enabled)
+        case .browse(let utility, let folder): utility.loadFolder(folder)
+        case .chooseFolder(let utility): utility.chooseFolder()
+        case .screenshot(let utility): utility.screenshot()
+        case .pickColor(let utility): utility.pickColor()
+        case .loadReminders(let utility): utility.loadReminders()
+        case .completeReminder(let utility, let reminder): utility.completeReminder(reminder)
+        case .addFiles(let kit): kit.addFiles()
+        case .fetchWeather(let kit): kit.fetchWeather()
+        case .refreshGitHub(let github): github.refresh()
+        case .music(let player, let command): player.refresh(command: command)
+        }
+        return true
+    }
+}
+struct WidgetEffects {
+    var handler: @MainActor (WidgetEffect) -> Bool
+    @MainActor @discardableResult func callAsFunction(_ effect: WidgetEffect) -> Bool { handler(effect) }
+}
+private struct WidgetEffectsKey: EnvironmentKey { static let defaultValue = WidgetEffects(handler: WidgetEffect.perform) }
+extension EnvironmentValues {
+    var widgetEffects: WidgetEffects { get { self[WidgetEffectsKey.self] } set { self[WidgetEffectsKey.self] = newValue } }
+}
 
 struct ToolTile: View {
     let kind: ToolKind
@@ -63,9 +105,18 @@ struct ToolTile: View {
         }
     }
     var contents: some View {
-        widgetContents.environment(\.connectionSettingsAction, { model.openConnectionSettings(kind) })
+        ToolTileContents(kind: kind, model: model, kit: kit, interaction: interaction).environment(\.connectionSettingsAction, { model.openConnectionSettings(kind) })
     }
-    @ViewBuilder private var widgetContents: some View {
+}
+
+/// A widget's expanded contents; also hosted on its own by the notch and connection settings.
+struct ToolTileContents: View {
+    let kind: ToolKind
+    @ObservedObject var model: DockModel
+    @ObservedObject var kit: Toolkit
+    let interaction: TileInteraction
+    @Environment(\.widgetEffects) private var effects
+    var body: some View {
         switch kind {
         case .pet: CompanionView(pet: kit.pet, accent: model.color)
         case .claudeCodeUsage: LocalAIUsageView(widget: kit.claudeCodeUsage)
@@ -89,8 +140,8 @@ struct ToolTile: View {
         case .weather:
             Text(kit.weatherText).font(.system(size: 40, weight: .light, design: .rounded))
             Text(kit.weatherDetail).font(.callout).foregroundStyle(.secondary)
-            TextField("City name", text: $kit.weatherCity).textFieldStyle(.roundedBorder).onSubmit { kit.fetchWeather() }
-            Button(kit.weatherLoading ? "Loading…" : "Get weather") { kit.fetchWeather() }.disabled(kit.weatherLoading)
+            TextField("City name", text: $kit.weatherCity).textFieldStyle(.roundedBorder).onSubmit { effects(.fetchWeather(kit)) }
+            Button(kit.weatherLoading ? "Loading…" : "Get weather") { effects(.fetchWeather(kit)) }.disabled(kit.weatherLoading)
             Text("Your entered city is sent to Apple when you refresh. Your device location is not used.").font(.caption).foregroundStyle(.secondary)
             if let snapshot = kit.weatherSnapshot { WeatherAttributionView(snapshot: snapshot) }
         case .music:
@@ -102,7 +153,7 @@ struct ToolTile: View {
             ScrollView { LazyVStack(spacing: 4) {
                 ForEach(kit.applications.filter { kit.query.isEmpty || $0.name.localizedCaseInsensitiveContains(kit.query) }) { app in
                     HStack {
-                        Button { model.open(app); interaction.expanded = false } label: {
+                        Button { effects(.launch(model, app)); interaction.expanded = false } label: {
                             HStack { Image(nsImage: app.icon).resizable().frame(width: 28, height: 28); Text(app.name); Spacer() }
                         }.buttonStyle(.plain)
                         Button { model.pin(app) } label: { Image(systemName: model.apps.contains(app) ? "pin.fill" : "pin") }.disabled(model.apps.contains(app)).help("Pin app")
@@ -140,14 +191,14 @@ struct ToolTile: View {
                 }
             ScrollView { VStack(spacing: 10) { ForEach(kit.files, id: \.self) { path in
                 HStack {
-                    Button { NSWorkspace.shared.open(URL(fileURLWithPath: path)) } label: {
+                    Button { effects(.open(URL(fileURLWithPath: path))) } label: {
                         HStack { Image(nsImage: NSWorkspace.shared.icon(forFile: path)).resizable().frame(width: 24, height: 24); Text(URL(fileURLWithPath: path).lastPathComponent).lineLimit(1); Spacer() }
                     }.buttonStyle(.plain).onDrag { NSItemProvider(object: URL(fileURLWithPath: path) as NSURL) }
-                    Button { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)]) } label: { Image(systemName: "folder") }.help("Reveal in Finder")
+                    Button { effects(.reveal([URL(fileURLWithPath: path)])) } label: { Image(systemName: "folder") }.help("Reveal in Finder")
                     Button { kit.files.removeAll { $0 == path } } label: { Image(systemName: "xmark") }.help("Remove shortcut")
                 }
             } }}.frame(maxHeight: 230)
-            HStack { Button("Add files…", action: kit.addFiles); Button("Downloads") { NSWorkspace.shared.open(FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")) } }
+            HStack { Button("Add files…") { effects(.addFiles(kit)) }; Button("Downloads") { effects(.open(FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads"))) } }
             Text("Removing a shortcut leaves the original file in place.").font(.caption).foregroundStyle(.secondary)
         case .system: SystemDetailView(monitor: kit.monitor, kit: kit)
         case .calendar: CalendarAgendaView(calendar: kit.calendar)
@@ -155,7 +206,7 @@ struct ToolTile: View {
             Toggle("Capture copied text", isOn: $kit.clipboardEnabled)
             Text("Opt-in, memory only, up to 20 entries. Marked password-manager copies are skipped. Turn off capture for other sensitive text.").font(.caption).foregroundStyle(.secondary)
             ScrollView { VStack(spacing: 8) { ForEach(kit.clipboard, id: \.self) { text in
-                Button { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string) } label: { Text(text).lineLimit(3).frame(maxWidth: .infinity, alignment: .leading).padding(8) }.buttonStyle(.bordered)
+                Button { effects(.copy(text)) } label: { Text(text).lineLimit(3).frame(maxWidth: .infinity, alignment: .leading).padding(8) }.buttonStyle(.bordered)
             } }}.frame(maxHeight: 250)
             Button("Clear history") { kit.clipboard = [] }
         }
@@ -165,6 +216,7 @@ struct ToolTile: View {
 struct WorkspaceSettings: View {
     @ObservedObject var model: DockModel
     @ObservedObject var kit: Toolkit
+    @Environment(\.widgetEffects) private var effects
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Label("Layout & profiles", systemImage: "rectangle.3.group").font(.headline)
@@ -176,7 +228,7 @@ struct WorkspaceSettings: View {
             ForEach(kit.profiles) { profile in
                 HStack { Text(profile.name); Spacer(); Button("Apply") { model.applyProfile(profile) }; Button("Remove") { kit.profiles.removeAll { $0.id == profile.id } } }
             }
-            HStack { Button("Export layouts…", action: model.exportProfiles); Button("Import layouts…", action: model.importProfiles) }
+            HStack { Button("Export layouts…") { effects(.exportProfiles(model)) }; Button("Import layouts…") { effects(.importProfiles(model)) } }
             Divider()
             LoginSettings(utility: kit.utilities)
 
@@ -186,9 +238,10 @@ struct WorkspaceSettings: View {
 
 struct LoginSettings: View {
     @ObservedObject var utility: Utilities
+    @Environment(\.widgetEffects) private var effects
     var body: some View {
         VStack(alignment: .leading) {
-            Toggle("Open DockGrove at login", isOn: Binding(get: { utility.loginEnabled }, set: { utility.setLogin($0) }))
+            Toggle("Open DockGrove at login", isOn: Binding(get: { utility.loginEnabled }, set: { effects(.setLogin(utility, $0)) }))
             if let message = utility.status { Text(message).font(.caption).foregroundStyle(.secondary) }
         }
     }

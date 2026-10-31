@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+@testable import DockGrove
 
 func runLicensingTests() throws {
         let key = P256.Signing.PrivateKey()

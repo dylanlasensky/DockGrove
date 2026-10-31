@@ -13,7 +13,7 @@ struct NativeStudioDragSource: NSViewRepresentable {
         view.clicked = clicked
     }
 
-    final class SourceView: NSView, NSDraggingSource {
+    class SourceView: NSView, NSDraggingSource {
         var item: DockStudioItem?
         var clicked: (() -> Void)?
         private var down: CGPoint?
@@ -42,8 +42,10 @@ struct NativeStudioDragSource: NSViewRepresentable {
                 }
             }
             draggingItem.setDraggingFrame(bounds, contents: image)
-            beginDraggingSession(with: [draggingItem], event: event, source: self)
+            startSession([draggingItem], event: event)
         }
+        /// Hands the item to the system drag server; tests override it so no real drag starts.
+        func startSession(_ items: [NSDraggingItem], event: NSEvent) { beginDraggingSession(with: items, event: event, source: self) }
         override func mouseUp(with event: NSEvent) {
             if !started, down != nil, bounds.contains(convert(event.locationInWindow, from: nil)) { clicked?() }
             down = nil

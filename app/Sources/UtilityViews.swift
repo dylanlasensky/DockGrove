@@ -3,6 +3,7 @@ import AppKit
 
 struct UtilityView: View {
     @Environment(\.connectionSetupAllowed) private var setupAllowed
+    @Environment(\.widgetEffects) private var effects
     let kind: ToolKind
     @ObservedObject var utility: Utilities
     @State private var title = ""
@@ -38,14 +39,14 @@ struct UtilityView: View {
             ScrollView { LazyVStack(alignment: .leading) { ForEach(utility.sortedFolderItems, id: \.path) { url in
                 Button {
                     if (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true && url.pathExtension != "app" { utility.loadFolder(url) }
-                    else { NSWorkspace.shared.open(url) }
+                    else { effects(.open(url)) }
                 } label: {
                     HStack { Image(nsImage: NSWorkspace.shared.icon(forFile: url.path)).resizable().frame(width: 24, height: 24); Text(url.lastPathComponent).lineLimit(1); Spacer() }
                 }.buttonStyle(.plain).padding(4)
                     .onDrag { NSItemProvider(object: url as NSURL) }
-                    .contextMenu { Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) } }
+                    .contextMenu { Button("Show in Finder") { effects(.reveal([url])) } }
             } }}.frame(height: 230).onAppear { utility.loadFolder() }
-            HStack { Button("Choose…", action: utility.chooseFolder); Button("Downloads") { utility.loadFolder(FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads")) }; Button("Refresh") { utility.loadFolder() } }
+            HStack { Button("Choose…") { effects(.chooseFolder(utility)) }; Button("Downloads") { effects(.browse(utility, FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads"))) }; Button("Refresh") { utility.loadFolder() } }
         case .stopwatch:
             TimelineView(.periodic(from: .now, by: 0.1)) { context in
                 Text(duration(utility.elapsed(at: context.date))).font(.system(size: 42, weight: .light, design: .monospaced))
@@ -111,33 +112,33 @@ struct UtilityView: View {
             } else { Text("Enter a valid number.").foregroundStyle(.secondary) }
             Text("Offline unit conversions. KB uses 1,000 bytes; KiB uses 1,024.").font(.caption).foregroundStyle(.secondary)
         case .capture:
-            Button("Capture selection to clipboard", action: utility.screenshot).disabled(utility.busy)
+            Button("Capture selection to clipboard") { effects(.screenshot(utility)) }.disabled(utility.busy)
             Button("Open macOS Screenshot toolbar") { launch("/System/Applications/Utilities/Screenshot.app") }
             Text("The macOS toolbar also offers window capture, full screen capture, recording, timers, and save locations.").font(.caption).foregroundStyle(.secondary)
         case .colors:
             Text(utility.colorHex).font(.system(size: 32, design: .monospaced)).textSelection(.enabled)
-            HStack { Button("Pick from screen", action: utility.pickColor); Button("Copy hex") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(utility.colorHex, forType: .string) } }
+            HStack { Button("Pick from screen") { effects(.pickColor(utility)) }; Button("Copy hex") { effects(.copy(utility.colorHex)) } }
         case .controls:
             Button("Mission Control") { launch("/System/Applications/Mission Control.app") }
-            Button("Emoji & Symbols") { NSApp.orderFrontCharacterPalette(nil) }
+            Button("Emoji & Symbols") { effects(.characterPalette) }
             Button("Sound settings") { openSettings("com.apple.Sound-Settings.extension") }
             Button("Display settings") { openSettings("com.apple.Displays-Settings.extension") }
             Button("Wi-Fi settings") { openSettings("com.apple.wifi-settings-extension") }
             Button("Bluetooth settings") { openSettings("com.apple.BluetoothSettings") }
             Button("Desktop & Dock settings") { openSettings("com.apple.Desktop-Settings.extension") }
-            Button("Open Trash") { NSWorkspace.shared.open(FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".Trash")) }
+            Button("Open Trash") { effects(.open(FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".Trash"))) }
         case .reminders:
             Text(utility.remindersStatus).font(.caption).foregroundStyle(.secondary)
             ScrollView { VStack(alignment: .leading, spacing: 12) { ForEach(utility.reminders, id: \.calendarItemIdentifier) { reminder in
-                HStack { Button { utility.completeReminder(reminder) } label: { Image(systemName: "circle") }.help("Mark complete in Apple Reminders"); Text(reminder.title ?? "Untitled") }
+                HStack { Button { effects(.completeReminder(utility, reminder)) } label: { Image(systemName: "circle") }.help("Mark complete in Apple Reminders"); Text(reminder.title ?? "Untitled") }
             } }}.frame(maxHeight: 250)
-            if setupAllowed { Button("Allow / refresh Reminders access", action: utility.loadReminders) }
+            if setupAllowed { Button("Allow / refresh Reminders access") { effects(.loadReminders(utility)) } }
             else { ConnectionSettingsButton() }
         default: EmptyView()
         }
     }
     private func duration(_ t: TimeInterval) -> String { String(format: "%02d:%02d.%01d", Int(t) / 60, Int(t) % 60, Int(t * 10) % 10) }
     private func clock(_ date: Date, _ zone: String) -> String { let f = DateFormatter(); f.timeZone = TimeZone(identifier: zone); f.dateFormat = "EEE HH:mm:ss"; return f.string(from: date) }
-    private func launch(_ path: String) { if !NSWorkspace.shared.open(URL(fileURLWithPath: path)) { utility.status = "This system app is unavailable on this Mac." } }
-    private func openSettings(_ pane: String) { if let url = URL(string: "x-apple.systempreferences:" + pane) { NSWorkspace.shared.open(url) } }
+    private func launch(_ path: String) { if !effects(.open(URL(fileURLWithPath: path))) { utility.status = "This system app is unavailable on this Mac." } }
+    private func openSettings(_ pane: String) { if let url = URL(string: "x-apple.systempreferences:" + pane) { effects(.open(url)) } }
 }

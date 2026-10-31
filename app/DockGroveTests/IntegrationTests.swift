@@ -1,4 +1,5 @@
 import AppKit
+@testable import DockGrove
 
 @MainActor func runIntegrationTests() async throws {
     try await runWeatherTests()

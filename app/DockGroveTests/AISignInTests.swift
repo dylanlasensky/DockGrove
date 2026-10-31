@@ -1,11 +1,12 @@
 import Foundation
+@testable import DockGrove
 
 @MainActor func runAISignInTests(fixture: String) async throws {
     let folder = FileManager.default.temporaryDirectory.appendingPathComponent("DockGrove Sign-in ' " + UUID().uuidString)
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: folder) }
     func executable(_ name: String) throws -> String {
-        let path = folder.appendingPathComponent(name + ".py")
+        let path = folder.appendingPathComponent(name)
         try FileManager.default.copyItem(atPath: fixture, toPath: path.path)
         try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: path.path)
         return path.path

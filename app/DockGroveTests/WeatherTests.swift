@@ -1,5 +1,6 @@
 import Foundation
 import WeatherKit
+@testable import DockGrove
 
 @MainActor func runWeatherTests() async throws {
     let suite = "DockGroveWeatherTests-\(UUID().uuidString)"

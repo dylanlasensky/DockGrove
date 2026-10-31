@@ -84,17 +84,34 @@ struct DockApp: Identifiable, Equatable {
     var closeSettingsAction: (() -> Void)?
     var changeDockAction: ((Bool) -> Void)?
     var visibilityAction: (() -> Void)?
-    var canUseFeatures: Bool { PurchaseConfiguration.enabled || LicenseManager.shared.permitsFeatures }
-    var accessTier: AccessTier { PurchaseConfiguration.enabled ? PurchaseManager.shared.tier : .full }
+    /// System side effects, replaceable so tests never launch apps, show panels or run the Codex CLI.
+    var openApplication: (URL) -> Void = DockModel.launch
+    var chooseExportURL: () -> URL? = DockModel.runSavePanel
+    var chooseImportURL: () -> URL? = DockModel.runOpenPanel
+    var fetchUsage: (String) throws -> UsageResponse = UsageClient.fetch(custom:)
+    static func launch(_ url: URL) { NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, _ in } }
+    static func runSavePanel() -> URL? {
+        let panel = NSSavePanel(); panel.nameFieldStringValue = "DockGrove-layouts.json"
+        return panel.runModal() == .OK ? panel.url : nil
+    }
+    static func runOpenPanel() -> URL? {
+        let panel = NSOpenPanel(); panel.allowedContentTypes = [.json]
+        return panel.runModal() == .OK ? panel.url : nil
+    }
+    /// Whether StoreKit tiers gate features; a build setting, injectable so both modes are testable.
+    let purchasesEnabled: Bool
+    var canUseFeatures: Bool { purchasesEnabled || LicenseManager.shared.permitsFeatures }
+    var accessTier: AccessTier { purchasesEnabled ? PurchaseManager.shared.tier : .full }
     func canAccess(_ kind: ToolKind) -> Bool { canUseFeatures && accessTier >= kind.requiredAccess }
     var canAccessAI: Bool { canUseFeatures && accessTier == .full }
     private var purchaseObservation: AnyCancellable?
     private var licenseObservation: AnyCancellable?
-    private var timer: Timer?
+    private(set) var timer: Timer?
     private var observations: [NSObjectProtocol] = []
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, purchasesEnabled: Bool = PurchaseConfiguration.enabled) {
         self.defaults = defaults
+        self.purchasesEnabled = purchasesEnabled
         entryOrder = defaults.stringArray(forKey:"entryOrder") ?? []
         dockName = defaults.string(forKey: "dockName") ?? "Main Dock"
         theme = defaults.string(forKey: "theme") ?? "Automatic"
@@ -111,7 +128,7 @@ struct DockApp: Identifiable, Equatable {
         snappingEnabled = defaults.bool(forKey: "snappingEnabled")
         snapRequiresOption = defaults.object(forKey: "snapRequiresOption") as? Bool ?? true
         visible = defaults.object(forKey: "dockVisible") as? Bool ?? true
-        toolkit = Toolkit(store: defaults)
+        toolkit = Toolkit(store: defaults, purchasesEnabled: purchasesEnabled)
         defaults.register(defaults: ["iconSize": 48.0, "accent": "White", "showClock": true, "usageEnabled": false])
         iconSize = defaults.double(forKey: "iconSize")
         accent = defaults.string(forKey: "accent") ?? "White"
@@ -134,7 +151,7 @@ struct DockApp: Identifiable, Equatable {
             Task { @MainActor [weak self] in if self?.usageEnabled == true { self?.refreshUsage() } }
         }
         licenseObservation = LicenseManager.shared.objectWillChange.debounce(for: .milliseconds(50), scheduler: RunLoop.main).sink { [weak self] _ in self?.objectWillChange.send() }
-        if PurchaseConfiguration.enabled {
+        if purchasesEnabled {
             purchaseObservation = PurchaseManager.shared.$ownedProductIDs.dropFirst().receive(on: RunLoop.main).sink { [weak self] _ in
                 guard let self else { return }
                 self.objectWillChange.send()
@@ -165,8 +182,7 @@ struct DockApp: Identifiable, Equatable {
     func persistApps() { defaults.set(apps.map(\.id), forKey: "apps") }
     func open(_ app: DockApp) {
         guard canUseFeatures else { settingsAction?(); return }
-        let configuration = NSWorkspace.OpenConfiguration()
-        NSWorkspace.shared.openApplication(at: app.url, configuration: configuration) { _, _ in }
+        openApplication(app.url)
     }
     func addApps() { showAppPicker() }
     func remove(_ app: DockApp) { rememberApps(); apps.removeAll { $0.id == app.id }; entryOrder.removeAll { $0 == "app:" + app.id }; persistApps() }
@@ -228,14 +244,12 @@ struct DockApp: Identifiable, Equatable {
         toolkit.enabled = profile.widgets.filter { ToolKind(rawValue: $0) != nil && seen.insert($0).inserted }; accent = profile.accent; iconSize = max(32, min(64, profile.size)); persistApps()
     }
     func exportProfiles() {
-        let panel = NSSavePanel(); panel.nameFieldStringValue = "DockGrove-layouts.json"
-        if panel.runModal() == .OK, let url = panel.url {
+        if let url = chooseExportURL() {
             do { try JSONEncoder().encode(toolkit.profiles).write(to: url, options: .atomic) } catch { systemError = "Could not export layouts." }
         }
     }
     func importProfiles() {
-        let panel = NSOpenPanel(); panel.allowedContentTypes = [.json]
-        if panel.runModal() == .OK, let url = panel.url {
+        if let url = chooseImportURL() {
             do {
                 let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
                 guard let size = attributes[.size] as? NSNumber, size.intValue <= 1_000_000 else { throw UsageError.service }
@@ -256,8 +270,9 @@ struct DockApp: Identifiable, Equatable {
         fetching = true
         let custom = customCLI
         let generation = usageGeneration
+        let fetch = fetchUsage
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            let result = Result { try UsageClient.fetch(custom: custom) }
+            let result = Result { try fetch(custom) }
             Task { @MainActor [weak self] in
                 guard let self = self, self.usageGeneration == generation else { return }
                 self.fetching = false

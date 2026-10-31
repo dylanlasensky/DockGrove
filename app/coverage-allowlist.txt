@@ -1,0 +1,65 @@
+# Code that may stay uncovered by the DockGrove Tests scheme. Every entry needs a reason and
+# review; Scripts/CheckCoverage.swift fails on anything else that is not 100% line-covered.
+# Format: `File.swift # reason` or `File.swift: function name # reason` (names as xccov prints them).
+
+NativeTests.swift # Test code that must ship in the app: the --native-test launch mode run by DockGroveUITests
+ReleaseVisualTests.swift # Test code rendered only by the --native-test launch mode run by DockGroveUITests
+
+# Live system side effects behind test seams (tests inject fakes)
+AppWindows.swift: static DockSystemEffect.perform(_:) # presents/activates windows, opens files/Finder, hides/quits apps — real system effects
+NativeStudioDragSource.swift: NativeStudioDragSource.SourceView.startSession(_:event:) # starts a real system drag session
+Notch.swift: static NotchController.runOpenPanel(message:) # modal NSOpenPanel
+NotchWorkspace.swift: closure #3 in NotchTrayView.trayItem(_:) # SwiftUI onDrag item provider only runs inside a real system drag session
+ToolViews.swift: static WidgetEffect.perform(_:) # live system side effects (NSWorkspace open/launch, pasteboard, panels, login item, profile import/export); tests use the WidgetEffects seam
+ToolViews.swift: implicit closure #1 in variable initialization expression of static WidgetEffectsKey.defaultValue # production default pointing at WidgetEffect.perform; tests always inject a fake
+ToolViews.swift: closure #3 in closure #1 in closure #1 in closure #1 in closure #11 in ToolTileContents.body.getter # onDrag item provider for the files row; only a real drag session calls it
+UtilityViews.swift: closure #3 in closure #1 in closure #1 in closure #5 in UtilityView.content.getter # onDrag item provider for the folders row; only a real drag session calls it
+ExtraWidgets.swift: LiveVoiceMemoDevice.requestMicrophone() # real microphone permission prompt
+ExtraWidgets.swift: LiveVoiceMemoDevice.exportDestination() # modal NSSavePanel
+DockStudioPreviews.swift: closure #1 in closure #1 in closure #3 in closure #2 in closure #2 in closure #1 in DockStudioPreview.body.getter # dropDestination handler (end slot); needs a real drag session
+DockStudioPreviews.swift: closure #2 in closure #1 in closure #3 in closure #2 in closure #2 in closure #1 in DockStudioPreview.body.getter # dropDestination isTargeted (end slot); needs a real drag session
+DockStudioPreviews.swift: closure #1 in closure #3 in closure #1 in DockStudioPreview.body.getter # dropDestination handler ("Drop to remove"); needs a real drag session
+DockStudioPreviews.swift: closure #2 in closure #3 in closure #1 in DockStudioPreview.body.getter # dropDestination isTargeted ("Drop to remove"); needs a real drag session
+DockStudioPreviews.swift: implicit closure #1 in StudioDraggableTile.body.getter # draggable payload, evaluated only when a real drag starts
+DockStudioPreviews.swift: closure #2 in StudioDraggableTile.body.getter # one-line dropDestination wrapper; its logic drop(_:at:) is tested
+DockStudioPreviews.swift: closure #3 in StudioDraggableTile.body.getter # dropDestination isTargeted; needs a real drag session
+
+# Unreachable defensive fallbacks
+DockStudioSettings.swift: implicit closure #1 in closure #1 in closure #1 in closure #1 in StudioWidgetCard.card.getter # `?? 174` unreachable: only non-rounded shapes reach here and they always have a width
+DockStudioSettings.swift: implicit closure #1 in closure #2 in closure #1 in StudioWidgetShapes.body.getter # `?? .focus` unreachable: the choice control only sets valid ToolKind raw values
+DockStudioSettings.swift: implicit closure #1 in StudioColorPacks.pack.getter # `?? packs[0]` unreachable: selectedPack is always an existing pack name
+App.swift: static DockGroveMain.main() # @main entry: under XCTest it calls NSApplication.run, which never returns; other branches exit the process or restore the real Dock
+App.swift: closure #1 in static DockGroveMain.main() # withExtendedLifetime around the real app's run loop
+
+# Live StoreKit adapters; covered by the "DockGrove StoreKit Testing" scheme (SKTestSession), not DockGrove Tests
+Purchases.swift: closure #1 in variable initialization expression of static StoreKitClient.live # live StoreKit call
+Purchases.swift: closure #1 in closure #1 in variable initialization expression of static StoreKitClient.live # live StoreKit call
+Purchases.swift: closure #1 in closure #1 in closure #1 in variable initialization expression of static StoreKitClient.live # live StoreKit call
+Purchases.swift: closure #2 in closure #1 in closure #1 in variable initialization expression of static StoreKitClient.live # live StoreKit call
+Purchases.swift: closure #2 in variable initialization expression of static StoreKitClient.live # live StoreKit call
+Purchases.swift: implicit closure #1 in closure #2 in variable initialization expression of static StoreKitClient.live # live StoreKit call
+Purchases.swift: closure #3 in variable initialization expression of static StoreKitClient.live # live StoreKit call
+Purchases.swift: closure #4 in variable initialization expression of static StoreKitClient.live # live StoreKit call
+Purchases.swift: PurchaseTransaction.init(_:) # live StoreKit call
+Purchases.swift: closure #1 in PurchaseTransaction.init(_:) # live StoreKit call
+Purchases.swift: Product.buy() # live StoreKit call
+
+# Integrations: real EventKit, pickers, login items, weather network
+CalendarWidget.swift: EKEventStore.requestEventAccess() # real EventKit permission prompt
+CalendarWidget.swift: EKEventStore.requestReminderAccess() # real EventKit permission prompt
+CalendarWidget.swift: EKEventStore.eventCalendars() # reads the user's real calendars
+CalendarWidget.swift: EKEventStore.incompleteReminders(_:) # reads real reminders
+CalendarWidget.swift: EKEventStore.saveReminder(_:) # writes real reminders
+CompanionSpriteKit.swift: CompanionSpriteScene.init(coder:) # fatalError, never nib-decoded
+CompanionSpriteKit.swift: implicit closure #1 in CompanionSpriteScene.init(coder:) # fatalError message
+CompanionSpriteKit.swift: CompanionStage.init(coder:) # fatalError, never nib-decoded
+CompanionSpriteKit.swift: implicit closure #1 in CompanionStage.init(coder:) # fatalError message
+Utilities.swift: static Utilities.interactiveCapture() # interactive screencapture -i
+Utilities.swift: static SystemPicker.run(_:) # modal NSOpenPanel
+Utilities.swift: static SystemPicker.sampleColor(_:) # interactive NSColorSampler
+Utilities.swift: static LoginService.set(_:) # registers/unregisters the real login item
+WeatherClient.swift: closure #1 in variable initialization expression of static AppleWeatherClient.geocode # CLGeocoder network
+WeatherClient.swift: implicit closure #1 in variable initialization expression of static AppleWeatherClient.current # forwards to live WeatherKit
+WeatherClient.swift: static AppleWeatherClient.liveCurrent(_:) # WeatherKit network/entitlement
+WeatherClient.swift: implicit closure #1 in static AppleWeatherClient.liveCurrent(_:) # async let child task of the live call
+WeatherClient.swift: implicit closure #2 in static AppleWeatherClient.liveCurrent(_:) # async let child task of the live call

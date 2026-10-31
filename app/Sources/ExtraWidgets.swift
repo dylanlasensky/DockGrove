@@ -72,6 +72,8 @@ struct ExchangeRate: Decodable { let date: String; let base: String; let quote: 
     @Published var report: ExchangeRate?
     @Published var loading = false
     @Published var status = "Refresh to load a daily reference rate."
+    private let configuration: URLSessionConfiguration
+    init(configuration: URLSessionConfiguration = .ephemeral) { self.configuration = configuration }
     var converted: Double? {
         guard let amount = Double(amount), amount.isFinite, let report else { return nil }
         let result = amount * report.rate; return result.isFinite ? result : nil
@@ -89,7 +91,7 @@ struct ExchangeRate: Decodable { let date: String; let base: String; let quote: 
             defer { loading = false }
             do {
                 var request = URLRequest(url: URL(string: "https://api.frankfurter.dev/v2/rate/\(from.lowercased())/\(to.lowercased())")!); request.timeoutInterval = 15
-                let session = URLSession(configuration: .ephemeral); defer { session.invalidateAndCancel() }
+                let session = URLSession(configuration: configuration); defer { session.invalidateAndCancel() }
                 let (data, response) = try await session.data(for: request)
                 guard (response as? HTTPURLResponse)?.statusCode == 200, data.count < 100_000 else { throw UsageError.service }
                 let result = try Self.decode(data, base: from, quote: to)
@@ -117,6 +119,19 @@ struct CurrencyView: View {
     }
 }
 
+/// The microphone, audio objects and save panel behind a voice memo; replaceable in tests.
+protocol VoiceMemoDevice {
+    @MainActor func requestMicrophone() async -> Bool
+    func recorder(url: URL, settings: [String: Any]) throws -> AVAudioRecorder
+    func player(url: URL) throws -> AVAudioPlayer
+    @MainActor func exportDestination() -> URL?
+}
+struct LiveVoiceMemoDevice: VoiceMemoDevice {
+    func requestMicrophone() async -> Bool { await AVCaptureDevice.requestAccess(for: .audio) }
+    func recorder(url: URL, settings: [String: Any]) throws -> AVAudioRecorder { try AVAudioRecorder(url: url, settings: settings) }
+    func player(url: URL) throws -> AVAudioPlayer { try AVAudioPlayer(contentsOf: url) }
+    func exportDestination() -> URL? { let panel = NSSavePanel(); panel.nameFieldStringValue = "Voice memo.m4a"; return panel.runModal() == .OK ? panel.url : nil }
+}
 @MainActor final class VoiceMemo: NSObject, ObservableObject, AVAudioRecorderDelegate, AVAudioPlayerDelegate {
     @Published var recording = false
     @Published var requesting = false
@@ -130,14 +145,19 @@ struct CurrencyView: View {
     private var recorder: AVAudioRecorder?
     private var player: AVAudioPlayer?
     private var timer: Timer?
-    override init() { super.init(); loadLibrary(); file = recordings.first }
-    private var library: URL { BrandStorage.supportDirectory.appendingPathComponent("Voice Memos") }
+    private let library: URL
+    private let device: VoiceMemoDevice
+    init(library: URL = BrandStorage.supportDirectory.appendingPathComponent("Voice Memos"), device: VoiceMemoDevice = LiveVoiceMemoDevice()) {
+        self.library = library; self.device = device
+        super.init(); loadLibrary(); file = recordings.first
+    }
     func loadLibrary() {
         recordings = ((try? FileManager.default.contentsOfDirectory(at: library, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles])) ?? [])
             .filter { $0.pathExtension == "m4a" && $0.lastPathComponent.hasPrefix("Memo-") }
-            .sorted { ((try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast) > ((try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast) }
+            .sorted { Self.modified($0) > Self.modified($1) }
     }
     func selectMemo(_ url: URL) { guard !recording, recordings.contains(url) else { return }; player?.stop(); player = nil; playing = false; file = url; status = "Ready for local playback." }
+    static func modified(_ url: URL) -> Date { (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast }
     static func label(_ url: URL) -> String {
         guard let date = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate else { return "Saved memo" }
         return date.formatted(.dateTime.month(.abbreviated).day().hour().minute().second())
@@ -146,13 +166,13 @@ struct CurrencyView: View {
         guard !recording, !requesting else { return }; player?.stop(); player = nil; playing = false; requesting = true
         Task { [self] in
             defer { requesting = false }
-            let allowed = await AVCaptureDevice.requestAccess(for: .audio)
+            let allowed = await device.requestMicrophone()
             guard allowed else { status = "Microphone access is required. Enable DockGrove in Privacy & Security > Microphone."; return }
             do {
-                let folder = BrandStorage.supportDirectory.appendingPathComponent("Voice Memos")
+                let folder = library
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 let url = folder.appendingPathComponent("Memo-\(UUID().uuidString).m4a")
-                let r = try AVAudioRecorder(url: url, settings: [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: 44100, AVNumberOfChannelsKey: 1, AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue])
+                let r = try device.recorder(url: url, settings: [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: 44100, AVNumberOfChannelsKey: 1, AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue])
                 r.delegate = self; r.isMeteringEnabled = true
                 guard r.record() else { throw UsageError.service }
                 recorder = r; file = url; recording = true; paused = false; elapsed = 0; status = "Recording · saved locally"
@@ -170,7 +190,7 @@ struct CurrencyView: View {
         guard !recording, let file else { return }
         if playing { player?.stop(); player = nil; playing = false; status = "Playback stopped."; return }
         do {
-            let audio = try AVAudioPlayer(contentsOf: file); audio.delegate = self
+            let audio = try device.player(url: file); audio.delegate = self
             guard audio.play() else { throw UsageError.service }
             player = audio; playing = true; status = "Playing locally in DockGrove."
         } catch { status = "Could not play this recording."; playing = false }
@@ -178,14 +198,13 @@ struct CurrencyView: View {
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         Task { @MainActor in self.playing = false; self.player = nil; self.status = flag ? "Playback complete." : "Playback could not finish." }
     }
-    func openLibrary() {
-        let folder = BrandStorage.supportDirectory.appendingPathComponent("Voice Memos")
-        do { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true); NSWorkspace.shared.open(folder) } catch { status = "Could not open the memo folder." }
+    /// Creates the library folder for "All recordings in Finder"; nil (with a status) when it cannot.
+    func libraryFolder() -> URL? {
+        do { try FileManager.default.createDirectory(at: library, withIntermediateDirectories: true); return library } catch { status = "Could not open the memo folder."; return nil }
     }
     func export() {
         guard !recording, let file else { return }
-        let panel = NSSavePanel(); panel.nameFieldStringValue = "Voice memo.m4a"
-        if panel.runModal() == .OK, let url = panel.url {
+        if let url = device.exportDestination() {
             do { try Data(contentsOf: file).write(to: url, options: .atomic); status = "Exported memo." } catch { status = "Could not export the memo." }
         }
     }
@@ -193,6 +212,7 @@ struct CurrencyView: View {
 }
 struct VoiceMemoView: View {
     @ObservedObject var memo: VoiceMemo
+    @Environment(\.widgetEffects) private var effects
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if !memo.recording, !memo.recordings.isEmpty {
@@ -203,8 +223,8 @@ struct VoiceMemoView: View {
             Text(memo.status).font(.caption).foregroundStyle(.secondary)
             if memo.recording { HStack { Button(memo.paused ? "Resume" : "Pause", action: memo.togglePause); Button("Stop & save", action: memo.stop) } }
             else { Button(memo.requesting ? "Requesting microphone…" : "Record new memo", action: memo.start).tint(.red).disabled(memo.requesting) }
-            if let file = memo.file, !memo.recording { HStack { Button(memo.playing ? "Stop playback" : "Play", action: memo.play); Button("Export…", action: memo.export); Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([file]) } } }
-            Button("All recordings in Finder", action: memo.openLibrary)
+            if let file = memo.file, !memo.recording { HStack { Button(memo.playing ? "Stop playback" : "Play", action: memo.play); Button("Export…", action: memo.export); Button("Show in Finder") { effects(.reveal([file])) } } }
+            Button("All recordings in Finder") { if let folder = memo.libraryFolder() { effects(.open(folder)) } }
             Text("Recording begins only when you press Record. No audio is uploaded. Memos remain in your local application-support library.").font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -226,6 +246,7 @@ struct AppGroupsView: View {
     @ObservedObject var model: DockModel
     @State private var name = ""
     @State private var selection = Set<String>()
+    @Environment(\.widgetEffects) private var effects
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ScrollView { VStack(alignment: .leading, spacing: 16) { ForEach(groups.groups) { group in
@@ -233,7 +254,7 @@ struct AppGroupsView: View {
                     HStack { Text(group.name).font(.headline); Spacer(); Button("Remove") { groups.groups.removeAll { $0.id == group.id } } }
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4)) { ForEach(group.paths, id: \.self) { path in
                         let app = DockApp(url: URL(fileURLWithPath: path))
-                        Button { model.open(app) } label: { VStack { Image(nsImage: app.icon).resizable().frame(width: 36, height: 36); Text(app.name).font(.caption2).lineLimit(1) } }.buttonStyle(.plain).disabled(!FileManager.default.fileExists(atPath: path)).help(app.name)
+                        Button { effects(.launch(model, app)) } label: { VStack { Image(nsImage: app.icon).resizable().frame(width: 36, height: 36); Text(app.name).font(.caption2).lineLimit(1) } }.buttonStyle(.plain).disabled(!FileManager.default.fileExists(atPath: path)).help(app.name)
                     } }
                 }
             } } }.frame(maxHeight: 180)
@@ -247,6 +268,7 @@ struct AppGroupsView: View {
 struct WebSearchView: View {
     @State private var query = ""
     @State private var engine = "DuckDuckGo"
+    @Environment(\.widgetEffects) private var effects
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             TextField("Search the web", text: $query).onSubmit(search)
@@ -257,6 +279,6 @@ struct WebSearchView: View {
     private func search() {
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let site = engine == "Google" ? "https://www.google.com/search" : engine == "Bing" ? "https://www.bing.com/search" : "https://duckduckgo.com/"
-        var url = URLComponents(string: site)!; url.queryItems = [URLQueryItem(name: "q", value: query)]; if let url = url.url { NSWorkspace.shared.open(url) }
+        var url = URLComponents(string: site)!; url.queryItems = [URLQueryItem(name: "q", value: query)]; if let url = url.url { effects(.open(url)) }
     }
 }

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+@testable import DockGrove
 
 @MainActor func runDockStudioTests() throws {
     let name = "DockGroveStudioTests." + UUID().uuidString
@@ -66,9 +67,10 @@ import SwiftUI
     defaults.set(["focus": "circle", "tasks": "square", "search": "pill"], forKey: "widgetShapes")
     defaults.set(false, forKey: "showRunning"); defaults.set(false, forKey: "showUsageCard")
     let model = DockModel(defaults: defaults)
+    let store = SettingsFakePurchaseStore() // never loads from StoreKit
     for (name, scheme) in [("light", ColorScheme.light), ("dark", ColorScheme.dark)] {
         for section in [StudioSection.library, .appearance, .purchases] {
-            let host = NSHostingView(rootView: SettingsView(model: model, section: section).environment(\.colorScheme, scheme))
+            let host = NSHostingView(rootView: SettingsView(model: model, section: section, purchases: store, terminate: { _ in }).environment(\.colorScheme, scheme))
             let size = NSSize(width: 1080, height: 780)
             let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
             window.isReleasedWhenClosed = false; window.contentView = host

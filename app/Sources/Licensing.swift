@@ -17,22 +17,28 @@ enum LicenseConfiguration {
         #endif
     }
     static var storageNamespace: String {
-        let isolated = CommandLine.arguments.contains("--ui-test") || CommandLine.arguments.contains("--native-test") || CommandLine.arguments.contains("--self-test")
+        let isolated = CommandLine.arguments.contains("--ui-test") || CommandLine.arguments.contains("--native-test") || TestEnvironment.isXCTest
         let qa = Bundle.main.bundleIdentifier == "com.dylan.wavedock.commercial-qa"
         return "com.dylan.wavedock.license." + environment + (isolated ? ".isolated-tests" : qa ? ".commercial-qa" : commercial ? ".commercial" : ".development")
     }
+    /// Info.plist lookup; replaceable so release-candidate configurations can be verified in tests.
+    static var info: (String) -> Any? = { Bundle.main.object(forInfoDictionaryKey: $0) }
     static var server: URL? {
-        guard let value = Bundle.main.object(forInfoDictionaryKey: "DockGroveLicenseServerURL") as? String,
+        guard let value = info("DockGroveLicenseServerURL") as? String,
               let url = URL(string: value), url.scheme == "https", url.host != nil,
               url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
               url.path.isEmpty || url.path == "/" else { return nil }
         return url
     }
     static var publicKey: Data? {
-        guard let value = Bundle.main.object(forInfoDictionaryKey: "DockGroveLicensePublicKeyBase64") as? String else { return nil }
+        // Unset build settings leave empty strings in Info.plist; treat those as absent.
+        guard let value = info("DockGroveLicensePublicKeyBase64") as? String, !value.isEmpty else { return nil }
         return Data(base64Encoded: value)
     }
-    static var keyID: String { Bundle.main.object(forInfoDictionaryKey: "DockGroveLicenseKeyID") as? String ?? "test-1" }
+    static var keyID: String {
+        let value = info("DockGroveLicenseKeyID") as? String ?? ""
+        return value.isEmpty ? "test-1" : value
+    }
 }
 struct SignedLicense: Codable {
     var payload: String
@@ -87,6 +93,9 @@ enum LicenseVerifier {
     }
 }
 enum LicenseVault {
+    /// Keychain primitives; the defaults are Security.framework. Tests use the isolated namespace.
+    static var update: (CFDictionary, CFDictionary) -> OSStatus = SecItemUpdate
+    static var add: (CFDictionary) -> OSStatus = { SecItemAdd($0, nil) }
     private static func query(_ name: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
          kSecAttrService as String: LicenseConfiguration.storageNamespace,
@@ -100,11 +109,11 @@ enum LicenseVault {
     }
     static func write(_ data: Data, _ name: String) throws {
         let attributes = [kSecValueData as String: data]
-        let result = SecItemUpdate(query(name) as CFDictionary, attributes as CFDictionary)
+        let result = update(query(name) as CFDictionary, attributes as CFDictionary)
         if result == errSecItemNotFound {
-            var q = query(name); q.merge(attributes) { _, new in new }
+            var q = query(name); q[kSecValueData as String] = data
             q[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-            guard SecItemAdd(q as CFDictionary, nil) == errSecSuccess else { throw LicenseFailure.storage }
+            guard add(q as CFDictionary) == errSecSuccess else { throw LicenseFailure.storage }
         } else if result != errSecSuccess { throw LicenseFailure.storage }
     }
     static func remove(_ name: String) { SecItemDelete(query(name) as CFDictionary) }
@@ -115,10 +124,14 @@ enum LicenseVault {
     @Published private(set) var status = "Not activated"
     @Published private(set) var busy = false
     @Published private(set) var offlineUntil: Date?
-    private var timer: Timer?
+    private(set) var timer: Timer?
     private var lastRefresh = Date.distantPast
     private var serverRejectedCache = false
-    var permitsFeatures: Bool { !LicenseConfiguration.commercial || valid }
+    private let commercial: Bool
+    private let transport: (URLRequest) async throws -> (Data, URLResponse)
+    private let openURL: (URL) -> Bool
+    static let liveTransport: (URLRequest) async throws -> (Data, URLResponse) = { try await URLSession.shared.data(for: $0) }
+    var permitsFeatures: Bool { !commercial || valid }
     private var existingDevice: String? {
         guard let data = LicenseVault.read("device"), let value = String(data: data, encoding: .utf8), UUID(uuidString: value) != nil else { return nil }
         return value
@@ -129,14 +142,19 @@ enum LicenseVault {
         try LicenseVault.write(Data(value.utf8), "device")
         return value
     }
-    init() {
+    init(commercial: Bool = LicenseConfiguration.commercial,
+         transport: @escaping (URLRequest) async throws -> (Data, URLResponse) = LicenseManager.liveTransport,
+         openURL: @escaping (URL) -> Bool = NSWorkspace.shared.open) {
+        self.commercial = commercial; self.transport = transport; self.openURL = openURL
         restoreCached()
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self else { return }; self.restoreCached()
-                if Date().timeIntervalSince(self.lastRefresh) > 86400 && LicenseVault.read("key") != nil { await self.refresh() }
-            }
+            Task { @MainActor in await self?.periodicCheck() }
         }
+    }
+    /// Timer body: re-verify the cached entitlement and refresh it online once a day.
+    func periodicCheck() async {
+        restoreCached()
+        if Date().timeIntervalSince(lastRefresh) > 86400 && LicenseVault.read("key") != nil { await refresh() }
     }
     deinit { timer?.invalidate() }
     func restoreCached() {
@@ -174,7 +192,7 @@ enum LicenseVault {
             if action == "activate" { deviceID = try deviceForActivation() }
             else { guard let stored = existingDevice else { throw LicenseFailure.invalid }; deviceID = stored }
             request.httpBody = try JSONSerialization.data(withJSONObject: ["licenseKey": key, "deviceId": deviceID])
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await transport(request)
             guard data.count <= 65536, let http = response as? HTTPURLResponse else { throw LicenseFailure.server("License service temporarily unavailable.") }
             guard http.statusCode == 200 else {
                 let savedKey = LicenseVault.read("key").flatMap { String(data: $0, encoding: .utf8) }
@@ -200,12 +218,13 @@ enum LicenseVault {
             status = error.localizedDescription + (valid ? " Your cached activation still works offline." : "")
         }
     }
-    func openPurchase() { if let server = LicenseConfiguration.server { NSWorkspace.shared.open(server.appendingPathComponent("purchase.html")) } else { status = LicenseFailure.configuration.localizedDescription } }
-    func openRecovery() { if let server = LicenseConfiguration.server { NSWorkspace.shared.open(server.appendingPathComponent("recover.html")) } else { status = LicenseFailure.configuration.localizedDescription } }
+    func openPurchase() { if let server = LicenseConfiguration.server { _ = openURL(server.appendingPathComponent("purchase.html")) } else { status = LicenseFailure.configuration.localizedDescription } }
+    func openRecovery() { if let server = LicenseConfiguration.server { _ = openURL(server.appendingPathComponent("recover.html")) } else { status = LicenseFailure.configuration.localizedDescription } }
 }
 struct LicenseSettingsView: View {
-    @ObservedObject var license = LicenseManager.shared
-    @State private var key = ""
+    @ObservedObject var license: LicenseManager
+    @State private var key: String
+    init(license: LicenseManager = .shared, key: String = "") { self.license = license; _key = State(initialValue: key) }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("DockGrove license").font(.headline)

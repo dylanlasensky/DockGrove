@@ -18,8 +18,8 @@ The current review directory is `app/.build/pixel-redesign/`. Previous anatomica
 
 The app now uses `CompanionSpriteScene` and `SKSpriteNode` textures in a transparent `SKView`. All 16 nearest-filtered textures per animal are cached and reused across docks. The existing deterministic motion simulation drives position, facing, and pose selection; the CPU drawing function remains available to offline artwork audit/export tools. Hidden/occluded views pause, and Reduce Motion uses a still pose at a reduced render cadence while retaining manual rest/wake changes.
 
-`app/Assets.xcassets` contains the macOS `AppIcon`, four brand image sets, eighteen companion image sets, and named color packs. Xcode and the shell build both compile the catalog with `actool`. Installed applications supply their own icons through macOS at runtime; those icons are not copied into the catalog.
+`app/Assets.xcassets` contains the macOS `AppIcon`, four brand image sets, eighteen companion image sets, and named color packs. Xcode compiles the catalog with `actool`. Installed applications supply their own icons through macOS at runtime; those icons are not copied into the catalog.
 
-Run the compiled app with `--assets-test /tmp/dockgrove-sprites` to verify catalog lookup, color resolution, SpriteKit animation bounds, Reduce Motion/rest, and nine transparent GPU-rendered snapshots.
+Run `DockGroveTests.testAssetCatalog` in Xcode to verify catalog lookup, color resolution, SpriteKit animation bounds, Reduce Motion/rest, and nine transparent GPU-rendered snapshots.
 
 Verified on October 30, 2026: all nine SpriteKit snapshots contain visible artwork and transparency; five-minute simulations remain in bounds; texture reuse, Reduce Motion, and manual rest pass. The catalog resolves all 22 image sets and 20 palette colors in both appearances.

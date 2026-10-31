@@ -30,7 +30,7 @@ enum CompanionDrawing {
             cells.append(cell)
             let bitmap=NSBitmapImageRep(cgImage:cell)
             var minX=w,minY=h,maxX = -1,maxY = -1
-            for y in 0..<h {for x in 0..<w where (bitmap.colorAt(x:x,y:y)?.alphaComponent ?? 0)>0.08 {minX=min(minX,x);minY=min(minY,y);maxX=max(maxX,x);maxY=max(maxY,y)}}
+            for y in 0..<h {for x in 0..<w { if let color=bitmap.colorAt(x:x,y:y), color.alphaComponent>0.08 {minX=min(minX,x);minY=min(minY,y);maxX=max(maxX,x);maxY=max(maxY,y)} }}
             guard maxX>=minX,maxY>=minY else{return nil}
             let bounds=CGRect(x:minX,y:minY,width:maxX-minX+1,height:maxY-minY+1)
             cellBounds.append(bounds);union=union.union(bounds)

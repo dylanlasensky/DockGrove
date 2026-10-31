@@ -5,11 +5,19 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      native:
+        description: Also run the native rendering UI tests
+        type: boolean
+        default: false
 permissions:
   contents: read
+env:
+  PROJECT: app/DockGrove.xcodeproj
+  PRODUCTS: app/.build/xcode/Build/Products/Development
 jobs:
   build:
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       matrix:
         validation-pass: [1, 2]
@@ -19,26 +27,111 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Test layout, windows, AI clients, sign-in, assets, music, calendar and existing regressions
+        run: >
+          xcodebuild test -project "$PROJECT" -scheme "DockGrove Tests" -configuration Development
+          -derivedDataPath app/.build/xcode -resultBundlePath "app/.build/DockGrove-Tests-${{ matrix.validation-pass }}.xcresult"
+      - name: Require 100% coverage outside the reviewed allowlist
+        run: swift app/Scripts/CheckCoverage.swift "app/.build/DockGrove-Tests-${{ matrix.validation-pass }}.xcresult"
       - name: Build universal app
-        working-directory: app
-        run: zsh build.sh
-      - name: Test layout, windows, AI clients, music, calendar and existing regressions
-        working-directory: app
+        run: xcodebuild build -project "$PROJECT" -scheme DockGrove -configuration Development -derivedDataPath app/.build/xcode
+      - name: Verify bundle
         run: |
-          chmod +x Tests/fixture_codex.py
-          dist/DockGrove.app/Contents/MacOS/DockGrove --self-test --fixture-cli "$PWD/Tests/fixture_codex.py"
-          codesign --verify --strict dist/DockGrove.app
-          plutil -lint dist/DockGrove.app/Contents/Info.plist
-          lipo dist/DockGrove.app/Contents/MacOS/DockGrove -verify_arch arm64
-          lipo dist/DockGrove.app/Contents/MacOS/DockGrove -verify_arch x86_64
+          codesign --verify --strict "$PRODUCTS/DockGrove.app"
+          plutil -lint "$PRODUCTS/DockGrove.app/Contents/Info.plist"
+          lipo "$PRODUCTS/DockGrove.app/Contents/MacOS/DockGrove" -verify_arch arm64
+          lipo "$PRODUCTS/DockGrove.app/Contents/MacOS/DockGrove" -verify_arch x86_64
       - name: Package
         run: |
-          ditto -c -k --sequesterRsrc --keepParent app/dist/DockGrove.app app/dist/DockGrove.zip
+          ditto -c -k --sequesterRsrc --keepParent "$PRODUCTS/DockGrove.app" app/.build/DockGrove.zip
           node website/tests/site.test.mjs
           node --test website/tests/client.test.mjs
           node --test website/backend/*.test.mjs
       - uses: actions/upload-artifact@v4
         with:
           name: DockGrove-development-universal-pass-${{ matrix.validation-pass }}
-          path: app/dist/DockGrove.zip
+          path: app/.build/DockGrove.zip
           retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: DockGrove-test-results-pass-${{ matrix.validation-pass }}
+          path: app/.build/DockGrove-Tests-${{ matrix.validation-pass }}.xcresult
+          retention-days: 14
+  artifacts:
+    # Distributable builds for review and release. The commercial app is built only when its public
+    # license configuration is present, and is never published anywhere public: upload it to private R2.
+    needs: build
+    if: github.event_name != 'pull_request'
+    timeout-minutes: 40
+    runs-on: macos-15-intel
+    env:
+      DOCKGROVE_LICENSE_SERVER_URL: ${{ secrets.DOCKGROVE_LICENSE_SERVER_URL }}
+      DOCKGROVE_LICENSE_PUBLIC_KEY: ${{ secrets.DOCKGROVE_LICENSE_PUBLIC_KEY }}
+      DOCKGROVE_LICENSE_KEY_ID: ${{ secrets.DOCKGROVE_LICENSE_KEY_ID }}
+      OUT: app/.build/artifacts
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Development and CommercialQA
+        run: |
+          for config in Development CommercialQA; do
+            xcodebuild build -project "$PROJECT" -scheme DockGrove -configuration "$config" -derivedDataPath app/.build/xcode
+          done
+      - name: Validate commercial license configuration
+        id: commercial
+        run: |
+          if [ -n "$DOCKGROVE_LICENSE_SERVER_URL" ]; then
+            swift app/Scripts/ValidateLicenseConfig.swift
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Commercial build skipped: license configuration secrets are not set."
+          fi
+      - name: Build Commercial
+        if: steps.commercial.outputs.enabled == 'true'
+        run: >
+          xcodebuild build -project "$PROJECT" -scheme "DockGrove Commercial" -configuration Commercial -derivedDataPath app/.build/xcode
+          DOCKGROVE_LICENSE_SERVER_URL="$DOCKGROVE_LICENSE_SERVER_URL" DOCKGROVE_LICENSE_PUBLIC_KEY="$DOCKGROVE_LICENSE_PUBLIC_KEY"
+          DOCKGROVE_LICENSE_KEY_ID="$DOCKGROVE_LICENSE_KEY_ID"
+      - name: Verify and package
+        run: |
+          mkdir -p "$OUT"
+          version=$(plutil -extract CFBundleShortVersionString raw app/Info.plist)-$(plutil -extract CFBundleVersion raw app/Info.plist)
+          for config in Development CommercialQA Commercial; do
+            products="app/.build/xcode/Build/Products/$config"
+            [ -d "$products/DockGrove.app" ] || continue
+            codesign --verify --strict "$products/DockGrove.app"
+            lipo "$products/DockGrove.app/Contents/MacOS/DockGrove" -verify_arch arm64 x86_64
+            ditto -c -k --sequesterRsrc --keepParent "$products/DockGrove.app" "$OUT/DockGrove-$config-$version.zip"
+            ditto -c -k --sequesterRsrc --keepParent "$products/DockGrove.app.dSYM" "$OUT/DockGrove-$config-$version.dSYM.zip"
+          done
+          (cd "$OUT" && shasum -a 256 -- *.zip > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DockGrove-review-builds
+          path: |
+            app/.build/artifacts/DockGrove-Development-*
+            app/.build/artifacts/DockGrove-CommercialQA-*
+            app/.build/artifacts/SHA256SUMS.txt
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: steps.commercial.outputs.enabled == 'true'
+        with:
+          name: DockGrove-commercial-private
+          path: app/.build/artifacts/DockGrove-Commercial-*
+          retention-days: 7
+  native:
+    if: github.event_name == 'workflow_dispatch' && inputs.native
+    timeout-minutes: 30
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+      - name: Native rendering and window-state UI tests
+        run: >
+          xcodebuild test -project "$PROJECT" -scheme "DockGrove Native Tests" -configuration Development
+          -derivedDataPath app/.build/xcode -resultBundlePath app/.build/DockGrove-Native.xcresult
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: DockGrove-native-renders
+          path: app/.build/DockGrove-Native.xcresult
+          retention-days: 14

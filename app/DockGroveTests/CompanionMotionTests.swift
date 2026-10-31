@@ -1,4 +1,5 @@
 import Foundation
+@testable import DockGrove
 
 func runCompanionMotionTests() {
     let names=["Miso","Black cat","Orange cat","Golden dog","Husky","Dragon","Cow","Rabbit","Fox"]

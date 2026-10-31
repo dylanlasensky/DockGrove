@@ -1,4 +1,5 @@
 import AppKit
+@testable import DockGrove
 
 @MainActor func runAppManagementTests() throws {
     let suite = "DockGroveApps." + UUID().uuidString

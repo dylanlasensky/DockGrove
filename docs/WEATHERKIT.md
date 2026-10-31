@@ -18,17 +18,18 @@ xcodebuild -project app/DockGrove.xcodeproj -scheme DockGrove \
   -allowProvisioningUpdates build
 ```
 
-`app/build.sh` retains the universal, ad-hoc-signed build used by offline CI. It compiles WeatherKit support but cannot authenticate to Apple Weather. Use the provisioned Xcode build for live weather; do not attach restricted WeatherKit entitlements to an ad-hoc signature.
+The **Development** configuration is the universal, ad-hoc-signed build used by offline CI. It compiles WeatherKit support but cannot authenticate to Apple Weather. Use the provisioned Xcode build for live weather; do not attach restricted WeatherKit entitlements to an ad-hoc signature.
 
 ## Verification
 
-Offline weather tests are included in the existing `--self-test` suite. They cover formatting, attribution, city changes during a request, duplicate/empty requests, missing cities, authorization and network failures, and recovery on retry. These tests do not contact Apple.
+Offline weather tests are included in the **DockGrove Tests** XCTest suite. They cover formatting, attribution, city changes during a request, duplicate/empty requests, missing cities, authorization and network failures, and recovery on retry. These tests do not contact Apple.
 
 To verify the real Apple geocoding → WeatherKit → attribution flow without launching the Dock interface:
 
 ```sh
-app/.build/xcode/Build/Products/Debug/DockGrove.app/Contents/MacOS/DockGrove \
-  --weather-test "Boston, Massachusetts"
+TEST_RUNNER_DOCKGROVE_LIVE_TESTS=1 TEST_RUNNER_DOCKGROVE_WEATHER_CITY="Boston, Massachusetts" \
+  xcodebuild test -project app/DockGrove.xcodeproj -scheme "DockGrove Tests" -configuration Debug \
+  -only-testing:DockGroveTests/LiveTests/testAppleWeather -allowProvisioningUpdates
 ```
 
 This live check requires the signed, provisioned build. A successful compile or fixture run alone does not verify Apple service access.

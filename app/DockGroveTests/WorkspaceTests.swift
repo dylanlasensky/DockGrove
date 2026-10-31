@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+@testable import DockGrove
 
 @MainActor func runWorkspaceTests() throws {
     let screen=CGRect(x:-1440,y:-200,width:1440,height:900), visible=CGRect(x:-1440,y:-200,width:1440,height:870)

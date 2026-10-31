@@ -103,22 +103,28 @@ enum AIUsageClient {
     }
 }
 enum UsageKeychain {
-    static func query(_ provider: AIProvider) -> [String: Any] { [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "app.wavedock.ai-usage", kSecAttrAccount as String: provider.rawValue] }
+    /// Keychain primitives; the defaults are Security.framework. Tests use an isolated service name.
+    static var service = "app.wavedock.ai-usage"
+    static var update: (CFDictionary, CFDictionary) -> OSStatus = SecItemUpdate
+    static var add: (CFDictionary) -> OSStatus = { SecItemAdd($0, nil) }
+    static var copy: (CFDictionary, UnsafeMutablePointer<CFTypeRef?>) -> OSStatus = SecItemCopyMatching
+    static var delete: (CFDictionary) -> OSStatus = SecItemDelete
+    static func query(_ provider: AIProvider) -> [String: Any] { [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: provider.rawValue] }
     static func save(_ key: String, provider: AIProvider) throws {
         let attributes = [kSecValueData as String: Data(key.utf8)]
-        let updated = SecItemUpdate(query(provider) as CFDictionary, attributes as CFDictionary)
+        let updated = update(query(provider) as CFDictionary, attributes as CFDictionary)
         if updated == errSecItemNotFound {
-            var item = query(provider); item.merge(attributes) { _, new in new }; item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
-            guard SecItemAdd(item as CFDictionary, nil) == errSecSuccess else { throw AIUsageFailure.keychain }
+            var item = query(provider); item[kSecValueData as String] = Data(key.utf8); item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+            guard add(item as CFDictionary) == errSecSuccess else { throw AIUsageFailure.keychain }
         } else if updated != errSecSuccess { throw AIUsageFailure.keychain }
     }
     static func load(_ provider: AIProvider) throws -> String {
         var q = query(provider); q[kSecReturnData as String] = true; q[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: CFTypeRef?
-        guard SecItemCopyMatching(q as CFDictionary, &result) == errSecSuccess, let data = result as? Data, let key = String(data: data, encoding: .utf8) else { throw AIUsageFailure.keychain }; return key
+        guard copy(q as CFDictionary, &result) == errSecSuccess, let data = result as? Data, let key = String(data: data, encoding: .utf8) else { throw AIUsageFailure.keychain }; return key
     }
     static func remove(_ provider: AIProvider) throws {
-        let status = SecItemDelete(query(provider) as CFDictionary)
+        let status = delete(query(provider) as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else { throw AIUsageFailure.keychain }
     }
 }
@@ -129,7 +135,17 @@ enum UsageKeychain {
     @Published var status = ""
     @Published var autoRefresh = false
     private var generation = 0
-    private var timer: Timer?
+    private(set) var timer: Timer?
+    /// Creates the HTTP transport for one refresh and its cleanup. Tests inject a local transport.
+    var makeTransport: () -> (AIUsageClient.Transport, () -> Void) = AIUsageWidget.sessionTransport
+    static func sessionTransport() -> (AIUsageClient.Transport, () -> Void) {
+        let config = URLSessionConfiguration.ephemeral; config.httpCookieStorage = nil; config.urlCredentialStorage = nil
+        let session = URLSession(configuration: config, delegate: NoUsageRedirects(), delegateQueue: nil)
+        return ({ request in
+            let (data, response) = try await session.data(for: request)
+            return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
+        }, { session.invalidateAndCancel() })
+    }
     init(_ provider: AIProvider) {
         self.provider = provider
         timer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in Task { @MainActor in if self?.autoRefresh == true { self?.refresh() } } }
@@ -149,15 +165,11 @@ enum UsageKeychain {
         let key: String
         do { key = try UsageKeychain.load(provider) } catch { snapshot = nil; status = "Enter a key, or unlock Keychain if one is already saved."; return }
         busy = true; snapshot = nil; let requestID = generation, provider = provider
+        let (transport, finish) = makeTransport()
         Task {
-            let config = URLSessionConfiguration.ephemeral; config.httpCookieStorage = nil; config.urlCredentialStorage = nil
-            let session = URLSession(configuration: config, delegate: NoUsageRedirects(), delegateQueue: nil)
-            defer { session.invalidateAndCancel() }
+            defer { finish() }
             do {
-                let result = try await AIUsageClient.fetch(provider, key: key) { request in
-                    let (data, response) = try await session.data(for: request)
-                    return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
-                }
+                let result = try await AIUsageClient.fetch(provider, key: key, transport: transport)
                 guard requestID == generation else { return }; snapshot = result; status = "Updated " + result.end.formatted(date: .omitted, time: .shortened)
             } catch {
                 guard requestID == generation else { return }; snapshot = nil; status = (error as? AIUsageFailure ?? .service).localizedDescription
@@ -167,8 +179,11 @@ enum UsageKeychain {
     }
 }
 struct AIUsageView: View {
-    @Environment(\.connectionSetupAllowed) private var setupAllowed
+    @Environment(\.connectionSetupAllowed) private var environmentSetupAllowed
     @ObservedObject var widget: AIUsageWidget
+    /// Overrides the environment's setup permission so tests can drive both layouts directly.
+    var setupAllowedOverride: Bool?
+    private var setupAllowed: Bool { setupAllowedOverride ?? environmentSetupAllowed }
     @State private var key = ""
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -185,7 +200,7 @@ struct AIUsageView: View {
             Text("Sign in on the provider’s website to obtain an admin key, then save it below. Website sign-in alone does not grant DockGrove access to usage.").font(.caption).foregroundStyle(.secondary)
             SecureField("Admin API key", text: $key).textFieldStyle(.roundedBorder)
             HStack {
-                Button { widget.connect(key); key = "" } label: { FontAwesomeLabel("Save key", icon: .key) }.disabled(key.isEmpty || widget.busy)
+                Button { widget.connect(key); key = "" } label: { FontAwesomeLabel("Save key", icon: .key) }.disabled(widget.busy || key.isEmpty)
                 Button(action: widget.refresh) { FontAwesomeLabel(widget.busy ? "Loading…" : "Refresh saved key", icon: .refresh) }.disabled(widget.busy)
             }
             Toggle("Refresh hourly while DockGrove is open", isOn: $widget.autoRefresh)

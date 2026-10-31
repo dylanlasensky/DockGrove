@@ -3,7 +3,8 @@ import SwiftUI
 
 enum NotchFileIntake {
     static func urls(from pasteboard: NSPasteboard) -> [URL] {
-        pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+        guard let objects = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) else { return [] }
+        return objects.compactMap { $0 as? URL }
     }
     static func existingURLs(_ urls: [URL]) -> [URL] {
         var seen = Set<String>()
@@ -64,7 +65,7 @@ final class NotchDropTargetView: NSView {
     var destination: NotchDropDestination = .tray
     weak var controller: NotchController?
     override init(frame: NSRect) { super.init(frame: frame); registerForDraggedTypes([.fileURL]) }
-    required init?(coder: NSCoder) { fatalError() }
+    @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
     override func mouseDown(with event: NSEvent) { controller?.activateDropZone(destination) }
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         guard controller?.canAccept(destination) == true,
@@ -125,17 +126,7 @@ struct NotchHomeView: View {
     @ObservedObject var controller: NotchController
     var body: some View {
         HStack(spacing: 12) {
-            if model.canAccess(.music) { NotchMusicCard(player: kit.spotify.connected ? kit.spotify : kit.appleMusic, openSettings: { model.openConnectionSettings(kit.spotify.connected ? .spotify : .appleMusic) }).frame(width: 320) }
-            else {
-                HStack(spacing: 12) {
-                    Image(systemName: "sun.max").font(.title2)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("A little space to focus").font(.headline)
-                        Text("Scroll for your widgets.").font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }.frame(width: 300, height: 64).padding(10).background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
-            }
+            if model.canAccess(.music) { NotchMusicCard(player: kit.spotify.connected ? kit.spotify : kit.appleMusic, openSettings: { model.openConnectionSettings(kit.spotify.connected ? .spotify : .appleMusic) }).frame(width: 320) } else { NotchFocusPlaceholder() }
             HStack(spacing: 14) {
                 VStack(alignment: .leading, spacing: 4) {
                     Label("Focus", systemImage: "timer").font(.caption).foregroundStyle(.secondary)
@@ -148,7 +139,21 @@ struct NotchHomeView: View {
     }
 }
 
-private struct NotchMusicCard: View {
+/// Takes the music card's place when the plan does not include music widgets.
+struct NotchFocusPlaceholder: View {
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "sun.max").font(.title2)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("A little space to focus").font(.headline)
+                Text("Scroll for your widgets.").font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+        }.frame(width: 300, height: 64).padding(10).background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
+    }
+}
+
+struct NotchMusicCard: View {
     @ObservedObject var player: MusicPlayer
     let openSettings: () -> Void
     var body: some View {
@@ -220,16 +225,21 @@ struct NotchAirDropReview: View {
     }
 }
 
+/// Stands in for the file tray when the plan does not include it.
+struct NotchLockedTray: View {
+    var body: some View {
+        Label("File tray · Plus", systemImage: "lock.fill")
+            .font(.caption).foregroundStyle(.secondary).frame(width: 220, height: 84)
+    }
+}
+
 struct NotchTrayView: View {
     @ObservedObject var model: DockModel
     @ObservedObject var kit: Toolkit
     @ObservedObject var controller: NotchController
     var body: some View {
         HStack(spacing: 10) {
-            if !model.canAccess(.files) {
-                Label("File tray · Plus", systemImage: "lock.fill")
-                    .font(.caption).foregroundStyle(.secondary).frame(width: 220, height: 84)
-            } else {
+            if !model.canAccess(.files) { NotchLockedTray() } else {
                 NotchDropZone(destination: .tray, controller: controller, width: NotchFileLayout.halfWidth(controller.expandedWidth))
                 if controller.airDropReview {
                     NotchAirDropReview(controller: controller, width: NotchFileLayout.halfWidth(controller.expandedWidth))
@@ -250,7 +260,7 @@ struct NotchTrayView: View {
     private func trayItem(_ path: String) -> some View {
         let url = URL(fileURLWithPath: path)
         let exists = FileManager.default.fileExists(atPath: path)
-        return Button { if exists { NSWorkspace.shared.open(url) } } label: {
+        return Button { if exists { DockSystemEffect.handler(.open(url)) } } label: {
             HStack(spacing: 14) {
                 Image(nsImage: NSWorkspace.shared.icon(forFile: path)).resizable().frame(width: 36, height: 36)
                 VStack(alignment: .leading, spacing: 5) {
@@ -263,7 +273,7 @@ struct NotchTrayView: View {
                 .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
         }.buttonStyle(.plain).onDrag { exists ? NSItemProvider(object: url as NSURL) : NSItemProvider() }
             .contextMenu {
-                Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([url]) }.disabled(!exists)
+                Button("Reveal in Finder") { DockSystemEffect.handler(.reveal([url])) }.disabled(!exists)
                 ShareLink(item: url) { Label("Share file", systemImage: "square.and.arrow.up") }.disabled(!exists)
                 Button("Remove shortcut") { kit.files.removeAll { $0 == path }; controller.trayMessage = "Shortcut removed. Original file is unchanged." }
             }

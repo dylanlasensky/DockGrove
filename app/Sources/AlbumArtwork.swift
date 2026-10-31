@@ -30,10 +30,10 @@ enum AlbumArtwork {
         for y in 0..<8 { for x in 0..<8 { if let color=bitmap.colorAt(x:x,y:y)?.usingColorSpace(.sRGB) { r+=color.redComponent; g+=color.greenComponent; b+=color.blueComponent } } }
         return Color(red:r/64*0.32,green:g/64*0.32,blue:b/64*0.32)
     }
-    static func fetch(_ url:URL) async throws -> Data {
+    static func fetch(_ url:URL, configuration:URLSessionConfiguration = .ephemeral) async throws -> Data {
         guard allowed(url) else { throw UsageError.service }
         let guardrail=ArtworkRedirectGuard()
-        let session=URLSession(configuration:.ephemeral,delegate:guardrail,delegateQueue:nil); defer { session.invalidateAndCancel() }
+        let session=URLSession(configuration:configuration,delegate:guardrail,delegateQueue:nil); defer { session.invalidateAndCancel() }
         var request=URLRequest(url:url); request.timeoutInterval=12
         let (bytes,response)=try await session.bytes(for:request)
         guard (response as? HTTPURLResponse)?.statusCode == 200, response.mimeType?.hasPrefix("image/") == true, response.expectedContentLength <= 2_000_000 else { throw UsageError.service }

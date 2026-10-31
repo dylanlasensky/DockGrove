@@ -69,11 +69,18 @@ struct UnitConversion {
     @Published var colorHex = "#FFFFFF"
     @Published var reminders: [EKReminder] = []
     @Published var remindersStatus = "Connect to view and complete Apple Reminders."
-    @Published var loginEnabled = SMAppService.mainApp.status == .enabled
+    @Published var loginEnabled = LoginService.status() == .enabled
     @Published var busy = false
-    private let eventStore = EKEventStore()
-    private var timer: Timer?
-    private var nextDrink = Date().addingTimeInterval(3600)
+    /// System services. Tests replace these with fakes; the defaults are the real macOS services.
+    var reminderStore: EventStoreAccess = EKEventStore()
+    var chooseDirectory: (NSOpenPanel) -> URL? = SystemPicker.run
+    var sampleColor: (@escaping (NSColor?) -> Void) -> Void = SystemPicker.sampleColor
+    var capture: @Sendable () -> Int32? = Utilities.interactiveCapture
+    var setLoginItem: (Bool) throws -> Void = LoginService.set
+    var loginStatus: () -> SMAppService.Status = LoginService.status
+    var chime: () -> Void = Utilities.playChime
+    private(set) var timer: Timer?
+    var nextDrink = Date().addingTimeInterval(3600)
     private var waterDay = ""
     init(store: UserDefaults) {
         self.store = store
@@ -88,7 +95,7 @@ struct UnitConversion {
         timer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in Task { @MainActor in
             guard let self else { return }; self.refreshDay()
             if self.waterReminder && Date() >= self.nextDrink {
-                self.waterDue = true; self.nextDrink = Date().addingTimeInterval(3600); NSSound(named: "Glass")?.play()
+                self.waterDue = true; self.nextDrink = Date().addingTimeInterval(3600); self.chime()
             }
         } }
     }
@@ -127,9 +134,11 @@ struct UnitConversion {
             return $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending
         }
     }
-    func chooseFolder() { let p = NSOpenPanel(); p.canChooseFiles = false; p.canChooseDirectories = true; if p.runModal() == .OK, let url = p.url { loadFolder(url) } }
+    static func playChime() { NSSound(named: "Glass")?.play() }
+    nonisolated static func interactiveCapture() -> Int32? { (try? SystemDock.run("/usr/sbin/screencapture", ["-i", "-c"]))?.0 }
+    func chooseFolder() { let p = NSOpenPanel(); p.canChooseFiles = false; p.canChooseDirectories = true; if let url = chooseDirectory(p) { loadFolder(url) } }
     func pickColor() {
-        NSColorSampler().show { [weak self] color in
+        sampleColor { [weak self] color in
             guard let color = color?.usingColorSpace(.sRGB) else { return }
             let hex = String(format: "#%02X%02X%02X", Int((color.redComponent * 255).rounded()), Int((color.greenComponent * 255).rounded()), Int((color.blueComponent * 255).rounded()))
             Task { @MainActor in self?.colorHex = hex }
@@ -138,22 +147,23 @@ struct UnitConversion {
     func screenshot() {
         guard !busy else { return }; busy = true; status = "Select a region. Escape cancels. The image is copied to your clipboard."
         // Interactive system capture owns its own permission flow and cancellation UI.
+        let capture = capture
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let result = try? SystemDock.run("/usr/sbin/screencapture", ["-i", "-c"])
-            Task { @MainActor in self?.busy = false; self?.status = result?.0 == 0 ? "Capture finished. If you selected a region, paste the image with ⌘V." : "Capture cancelled or unavailable. Check Screen Recording permission." }
+            let result = capture()
+            Task { @MainActor in self?.busy = false; self?.status = result == 0 ? "Capture finished. If you selected a region, paste the image with ⌘V." : "Capture cancelled or unavailable. Check Screen Recording permission." }
         }
     }
     func setLogin(_ enabled: Bool) {
-        do { if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
-            loginEnabled = SMAppService.mainApp.status == .enabled
-            status = SMAppService.mainApp.status == .requiresApproval ? "Approve DockGrove in System Settings > General > Login Items." : nil
+        do { try setLoginItem(enabled)
+            loginEnabled = loginStatus() == .enabled
+            status = loginStatus() == .requiresApproval ? "Approve DockGrove in System Settings > General > Login Items." : nil
         } catch { status = "Could not change login startup. Install DockGrove in Applications and try again." }
     }
     func loadReminders() {
         Task { @MainActor [self] in
             do {
-                guard try await eventStore.requestFullAccessToReminders() else { remindersStatus = "Reminders permission was not granted."; return }
-                eventStore.fetchReminders(matching: eventStore.predicateForIncompleteReminders(withDueDateStarting: nil, ending: nil, calendars: nil)) { [weak self] items in
+                guard try await reminderStore.requestReminderAccess() else { remindersStatus = "Reminders permission was not granted."; return }
+                reminderStore.incompleteReminders { [weak self] items in
                     Task { @MainActor in self?.reminders = (items ?? []).sorted { ($0.title ?? "") < ($1.title ?? "") }; self?.remindersStatus = "Incomplete reminders · Refresh to sync changes" }
                 }
             } catch { remindersStatus = "Reminders are unavailable. Check permission in System Settings." }
@@ -161,7 +171,23 @@ struct UnitConversion {
     }
     func completeReminder(_ reminder: EKReminder) {
         reminder.isCompleted = true
-        do { try eventStore.save(reminder, commit: true); reminders.removeAll { $0.calendarItemIdentifier == reminder.calendarItemIdentifier } }
+        do { try reminderStore.saveReminder(reminder); reminders.removeAll { $0.calendarItemIdentifier == reminder.calendarItemIdentifier } }
         catch { reminder.isCompleted = false; remindersStatus = "Could not save this reminder. Refresh and try again." }
     }
+}
+
+/// Modal system pickers. Callers expose instance seams so tests never present them.
+@MainActor enum SystemPicker {
+    static func run(_ panel: NSOpenPanel) -> URL? { panel.runModal() == .OK ? panel.url : nil }
+    static func sampleColor(_ handler: @escaping (NSColor?) -> Void) { NSColorSampler().show(selectionHandler: handler) }
+}
+/// The app's login item. `set` registers or unregisters DockGrove with macOS.
+enum LoginService {
+    static func status() -> SMAppService.Status { SMAppService.mainApp.status }
+    static func set(_ enabled: Bool) throws { if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() } }
+}
+
+enum TestEnvironment {
+    /// True inside an `xcodebuild test` host process.
+    static let isXCTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
 }

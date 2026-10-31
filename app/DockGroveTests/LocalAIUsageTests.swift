@@ -1,4 +1,5 @@
 import Foundation
+@testable import DockGrove
 
 func runLocalAIUsageTests() throws {
     let now = Date(timeIntervalSince1970: 1_780_000_000)

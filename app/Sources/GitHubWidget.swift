@@ -59,29 +59,38 @@ enum GitHubClient {
     static func safeURL(_ value: String) -> URL? {
         guard let url = URL(string: value), url.scheme == "https", url.host == "github.com", url.user == nil, url.password == nil else { return nil }; return url
     }
-    static func fetch(_ input: String, useCLI: Bool) async throws -> GitHubSnapshot {
+    typealias HTTP = (URLRequest) async throws -> (Data, URLResponse)
+    /// GitHub CLI install locations, searched in order.
+    static let cliPaths = ["/opt/homebrew/bin/gh", "/usr/local/bin/gh", "/usr/bin/gh"]
+    static func fetch(_ input: String, useCLI: Bool, http: @escaping HTTP = download, api: URL = URL(string: "https://api.github.com/")!, cliPaths: [String] = GitHubClient.cliPaths, cliTimeout: TimeInterval = 20) async throws -> GitHubSnapshot {
         guard let name = normalized(input) else { throw GitHubReadError.invalidRepository }
-        let repo: RepositorySummary = try await request("repos/" + name, useCLI: useCLI)
+        let transport = Transport(useCLI: useCLI, http: http, api: api, cliPaths: cliPaths, cliTimeout: cliTimeout)
+        let repo: RepositorySummary = try await request("repos/" + name, transport)
         // Repositories without Actions access still have useful metadata and issues.
         var issues: [RepositoryIssue] = [], run: RepositoryRun?, warnings: [String] = []
-        do { issues = try await request("repos/\(name)/issues?state=open&per_page=20", useCLI: useCLI) }
+        do { issues = try await request("repos/\(name)/issues?state=open&per_page=20", transport) }
         catch { warnings.append("Issues unavailable") }
-        do { let runs: RepositoryRuns = try await request("repos/\(name)/actions/runs?per_page=1", useCLI: useCLI); run = runs.workflow_runs.first }
+        do { let runs: RepositoryRuns = try await request("repos/\(name)/actions/runs?per_page=1", transport); run = runs.workflow_runs.first }
         catch { warnings.append("Actions unavailable") }
         return GitHubSnapshot(repository: repo, issues: issues, run: run, activityWarning: warnings.isEmpty ? nil : warnings.joined(separator: " · "))
     }
-    private static func request<T: Decodable>(_ endpoint: String, useCLI: Bool) async throws -> T {
+    struct Transport { let useCLI: Bool; let http: HTTP; let api: URL; let cliPaths: [String]; let cliTimeout: TimeInterval }
+    static func download(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        let session = URLSession(configuration: .ephemeral)
+        defer { session.invalidateAndCancel() }
+        return try await session.data(for: request)
+    }
+    private static func request<T: Decodable>(_ endpoint: String, _ transport: Transport) async throws -> T {
         let data: Data
-        if useCLI {
-            data = try await Task.detached(priority: .utility) { try cli(endpoint) }.value
+        if transport.useCLI {
+            let paths = transport.cliPaths, timeout = transport.cliTimeout
+            data = try await Task.detached(priority: .utility) { try cli(endpoint, paths: paths, timeout: timeout) }.value
         } else {
-            var request = URLRequest(url: URL(string: "https://api.github.com/" + endpoint)!)
+            var request = URLRequest(url: URL(string: transport.api.absoluteString + endpoint)!)
             request.timeoutInterval = 15
             request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
             request.setValue("DockGrove", forHTTPHeaderField: "User-Agent")
-            let session = URLSession(configuration: .ephemeral)
-            defer { session.invalidateAndCancel() }
-            let (body, response) = try await session.data(for: request)
+            let (body, response) = try await transport.http(request)
             guard let http = response as? HTTPURLResponse else { throw GitHubReadError.response }
             guard http.statusCode == 200 else {
                 if http.statusCode == 429 || (http.statusCode == 403 && http.value(forHTTPHeaderField: "X-RateLimit-Remaining") == "0") { throw GitHubReadError.rateLimited }
@@ -92,8 +101,8 @@ enum GitHubClient {
         guard data.count <= 4_000_000 else { throw GitHubReadError.response }
         return try JSONDecoder().decode(T.self, from: data)
     }
-    private static func cli(_ endpoint: String) throws -> Data {
-        guard let executable = ["/opt/homebrew/bin/gh", "/usr/local/bin/gh", "/usr/bin/gh"].first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else { throw GitHubReadError.missingCLI }
+    private static func cli(_ endpoint: String, paths: [String], timeout: TimeInterval) throws -> Data {
+        guard let executable = paths.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else { throw GitHubReadError.missingCLI }
         let process = Process(), pipe = Pipe()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = ["api", "--hostname", "github.com", "--method", "GET", endpoint]
@@ -101,7 +110,7 @@ enum GitHubClient {
         try process.run()
         defer { if process.isRunning { process.terminate() } }
         let descriptor = pipe.fileHandleForReading.fileDescriptor
-        var data = Data(); let deadline = Date().addingTimeInterval(20)
+        var data = Data(); let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             var fd = pollfd(fd: descriptor, events: Int16(POLLIN), revents: 0)
             if poll(&fd, 1, 100) > 0 {
@@ -128,9 +137,11 @@ enum GitHubClient {
     @Published var loading = false
     private let store: UserDefaults
     private var generation = 0
-    private var timer: Timer?
-    init(store: UserDefaults) {
-        self.store = store
+    private(set) var timer: Timer?
+    /// Loads a snapshot. Tests inject a local fake instead of GitHub.
+    let fetch: (String, Bool) async throws -> GitHubSnapshot
+    init(store: UserDefaults, fetch: @escaping (String, Bool) async throws -> GitHubSnapshot = { try await GitHubClient.fetch($0, useCLI: $1) }) {
+        self.store = store; self.fetch = fetch
         repository = store.string(forKey: "githubRepository") ?? "dylanlasensky/DockGrove"
         useCLI = store.bool(forKey: "githubUseCLI")
         autoRefresh = store.bool(forKey: "githubAutoRefresh")
@@ -144,7 +155,7 @@ enum GitHubClient {
         loading = true; let request = generation, repo = repository, cli = useCLI
         Task { @MainActor in
             do {
-                let result = try await GitHubClient.fetch(repo, useCLI: cli)
+                let result = try await fetch(repo, cli)
                 guard request == generation else { return }
                 snapshot = result; refreshed = Date(); error = nil; loading = false
             } catch {

@@ -16,7 +16,7 @@ struct SystemSample {
     @Published var upload = 0.0
     @Published var history: [Double] = []
     @Published var available = false
-    private var timer: Timer?
+    private(set) var timer: Timer?
     private var previousCPU: (UInt64, UInt64)?
     private var previousNetwork: (UInt64, UInt64, Date)?
     func start() {
@@ -65,44 +65,85 @@ struct SystemSample {
 }
 
 struct AudioOutput: Identifiable, Hashable { let id: AudioDeviceID; let name: String }
+/// Core Audio output-device properties. Tests use a fake so the real output never changes.
+protocol AudioHardware {
+    func devices() -> [AudioDeviceID]?
+    func hasOutput(_ device: AudioDeviceID) -> Bool
+    func name(_ device: AudioDeviceID) -> String?
+    func defaultOutput() -> AudioDeviceID?
+    func volume(_ device: AudioDeviceID) -> (value: Float, settable: Bool)
+    func setVolume(_ value: Float, device: AudioDeviceID) -> Bool
+    func setDefaultOutput(_ device: AudioDeviceID) -> Bool
+}
+struct CoreAudioHardware: AudioHardware {
+    var system = AudioObjectID(kAudioObjectSystemObject)
+    func devices() -> [AudioDeviceID]? {
+        var key = AudioControl.address(kAudioHardwarePropertyDevices), size: UInt32 = 0
+        guard AudioObjectGetPropertyDataSize(system, &key, 0, nil, &size) == noErr else { return nil }
+        var ids = [AudioDeviceID](repeating: 0, count: Int(size) / MemoryLayout<AudioDeviceID>.size)
+        guard AudioObjectGetPropertyData(system, &key, 0, nil, &size, &ids) == noErr else { return nil }
+        return ids
+    }
+    func hasOutput(_ device: AudioDeviceID) -> Bool {
+        var streams = AudioControl.address(kAudioDevicePropertyStreams, scope: kAudioDevicePropertyScopeOutput), bytes: UInt32 = 0
+        return AudioObjectGetPropertyDataSize(device, &streams, 0, nil, &bytes) == noErr && bytes > 0
+    }
+    func name(_ device: AudioDeviceID) -> String? {
+        var name: Unmanaged<CFString>?, nameSize = UInt32(MemoryLayout<Unmanaged<CFString>?>.size), nameKey = AudioControl.address(kAudioObjectPropertyName)
+        guard AudioObjectGetPropertyData(device, &nameKey, 0, nil, &nameSize, &name) == noErr, let name else { return nil }
+        return name.takeRetainedValue() as String
+    }
+    func defaultOutput() -> AudioDeviceID? {
+        var deviceKey = AudioControl.address(kAudioHardwarePropertyDefaultOutputDevice), deviceSize = UInt32(MemoryLayout<AudioDeviceID>.size), device: AudioDeviceID = 0
+        guard AudioObjectGetPropertyData(system, &deviceKey, 0, nil, &deviceSize, &device) == noErr else { return nil }
+        return device
+    }
+    func volume(_ device: AudioDeviceID) -> (value: Float, settable: Bool) {
+        var volumeKey = AudioControl.address(kAudioDevicePropertyVolumeScalar, scope: kAudioDevicePropertyScopeOutput), volumeSize = UInt32(MemoryLayout<Float>.size), value: Float = 0, writable: DarwinBoolean = false
+        let settable = AudioObjectGetPropertyData(device, &volumeKey, 0, nil, &volumeSize, &value) == noErr && AudioObjectIsPropertySettable(device, &volumeKey, &writable) == noErr && writable.boolValue
+        return (value, settable)
+    }
+    func setVolume(_ value: Float, device: AudioDeviceID) -> Bool {
+        var key = AudioControl.address(kAudioDevicePropertyVolumeScalar, scope: kAudioDevicePropertyScopeOutput), v = value
+        return AudioObjectSetPropertyData(device, &key, 0, nil, UInt32(MemoryLayout<Float>.size), &v) == noErr
+    }
+    func setDefaultOutput(_ device: AudioDeviceID) -> Bool {
+        var key = AudioControl.address(kAudioHardwarePropertyDefaultOutputDevice), value = device
+        return AudioObjectSetPropertyData(system, &key, 0, nil, UInt32(MemoryLayout<AudioDeviceID>.size), &value) == noErr
+    }
+}
 @MainActor final class AudioControl: ObservableObject {
     @Published var outputs: [AudioOutput] = []
     @Published var selected: AudioDeviceID = 0
     @Published var volume: Float = 0
     @Published var adjustable = false
     @Published var status = ""
-    static func address(_ selector: AudioObjectPropertySelector, scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal, element: AudioObjectPropertyElement = kAudioObjectPropertyElementMain) -> AudioObjectPropertyAddress {
+    let hardware: AudioHardware
+    init(hardware: AudioHardware = CoreAudioHardware()) { self.hardware = hardware }
+    nonisolated static func address(_ selector: AudioObjectPropertySelector, scope: AudioObjectPropertyScope = kAudioObjectPropertyScopeGlobal, element: AudioObjectPropertyElement = kAudioObjectPropertyElementMain) -> AudioObjectPropertyAddress {
         AudioObjectPropertyAddress(mSelector: selector, mScope: scope, mElement: element)
     }
     func refresh() {
-        var key = Self.address(kAudioHardwarePropertyDevices), size: UInt32 = 0
-        guard AudioObjectGetPropertyDataSize(AudioObjectID(kAudioObjectSystemObject), &key, 0, nil, &size) == noErr else { status = "Audio outputs unavailable."; return }
-        var ids = [AudioDeviceID](repeating: 0, count: Int(size) / MemoryLayout<AudioDeviceID>.size)
-        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &key, 0, nil, &size, &ids) == noErr else { return }
+        guard let ids = hardware.devices() else { status = "Audio outputs unavailable."; return }
         outputs = ids.compactMap { id in
-            var streams = Self.address(kAudioDevicePropertyStreams, scope: kAudioDevicePropertyScopeOutput), bytes: UInt32 = 0
-            guard AudioObjectGetPropertyDataSize(id, &streams, 0, nil, &bytes) == noErr, bytes > 0 else { return nil }
-            var name: Unmanaged<CFString>?, nameSize = UInt32(MemoryLayout<Unmanaged<CFString>?>.size), nameKey = Self.address(kAudioObjectPropertyName)
-            guard AudioObjectGetPropertyData(id, &nameKey, 0, nil, &nameSize, &name) == noErr else { return nil }
-            guard let name else { return nil }; return AudioOutput(id: id, name: name.takeRetainedValue() as String)
+            guard hardware.hasOutput(id), let name = hardware.name(id) else { return nil }
+            return AudioOutput(id: id, name: name)
         }
-        var deviceKey = Self.address(kAudioHardwarePropertyDefaultOutputDevice), deviceSize = UInt32(MemoryLayout<AudioDeviceID>.size), device: AudioDeviceID = 0
-        guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &deviceKey, 0, nil, &deviceSize, &device) == noErr else { return }
+        guard let device = hardware.defaultOutput() else { return }
         selected = device
-        var volumeKey = Self.address(kAudioDevicePropertyVolumeScalar, scope: kAudioDevicePropertyScopeOutput), volumeSize = UInt32(MemoryLayout<Float>.size), value: Float = 0, writable: DarwinBoolean = false
-        adjustable = AudioObjectGetPropertyData(device, &volumeKey, 0, nil, &volumeSize, &value) == noErr && AudioObjectIsPropertySettable(device, &volumeKey, &writable) == noErr && writable.boolValue
-        volume = value
+        let reading = hardware.volume(device)
+        adjustable = reading.settable
+        volume = reading.value
         status = adjustable ? "System output volume" : "This output uses its own volume controls."
     }
     func setVolume(_ value: Float) {
         guard adjustable else { return }
-        var key = Self.address(kAudioDevicePropertyVolumeScalar, scope: kAudioDevicePropertyScopeOutput), v = min(1, max(0, value))
-        if AudioObjectSetPropertyData(selected, &key, 0, nil, UInt32(MemoryLayout<Float>.size), &v) == noErr { volume = v } else { status = "The output refused the volume change." }
+        let v = min(1, max(0, value))
+        if hardware.setVolume(v, device: selected) { volume = v } else { status = "The output refused the volume change." }
     }
     func select(_ id: AudioDeviceID) {
         guard outputs.contains(where: { $0.id == id }) else { return }
-        var key = Self.address(kAudioHardwarePropertyDefaultOutputDevice), value = id
-        if AudioObjectSetPropertyData(AudioObjectID(kAudioObjectSystemObject), &key, 0, nil, UInt32(MemoryLayout<AudioDeviceID>.size), &value) == noErr { refresh() } else { status = "Could not change the audio output." }
+        if hardware.setDefaultOutput(id) { refresh() } else { status = "Could not change the audio output." }
     }
 }
 struct SystemDetailView: View {

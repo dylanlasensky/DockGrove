@@ -1,4 +1,5 @@
 import AppKit
+@testable import DockGrove
 
 @MainActor func runBehaviorTests() throws {
     let now = Date(timeIntervalSince1970: 1_800_000_000)
