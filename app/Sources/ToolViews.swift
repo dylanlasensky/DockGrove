@@ -129,8 +129,8 @@ struct ToolTileContents: View {
         case .webSearch: WebSearchView()
         case .windows: WindowManagerView(manager: kit.windows, model: model)
         case .googleCalendar: CalendarAgendaView(calendar: kit.googleCalendar)
-        case .spotify: MusicPlayerView(player: kit.spotify)
-        case .appleMusic: MusicPlayerView(player: kit.appleMusic)
+        case .spotify: MusicPlayerView(player: kit.spotify).environment(\.connectionSettingsAction, { model.openConnectionSettings(.spotify) })
+        case .appleMusic: MusicPlayerView(player: kit.appleMusic).environment(\.connectionSettingsAction, { model.openConnectionSettings(.appleMusic) })
         case .openaiUsage: AIUsageView(widget: kit.openaiUsage)
         case .anthropicUsage: AIUsageView(widget: kit.anthropicUsage)
         case .cursorUsage: AIUsageView(widget: kit.cursorUsage)
@@ -145,9 +145,9 @@ struct ToolTileContents: View {
             Text("Your entered city is sent to Apple when you refresh. Your device location is not used.").font(.caption).foregroundStyle(.secondary)
             if let snapshot = kit.weatherSnapshot { WeatherAttributionView(snapshot: snapshot) }
         case .music:
-            MusicPlayerView(player: kit.spotify)
+            MusicPlayerView(player: kit.spotify).environment(\.connectionSettingsAction, { model.openConnectionSettings(.spotify) })
             Divider()
-            MusicPlayerView(player: kit.appleMusic)
+            MusicPlayerView(player: kit.appleMusic).environment(\.connectionSettingsAction, { model.openConnectionSettings(.appleMusic) })
         case .search:
             TextField("Find an app…", text: $kit.query).textFieldStyle(.roundedBorder)
             ScrollView { LazyVStack(spacing: 4) {

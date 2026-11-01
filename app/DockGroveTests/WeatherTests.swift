@@ -43,5 +43,13 @@ import WeatherKit
     precondition(kit.weatherDetail.contains("connection") && kit.weatherSnapshot == nil)
     await kit.loadWeather { _ in fixture }
     precondition(kit.weatherText == "32°F" && !kit.weatherLoading)
+    kit.weatherCity = "Older city"
+    await kit.loadWeather { _ in
+        kit.weatherCity = "Boston"
+        await kit.loadWeather { _ in fixture }
+        precondition(kit.weatherSnapshot?.city == fixture.city)
+        return fixture
+    }
+    precondition(kit.weatherSnapshot?.city == fixture.city && !kit.weatherLoading)
     print("PASS: WeatherKit presentation, Fahrenheit conversion, attribution, empty/duplicate requests, stale city responses, missing city, authorization/network failures, and retry")
 }

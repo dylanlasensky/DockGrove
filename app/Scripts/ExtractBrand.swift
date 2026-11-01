@@ -1,3 +1,4 @@
+// Historical G-mark extraction only. Current branding: MakeConceptBrand.swift.
 // Exact crops from the owner's supplied DockGroveLOGO.png; no generated or redrawn artwork.
 import AppKit
 let root = URL(fileURLWithPath: CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : ".")

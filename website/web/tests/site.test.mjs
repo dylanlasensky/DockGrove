@@ -75,15 +75,16 @@ test('recover page posts email, never in the URL',()=>{
  assert(recover.includes('Back to your space.')&&recover.includes('expire after 15 minutes'));
 });
 
-test('home page content, approved artwork and marketing checkout gate',()=>{
- assert.equal(fs.readdirSync(path.join(out,'assets/companions')).length,9,'All nine approved pixel pets');
- assert.equal((html.match(/class="[^"]*\bpixel-pet\b[^"]*"/g)||[]).length,9,'All nine pets have visible previews');
- assert(html.includes('SAMPLE')&&html.includes('not a remaining subscription quota'));
- assert(html.includes('Coming soon')&&html.includes('Not yet Apple-notarized'));
- assert(html.includes('data-coming-soon="true"'),'Marketing CTA cannot initiate checkout');
- assert(html.includes('https://dockgrove.com/')&&html.includes('DockGrove-wordmark.png'));
- for(const id of ['intelligence','widgets','workspace','personalize','download'])assert(html.includes(`id="${id}"`),id);
- assert(/Find your(?:<!-- -->)?\s*<em[^>]*>flow\.<\/em>/.test(html)&&!html.includes('Get the free preview'));
+test('home redesign keeps all companions, interactive previews and the marketing checkout gate',()=>{
+ assert.equal(fs.readdirSync(path.join(out,'assets/companions')).length,9);
+ assert(html.includes('Everything within reach.') && html.includes('Meet all nine companions'));
+ assert(html.includes('Sample data') && html.includes('API spend is separate'));
+ assert(html.includes('Coming soon') && html.includes('Commercial release in preparation'));
+ assert(/<button[^>]*id="checkout-button"[^>]*disabled/.test(html));
+ assert(html.includes('data-coming-soon="true"'));
+ assert(html.includes('https://dockgrove.com/') && html.includes('DockGrove-wordmark.png'));
+ for(const id of ['features','intelligence','widgets','companions','questions','download']) assert(html.includes(`id="${id}"`),id);
+ assert(html.includes('Start demo focus timer') && html.includes('Preview Dock appearance'));
 });
 
 test('stylesheet keeps accessibility and theming media rules',()=>{

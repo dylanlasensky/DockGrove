@@ -67,6 +67,12 @@ import SwiftUI
     _ = hover.update(now: 13, trigger: false, inside: false, expanded: false, interacting: false)
     _ = hover.update(now: 14, trigger: true, inside: true, expanded: false, interacting: false)
     precondition(hover.update(now: 14.2, trigger: true, inside: true, expanded: false, interacting: false) == true)
+    var dragHover = NotchHoverState()
+    dragHover.beginDrag(now: 0, alreadyExpanded: false)
+    precondition(dragHover.update(now: 1, trigger: false, inside: false, expanded: true, interacting: false) == false)
+    dragHover.manualChange(expanded: true)
+    dragHover.beginDrag(now: 2, alreadyExpanded: true)
+    precondition(dragHover.update(now: 4, trigger: false, inside: false, expanded: true, interacting: false) == nil)
     var airDropCalls: [[URL]] = []
     let controller = NotchController(model: model, airDropAction: { airDropCalls.append($0); return true })
     precondition(!controller.showingFiles)

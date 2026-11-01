@@ -12,7 +12,7 @@ struct RichWidgetCard: View {
         HStack(spacing: 8) {
             Button(action: open) { summary.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading).contentShape(Rectangle()) }.buttonStyle(.plain)
             controls
-        }.padding(.horizontal, 12).padding(.vertical, 9).frame(maxWidth: .infinity, maxHeight: .infinity)
+        }.padding(.horizontal, kind == .pet ? 4 : 12).padding(.vertical, kind == .pet ? 2 : 9).frame(maxWidth: .infinity, maxHeight: .infinity)
             .background { if model.albumColors && [.spotify,.appleMusic,.music].contains(kind), let player=musicPlayer, player.artwork != nil { RoundedRectangle(cornerRadius:18).fill(LinearGradient(colors:[player.artworkTint,Color(white:0.07)],startPoint:.topLeading,endPoint:.bottomTrailing)) } }
             .foregroundStyle(model.albumColors && musicPlayer?.artwork != nil ? Color.white : Color.primary)
             .environment(\.colorScheme, model.albumColors && musicPlayer?.artwork != nil ? .dark : scheme)
@@ -22,7 +22,9 @@ struct RichWidgetCard: View {
     @ViewBuilder var summary: some View {
         switch kind {
         case .pet:
-            HStack(spacing: 5) { CatPortrait(resting: kit.pet.state.resting, animal: kit.pet.animal, accent: model.color).frame(width:65,height:58); VStack(alignment:.leading,spacing:4) { Text(kit.pet.state.name).font(.system(size:12,weight:.semibold)).lineLimit(1); Text(kit.pet.state.mood).font(.system(size:9)).foregroundStyle(.secondary).lineLimit(2) } }
+            CatPortrait(resting: kit.pet.state.resting, animal: kit.pet.animal, accent: model.color, playRequest: kit.pet.playRequest)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .accessibilityLabel("\(kit.pet.state.name), \(kit.pet.state.mood). Open companion care.")
 
         case .focus:
             VStack(alignment: .leading, spacing: 3) {

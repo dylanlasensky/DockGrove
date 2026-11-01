@@ -2,11 +2,11 @@
 
 DockGrove is the product name. The canonical website is https://dockgrove.com and the repository is https://github.com/dylanlasensky/DockGrove.
 
-The owner supplied `app/Assets.xcassets/Brand/DockGrove-brand-sheet.imageset/DockGrove-brand-sheet.png`. The production wordmark and app icon are exact raster crops from that image, not AI regenerations or new drawings. `app/Scripts/ExtractBrand.swift` records the source rectangles; the icon's outside corners are masked to its supplied rounded silhouette. `app/Scripts/MakeIcon.swift` resamples that crop into the macOS icon sizes. The website and native UI share the same icon PNG. The source is finite-resolution raster artwork; an original vector file would improve very large exports without changing the design.
+The owner selected the three-bar Dock logo in the November 1 landing-page concept, superseding the earlier G mark. The mark has a charcoal left bar, taller blue center bar, pale gray right bar, and curved dark Dock base. `app/Scripts/MakeConceptBrand.swift` reproduces that geometry and generates the shared website wordmark, native image sets, brand sheet, and all ten macOS icon sizes. Run it from the repository root; `ExtractBrand.swift` is retained only as the historical G-mark extraction recipe and must not regenerate current assets.
 
 The native asset catalog also includes `AppIcon.appiconset` with all ten macOS sizes, four brand image sets, eighteen companion image sets, and 16 named color packs (92 accents): Classic, Coastal, Orchard, Dusk, Forest, Arctic, Sorbet, Blossom, Neon, Arcade, Desert, Coffee, Slate, Autumn, Aurora, and Festive. All packs beyond Classic include light/dark variants. Use the Appearance color-pack picker to choose them; arbitrary custom accents remain supported.
 
-Palette: black `#111111`, graphite `#34383F`, cool grey `#A3AAB5`, white `#FFFFFF`, blue `#4D83E8`.
+Palette: black `#111111`, graphite `#34383F`, cool grey `#A3AAB5`, white `#FFFFFF`, blue `#3478F6`.
 
 ## Compatibility identifiers
 

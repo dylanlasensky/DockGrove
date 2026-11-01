@@ -43,7 +43,10 @@ struct DockStudioSnapshot {
 }
 
 extension DockModel {
-    var studioEntries: [DockEntry] { orderedEntries.filter { DockStudioItem($0) != nil } }
+    var studioEntries: [DockEntry] { orderedEntries.filter { entry in
+        if case .app(let app) = entry { return apps.contains(app) }
+        return DockStudioItem(entry) != nil
+    } }
     func rememberStudioLayout() {
         studioHistory.append(DockStudioSnapshot(apps: apps, widgets: toolkit.enabled, order: entryOrder, clock: showClock, usage: showUsageCard, shapes: toolkit.widgetShapes, iconSize: iconSize, widthFraction: widthFraction, toolbarHeight: toolbarHeight, fitToolbarToContent: fitToolbarToContent))
         if studioHistory.count > 30 { studioHistory.removeFirst() }

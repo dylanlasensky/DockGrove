@@ -36,26 +36,28 @@ struct ApplicationsStackTile: View {
     static let shared = AppsLauncher()
     private final class Panel: NSPanel {
         override var canBecomeKey: Bool { true }
-        override func cancelOperation(_ sender: Any?) { AppsLauncher.shared.close() }
+        override func cancelOperation(_ sender: Any?) { AppsLauncher.shared.close(restorePrevious: true) }
         override func keyDown(with event: NSEvent) { if !AppsLauncher.shared.pager.handleKey(event) { super.keyDown(with: event) } }
     }
     private(set) var panel: NSPanel?
     /// Brings the launcher on screen; tests replace it so nothing covers the real desktop.
     var present: (NSPanel) -> Void = { panel in NSApp.activate(); panel.makeKeyAndOrderFront(nil) }
+    private var previousApplication: NSRunningApplication?
     private var monitors: [Any] = []
     private var resignObserver: NSObjectProtocol?
     let pager = AppsPager()
 
-    func toggle(model: DockModel) { panel == nil ? show(model: model) : close() }
+    func toggle(model: DockModel) { panel == nil ? show(model: model) : close(restorePrevious: true) }
 
     func show(model: DockModel) {
+        previousApplication = NSWorkspace.shared.frontmostApplication
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main ?? NSScreen.screens[0]
         let panel = Panel(contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = .popUpMenu; panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         panel.isReleasedWhenClosed = false
         pager.page = 0; pager.searchIsEmpty = true
-        let root = AppsLauncherView(model: model, kit: model.toolkit, pager: pager) { [weak self] in self?.close() }
+        let root = AppsLauncherView(model: model, kit: model.toolkit, pager: pager) { [weak self] in self?.close(restorePrevious: true) }
             .preferredColorScheme(model.scheme)
         panel.contentView = NSHostingView(rootView: root)
         panel.setFrame(screen.frame, display: false)
@@ -73,9 +75,11 @@ struct ApplicationsStackTile: View {
         model.toolkit.scanApplications(force: true)
     }
 
-    func close() {
+    func close(restorePrevious: Bool = false) {
         guard let panel else { return }
         self.panel = nil
+        if restorePrevious, let previousApplication, previousApplication.processIdentifier != ProcessInfo.processInfo.processIdentifier { previousApplication.activate() }
+        previousApplication = nil
         monitors.forEach(NSEvent.removeMonitor); monitors = []
         if let resignObserver { NotificationCenter.default.removeObserver(resignObserver) }
         resignObserver = nil
@@ -240,7 +244,7 @@ struct AppsLauncherView: View {
         withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) { drag = 0 }
     }
 
-    private func launch(_ app: DockApp) { kit.recordLaunch(app, query: query); model.open(app); close() }
+    private func launch(_ app: DockApp) { kit.recordLaunch(app, query: query); close(); model.open(app) }
 }
 
 private struct AppsLauncherIcon: View {

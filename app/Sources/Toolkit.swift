@@ -46,6 +46,7 @@ struct DockProfile: Codable, Identifiable {
     }
     @Published var weatherSnapshot: WeatherSnapshot?
     private var weatherRequestRevision: UInt = 0
+    private var loadingWeatherRevision: UInt?
     @Published var weatherText = "Choose a city"
     @Published var weatherDetail = ""
     @Published var weatherLoading = false
@@ -121,7 +122,7 @@ struct DockProfile: Codable, Identifiable {
     }
     private func save<T: Encodable>(_ value: T, _ key: String) { if let data = try? JSONEncoder().encode(value) { store.set(data, forKey: key) } }
     func canAccess(_ kind: ToolKind) -> Bool {
-        !purchasesEnabled || PurchaseManager.shared.tier >= kind.requiredAccess
+        (purchasesEnabled || LicenseManager.shared.permitsFeatures) && (!purchasesEnabled || PurchaseManager.shared.tier >= kind.requiredAccess)
     }
     func stopLockedWidgets() {
         if !canAccess(.system) { monitor.stop() }
@@ -239,9 +240,10 @@ struct DockProfile: Codable, Identifiable {
         let query = weatherCity
         let revision = weatherRequestRevision
         let city = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !city.isEmpty, !weatherLoading else { return }
+        guard !city.isEmpty, loadingWeatherRevision != revision else { return }
+        loadingWeatherRevision = revision
         weatherLoading = true
-        defer { weatherLoading = false }
+        defer { if loadingWeatherRevision == revision { weatherLoading = false; loadingWeatherRevision = nil } }
         do {
             let snapshot = try await fetch(city)
             // An in-flight response must never appear under a newly entered city.

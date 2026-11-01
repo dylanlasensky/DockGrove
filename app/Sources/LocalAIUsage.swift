@@ -196,7 +196,7 @@ struct LocalAIUsageView: View {
         VStack(alignment: .leading, spacing: 12) {
             if setupAllowed {
                 if widget.provider == .claude {
-                    AISignInControls(signIn: widget.signIn, provider: .claude) { widget.clear(); widget.connectClaude() }
+                    AISignInControls(signIn: widget.signIn, provider: .claude) { widget.connectClaude() }
                     Text("After sign-in, DockGrove enables its usage status line. An existing custom status line is preserved. Usage arrives after your next Claude Code response.").font(.caption).foregroundStyle(.secondary)
                     Divider()
                 } else { GeminiSignInControls(); Divider() }

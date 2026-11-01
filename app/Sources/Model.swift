@@ -134,7 +134,7 @@ struct DockApp: Identifiable, Equatable {
         iconSize = defaults.double(forKey: "iconSize")
         accent = defaults.string(forKey: "accent") ?? "White"
         showClock = defaults.bool(forKey: "showClock")
-        showApplicationsStack = defaults.object(forKey: "showApplicationsStack") as? Bool ?? true
+        showApplicationsStack = defaults.object(forKey: "showApplicationsStack") as? Bool ?? (defaults.object(forKey: "apps") == nil)
         usageEnabled = defaults.bool(forKey: "usageEnabled")
         customCLI = defaults.string(forKey: "customCLI") ?? ""
         selectedBucket = defaults.string(forKey: "selectedBucket") ?? "codex"
@@ -152,7 +152,7 @@ struct DockApp: Identifiable, Equatable {
         timer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in if self?.usageEnabled == true { self?.refreshUsage() } }
         }
-        licenseObservation = LicenseManager.shared.objectWillChange.debounce(for: .milliseconds(50), scheduler: RunLoop.main).sink { [weak self] _ in self?.objectWillChange.send() }
+        licenseObservation = LicenseManager.shared.objectWillChange.debounce(for: .milliseconds(50), scheduler: RunLoop.main).sink { [weak self] _ in self?.objectWillChange.send(); self?.toolkit.stopLockedWidgets() }
         if purchasesEnabled {
             purchaseObservation = PurchaseManager.shared.$ownedProductIDs.dropFirst().receive(on: RunLoop.main).sink { [weak self] _ in
                 guard let self else { return }

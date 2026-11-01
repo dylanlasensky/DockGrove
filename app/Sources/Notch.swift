@@ -33,6 +33,9 @@ struct NotchHoverState {
     private var lastInside: TimeInterval = 0
     private var openedByHover = false
     private var armed = true
+    mutating func beginDrag(now: TimeInterval, alreadyExpanded: Bool) {
+        if !alreadyExpanded { openedByHover = true; lastInside = now; started = nil }
+    }
     mutating func manualChange(expanded: Bool) {
         started = nil; openedByHover = false; armed = expanded
     }
@@ -142,7 +145,8 @@ extension DockModel {
         guard canAcceptFiles else { return }
         let destination = defaultDropDestination
         if destination == .tray { airDropReview = false }
-        setExpanded(true); showingFiles = true; fileDragActive = true; activeDropDestination = destination
+        hover.beginDrag(now: clock(), alreadyExpanded: expanded)
+        setExpanded(true, fromHover: true); showingFiles = true; fileDragActive = true; activeDropDestination = destination
     }
     @discardableResult func acceptFiles(_ urls: [URL]) -> Bool {
         defer { fileDragActive = false; activeDropDestination = nil }
@@ -189,15 +193,16 @@ extension DockModel {
         if let geometry { panel.setFrame(geometry.panelFrame(expanded: value, preferredWidth: model.notchWidth), display: true) }
     }
     func hide() {
+        guard panel.isVisible || expanded || fileDragActive || activeDropDestination != nil || selectedWidget != nil else { return }
         hover = NotchHoverState(); fileDragActive = false; activeDropDestination = nil
         selectedWidget = nil
         if expanded { expanded = false }
         panel.orderOut(nil); panel.ignoresMouseEvents = true
     }
-    func update(suppressed: Bool) {
+    func update(suppressed: Bool, windows: [[String: Any]]? = nil) {
         guard model.notchEnabled, model.visible, model.canUseFeatures, !suppressed,
               let display = compatibleDisplay(), let geometry = NotchGeometry(display: display),
-              !Self.fullscreen(on: display) else { hide(); geometry = nil; return }
+              !Self.fullscreen(on: display, windows: windows ?? CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]) else { hide(); geometry = nil; return }
         if let selectedWidget, !model.canAccess(selectedWidget) { self.selectedWidget = nil }
         if geometry != self.geometry { setExpanded(false); self.geometry = geometry }
         let mouse = mouseLocation()

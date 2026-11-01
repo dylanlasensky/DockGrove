@@ -296,6 +296,8 @@ final class IntegrationsCodexUsageTests: XCTestCase {
         do { _ = try await AppleWeatherClient.fetch(city: "nowhere", geocode: { _ in [] }, current: { _ in reading }); XCTFail("Missing city accepted") }
         catch { XCTAssertTrue(error is WeatherLookupError) }
 
+        do { _ = try await AppleWeatherClient.fetch(city: "nowhere", geocode: { _ in throw CLError(.geocodeFoundNoResult) }, current: { _ in reading }); XCTFail("Geocoder missing city accepted") }
+        catch { XCTAssertTrue(error is WeatherLookupError) }
         let geocode = AppleWeatherClient.geocode, current = AppleWeatherClient.current
         defer { AppleWeatherClient.geocode = geocode; AppleWeatherClient.current = current }
         AppleWeatherClient.geocode = { city in XCTAssertEqual(city, "Paris"); return [self.place(["city": "Paris", "country": "France"])] }

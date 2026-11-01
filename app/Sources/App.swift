@@ -180,11 +180,14 @@ final class DockPanel: NSPanel {
     @objc func sessionBecameActive() { sessionActive = true; spaceChanged(); layoutDock() }
     @objc func screenSlept() { screenAwake = false; checkAutoHide() }
     @objc func screenWoke() { screenAwake = true; spaceChanged(); layoutDock() }
+    private var visibilityWindowSnapshot: [[String: Any]]?
     func checkAutoHide() {
         guard let panel, let model else { return }
+        visibilityWindowSnapshot = windowList()
+        defer { visibilityWindowSnapshot = nil }
         check(panel,model:model,visibility:&visibility)
         for dock in orEmpty(workspace?.docks) { check(dock.panel,model:dock.model,visibility:&dock.visibility) }
-        notch?.update(suppressed: !sessionActive || !screenAwake || Date() < settlingUntil)
+        notch?.update(suppressed: !sessionActive || !screenAwake || Date() < settlingUntil, windows: visibilityWindowSnapshot)
         if !sessionActive || !screenAwake { snapper?.cancel() }
     }
     func check(_ panel:DockPanel,model:DockModel,visibility:inout DockVisibility) {
@@ -194,7 +197,7 @@ final class DockPanel: NSPanel {
         // CGWindow coordinates use a top-left origin, including on secondary displays.
         func cgRect(_ r: CGRect) -> CGRect { CGRect(x: r.minX, y: globalTop - r.maxY, width: r.width, height: r.height) }
         let bounds = cgRect(screen.frame), dock = cgRect(panel.frame)
-        let windows = windowList()
+        let windows = visibilityWindowSnapshot ?? windowList()
         let activePID = frontmostPID()
         var fullscreen = false, overlap = false
         for window in windows {

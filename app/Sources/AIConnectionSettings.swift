@@ -178,7 +178,7 @@ private struct CompactClaudeSetup: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             CompactCLISetup(signIn: widget.signIn, provider: .claude, useCLI: useCLI) {
-                widget.clear(); widget.connectClaude()
+                widget.connectClaude()
             }
             if widget.report != nil { CompactLocalUsage(widget: widget) }
             else {

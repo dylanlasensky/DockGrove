@@ -4,14 +4,14 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://dockgrove.com"),
   title: {
-    default: "DockGrove — Thoughtfully at hand.",
+    default: "DockGrove — Everything within reach.",
     template: "%s — DockGrove",
   },
   description:
     "A calmer space for your Mac. DockGrove brings apps, useful widgets, AI usage and window controls into one beautifully considered Dock. A commercial release in preparation.",
   icons: { icon: [{ url: "/assets/DockGrove-icon.png", type: "image/png" }] },
   openGraph: {
-    title: "DockGrove — Find your flow.",
+    title: "DockGrove — Everything within reach.",
     description: "Your apps. Your tools. A little more room to think.",
     type: "website",
     url: "https://dockgrove.com/",
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#111214",
+  themeColor: "#ffffff",
   colorScheme: "light dark",
 };
 

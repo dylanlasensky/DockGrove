@@ -1,6 +1,6 @@
 # DockGrove
 
-![DockGrove — Thoughtfully at hand.](app/Assets.xcassets/Brand/DockGrove-wordmark.imageset/DockGrove-wordmark.png)
+![DockGrove — Everything within reach.](app/Assets.xcassets/Brand/DockGrove-wordmark.imageset/DockGrove-wordmark.png)
 
 **Your apps, useful widgets, and AI usage in one native Mac Dock.**
 
@@ -15,6 +15,10 @@ Built with Swift, SwiftUI, and AppKit. The 1.0 commercial candidate adds purchas
 Compatible Macs can enable **Notch quick access** in Settings → Appearance. The resting notch matches the system camera housing. Hover or click to open a short horizontal strip. Home contains controls and searchable widgets; the second Files tab holds the file tray. Scroll sideways within either tab to explore. Appearance settings control the notch width, and Files has separate Tray and AirDrop drop zones. See [notch behavior and validation](docs/NOTCH.md).
 
 Toolbar dimensions are available in Settings → Appearance → Toolbar size. Drag a number badge left or right, or use its −/+ buttons, to adjust width, height, and icon size. Compact, Balanced, and Spacious previews apply presets; Fit width to content chooses between a content-sized bar and your chosen width. Changes save automatically and support Undo layout. Widget and display choices expand into searchable inline panels, and on/off settings use switches.
+
+## Refined desktop preview
+
+The latest design brings a silver-and-blue landing page, the new three-bar DockGrove mark, and nine distinct pixel companions. Pet details open on click so the main tile has more room to roam. Malcolm's notch, Studio, connection settings, Applications launcher and Next.js work are integrated in this release branch. See [integration review](docs/REFINED-RELEASE-REVIEW.md) for corrections and validation boundaries.
 
 ## Repository layout
 

@@ -40,7 +40,9 @@ enum AppleWeatherClient {
     @MainActor static func fetch(city: String) async throws -> WeatherSnapshot { try await fetch(city: city, geocode: geocode, current: current) }
     @MainActor static func fetch(city: String, geocode: Geocode, current: Current) async throws -> WeatherSnapshot {
         // Geocode only the entered city; never request the device's location.
-        let places = try await geocode(city)
+        let places: [CLPlacemark]
+        do { places = try await geocode(city) }
+        catch let error as CLError where error.code == .geocodeFoundNoResult { throw WeatherLookupError.cityNotFound }
         guard let place = places.first, let location = place.location else {
             throw WeatherLookupError.cityNotFound
         }

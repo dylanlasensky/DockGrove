@@ -167,6 +167,15 @@ import SwiftUI
         harness.click(CGPoint(x: 12, y: 12))
     }
 
+    func testExistingLayoutDoesNotGainApplicationsStack() {
+        let model = model(apps: 0)
+        model.defaults.set([], forKey: "apps")
+        model.defaults.removeObject(forKey: "showApplicationsStack")
+        XCTAssertFalse(DockModel(defaults: model.defaults, purchasesEnabled: false).showApplicationsStack)
+        model.defaults.removeObject(forKey: "apps")
+        XCTAssertTrue(DockModel(defaults: model.defaults, purchasesEnabled: false).showApplicationsStack)
+    }
+
     func testStackLeadsTheDockWhenEnabled() {
         let model = model(apps: 0)
         model.showApplicationsStack = true

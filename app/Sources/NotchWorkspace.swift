@@ -35,7 +35,7 @@ final class NotchDropHostingView: NSHostingView<NotchShelfView> {
         controller.activeDropDestination = controller.defaultDropDestination
         return .copy
     }
-    override func draggingExited(_ sender: NSDraggingInfo?) { controller?.fileDragActive = false }
+    override func draggingExited(_ sender: NSDraggingInfo?) { controller?.fileDragActive = false; controller?.activeDropDestination = nil }
     override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool { controller?.canAcceptFiles == true }
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let urls = NotchFileIntake.urls(from: sender.draggingPasteboard)
