@@ -189,6 +189,7 @@
 		58DE772FC54AB1898E5C58D0 /* DockBehavior.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockBehavior.swift; sourceTree = "<group>"; };
 		5AAD5B9A34333D6BCE0C7856 /* CheckCompanionAssets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckCompanionAssets.swift; sourceTree = "<group>"; };
 		5CBC25BDF1585CD7262E2D2C /* SettingsCoverageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsCoverageTests.swift; sourceTree = "<group>"; };
+		5D845FEC9B701260CF800E5D /* MakeConceptBrand.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MakeConceptBrand.swift; sourceTree = "<group>"; };
 		5E6FA1428CD2FF22BC0255EA /* ExtraWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtraWidgets.swift; sourceTree = "<group>"; };
 		5F5FE2B5CD8FE141E6287DEA /* DockGrove.storekit */ = {isa = PBXFileReference; path = DockGrove.storekit; sourceTree = "<group>"; };
 		611519FF9EAF987CD93D6A6F /* SettingsCoverageTestsHarness.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsCoverageTestsHarness.swift; sourceTree = "<group>"; };
@@ -329,6 +330,7 @@
 				5AAD5B9A34333D6BCE0C7856 /* CheckCompanionAssets.swift */,
 				7F4554364CFBF92E77207C18 /* CheckCoverage.swift */,
 				F5279351482164898546D816 /* ExtractBrand.swift */,
+				5D845FEC9B701260CF800E5D /* MakeConceptBrand.swift */,
 				C5387A0A74582B4F4C896427 /* MakeIcon.swift */,
 				4FD0DE5609C2BC58EED77C1B /* ReviewCompanions.swift */,
 				F01050C72F9E19456F3040AE /* ValidateLicenseConfig.swift */,

@@ -80,3 +80,5 @@ Utilities.swift: static SystemPicker.chooseFile(message:) # builds and runs a mo
 ~ Design.swift: NativeDockGlass.makeNSView(context:) # NSGlassEffectView is only created when the macOS 26 renderer draws the dock plate
 ~ Design.swift: NativeDockGlass.updateNSView(_:context:) # as above
 ~ Toolkit.swift: Toolkit.sampleSystem() # battery line runs only on machines with a power source (CI VMs have none)
+~ SystemMonitor.swift: implicit closure #1 in CoreAudioHardware.volume(_:) # `&&` tail runs only when the default output device reports a main volume scalar (Bluetooth outputs such as AirPods do not)
+~ SystemMonitor.swift: implicit closure #2 in CoreAudioHardware.volume(_:) # as above

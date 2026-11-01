@@ -105,7 +105,7 @@ struct WidgetsContentsHost: View {
         XCTAssertEqual(kit.enabled, ["focus", "tasks", "notes"])
         host.contextPick("Square", on: label)
         XCTAssertEqual(kit.widgetShapes["tasks"], "square")
-        host.contextPick("Remove widget", on: label)
+        host.contextPick("Remove from Dock", on: label)
         XCTAssertFalse(kit.enabled.contains("tasks"))
     }
 

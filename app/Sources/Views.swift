@@ -65,6 +65,7 @@ struct DockView: View {
                 .help("DockGrove settings").accessibilityLabel("DockGrove settings")
         }
         .contentShape(Rectangle())
+        .contextMenu { DockBarMenu(model: model, kit: model.toolkit) }
         .dropDestination(for: DockStudioItem.self) { items, _ in
             guard items.count == 1 else { return false }
             return model.placeStudioItem(items[0])
@@ -185,6 +186,22 @@ struct DockView: View {
     }
 }
 
+/// The bar's own menu, like secondary-clicking the macOS Dock's separator.
+struct DockBarMenu: View {
+    @ObservedObject var model: DockModel
+    @ObservedObject var kit: Toolkit
+    var body: some View {
+        Button(kit.autoHide ? "Turn Hiding Off" : "Turn Hiding On") { kit.autoHide.toggle() }
+        Menu("Position on Screen") {
+            ForEach(["Bottom", "Top", "Floating"], id: \.self) { edge in
+                Toggle(edge, isOn: Binding(get: { kit.edge == edge }, set: { _ in kit.edge = edge }))
+            }
+        }.disabled(model.replacingDock)
+        Divider()
+        Button("Dock Settings…") { model.settingsAction?() }
+    }
+}
+
 /// Leads the Dock's controls until DockGrove is activated; empty once it is.
 struct DockActivateButton: View {
     @ObservedObject var model: DockModel
@@ -210,25 +227,49 @@ struct AppTile: View {
         .onDrop(of: [UTType.fileURL.identifier], isTargeted: $dropTarget) { providers in
             model.acceptFiles(providers, for: app)
         }
-        .onHover { interaction.hovered = $0 }
-        .animation(.spring(response: 0.23, dampingFraction: 0.65), value: interaction.hovered)
-        .contextMenu {
-            Button("Windows…") { model.showAppWindows(app) }
-            Button("Replace app…") { model.showAppPicker(replacing: app) }
-            Button("Undo app change") { model.undoAppChange() }.disabled(model.appHistory.isEmpty)
-            Button("Open \(app.name)") { model.open(app) }
-            Divider()
-            Button("Move left") { model.move(app, by: -1) }.disabled(model.apps.first == app)
-            Button("Move right") { model.move(app, by: 1) }.disabled(model.apps.last == app)
-            Divider()
-            if model.apps.contains(app) { Button("Unpin") { model.remove(app) } }
-            else { Button("Pin to Dock") { model.pin(app) } }
-            if let running = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL?.standardizedFileURL.path == app.id }) {
-                Button(running.isHidden ? "Show app" : "Hide app") { DockSystemEffect.handler(.setHidden(running, !running.isHidden)) }
-            }
-            Button("Show in Finder") { DockSystemEffect.handler(.reveal([app.url])) }
-            Button("Quit app") { if let running = NSWorkspace.shared.runningApplications.first(where: { $0.bundleURL?.standardizedFileURL.path == app.id }) { DockSystemEffect.handler(.terminate(running)) } }.disabled(!app.isRunning)
+        .onHover { hovering in
+            interaction.hovered = hovering
+            // Fresh window titles for the context menu, as the system Dock lists them.
+            if hovering, app.isRunning, model.toolkit.windows.trusted { model.toolkit.windows.refresh() }
         }
+        .animation(.spring(response: 0.23, dampingFraction: 0.65), value: interaction.hovered)
+        .contextMenu { AppTileMenu(app: app, model: model, windows: model.toolkit.windows, forceQuit: DockSystemEffect.modifiers().contains(.option)) }
+    }
+}
+
+/// Mirrors the macOS Dock's app menu; DockGrove's own extras follow the last divider.
+struct AppTileMenu: View {
+    let app: DockApp
+    @ObservedObject var model: DockModel
+    @ObservedObject var windows: WindowManager
+    let forceQuit: Bool
+    var body: some View {
+        let running = model.runningApplication(app), pinned = model.apps.contains(app)
+        if running != nil {
+            let open = windows.windows.filter { $0.owner.bundleURL?.standardizedFileURL.path == app.id }
+            ForEach(open) { window in Button(window.menuTitle) { windows.selectedID = window.id; windows.focus() } }
+            if !open.isEmpty { Divider() }
+        }
+        Menu("Options") {
+            if running != nil { Toggle("Keep in Dock", isOn: Binding(get: { pinned }, set: { $0 ? model.pin(app) : model.remove(app) })) }
+            else { Button("Remove from Dock") { model.remove(app) } }
+            Button("Show in Finder") { DockSystemEffect.handler(.reveal([app.url])) }
+        }
+        Divider()
+        if let running {
+            Button("Show All Windows") { model.showAppWindows(app) }
+            Button(running.isHidden ? "Show" : "Hide") { DockSystemEffect.handler(.setHidden(running, !running.isHidden)) }
+            Divider()
+            // SwiftUI builds this menu with the view, so Option is checked again when Quit is chosen.
+            Button(forceQuit ? "Force Quit" : "Quit") { DockSystemEffect.handler(DockSystemEffect.modifiers().contains(.option) ? .forceTerminate(running) : .terminate(running)) }
+        } else {
+            Button("Open") { model.open(app) }
+        }
+        Divider()
+        Button("Replace app…") { model.showAppPicker(replacing: app) }
+        Button("Undo app change") { model.undoAppChange() }.disabled(model.appHistory.isEmpty)
+        Button("Move left") { model.move(app, by: -1) }.disabled(!pinned || model.apps.first == app)
+        Button("Move right") { model.move(app, by: 1) }.disabled(!pinned || model.apps.last == app)
     }
 }
 
@@ -259,6 +300,12 @@ struct UsageTile: View {
                 }
             }.padding(.horizontal, model.toolkit.richWidgets ? 12 : 0).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center).modifier(WidgetSurface())
         }.buttonStyle(.plain)
+        .contextMenu {
+            Button("Refresh Usage") { model.refreshUsage() }.disabled(model.fetching)
+            Button("Account Settings…") { model.openCodexConnection() }
+            Divider()
+            Button("Remove from Dock") { model.showUsageCard = false }
+        }
         .popover(isPresented: $interaction.expanded, arrowEdge: model.toolkit.edge == "Top" ? .bottom : .top) { UsageDetails(model: model).padding(22).frame(width: 335).preferredColorScheme(model.scheme) }
     }
 }
