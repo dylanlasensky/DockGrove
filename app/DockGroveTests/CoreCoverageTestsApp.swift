@@ -195,6 +195,9 @@ private final class CoreOtherInstance: NSRunningApplication {
         delegate.checkAutoHide()
         XCTAssertFalse(delegate.panel.isVisible, "a full-screen frontmost window suppresses the dock")
         delegate.frontmostPID = { nil }
+        var directVisibility = DockVisibility()
+        delegate.check(delegate.panel, model: model, visibility: &directVisibility)
+        XCTAssertTrue(delegate.panel.isVisible, "direct visibility checks fetch their own window snapshot")
         delegate.checkAutoHide()
         XCTAssertTrue(delegate.panel.isVisible, "dock shows once nothing is full screen")
         delegate.toggleVisibility()

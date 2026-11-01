@@ -12,7 +12,7 @@ Notch.swift: static NotchController.runOpenPanel(message:) # modal NSOpenPanel
 NotchWorkspace.swift: closure #3 in NotchTrayView.trayItem(_:) # SwiftUI onDrag item provider only runs inside a real system drag session
 ToolViews.swift: static WidgetEffect.perform(_:) # live system side effects (NSWorkspace open/launch, pasteboard, panels, login item, profile import/export); tests use the WidgetEffects seam
 ToolViews.swift: implicit closure #1 in variable initialization expression of static WidgetEffectsKey.defaultValue # production default pointing at WidgetEffect.perform; tests always inject a fake
-ToolViews.swift: closure #3 in closure #1 in closure #1 in closure #1 in closure #11 in ToolTileContents.body.getter # onDrag item provider for the files row; only a real drag session calls it
+ToolViews.swift: closure #3 in closure #1 in closure #1 in closure #1 in closure #15 in ToolTileContents.body.getter # onDrag item provider for the files row; only a real drag session calls it
 UtilityViews.swift: closure #3 in closure #1 in closure #1 in closure #5 in UtilityView.content.getter # onDrag item provider for the folders row; only a real drag session calls it
 ExtraWidgets.swift: LiveVoiceMemoDevice.requestMicrophone() # real microphone permission prompt
 ExtraWidgets.swift: LiveVoiceMemoDevice.exportDestination() # modal NSSavePanel

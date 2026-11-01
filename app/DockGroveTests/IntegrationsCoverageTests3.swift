@@ -225,7 +225,12 @@ import ServiceManagement
         window.orderFrontRegardless()
         IntegrationsUI.wait(1) { window.occlusionState.contains(.visible) }
         stage.refreshScene()
+        window.level = .floating
+        stage.refreshScene()
+        XCTAssertFalse(stage.isPaused, "A visible floating Dock must animate")
         window.orderOut(nil)
+        stage.refreshScene()
+        XCTAssertTrue(stage.isPaused, "A hidden Dock must stop rendering")
         window.contentView = nil
     }
 }

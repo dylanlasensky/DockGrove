@@ -102,7 +102,9 @@ final class CompanionStage: SKView {
     func refreshScene() {
         companionScene.reducedMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         preferredFramesPerSecond = companionScene.reducedMotion ? 1 : 60
-        let visible = window.map { $0.isVisible && $0.occlusionState.contains(.visible) } ?? false
+        // Floating Dock panels can remain visibly on screen while AppKit omits the
+        // occlusion flag. Their own visibility is the authoritative hide signal.
+        let visible = window.map { $0.isVisible && ($0.level > .normal || $0.occlusionState.contains(.visible)) } ?? false
         let pause = !visible || isHiddenOrHasHiddenAncestor
         if pause != isPaused { companionScene.resetClock() }
         isPaused = pause

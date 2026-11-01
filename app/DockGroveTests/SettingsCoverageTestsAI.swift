@@ -296,6 +296,30 @@ import AppKit
         XCTAssertFalse(model.codexConnectionSelected)
     }
 
+    func testMusicWidgetsRouteToTheirOwnConnectionSettings() throws {
+        let model = model()
+        var openings = 0
+        model.settingsAction = { openings += 1 }
+        for kind: ToolKind in [.spotify, .appleMusic, .music] {
+            let harness = SettingsHarness(VStack {
+                ToolTileContents(kind: kind, model: model, kit: model.toolkit, interaction: TileInteraction())
+            }.padding(), width: 400, height: 500)
+            defer { harness.close() }
+            let expected: [ToolKind] = kind == .music ? [.spotify, .appleMusic] : [kind]
+            for (index, provider) in expected.enumerated() {
+                model.connectionSettingsKind = nil
+                model.codexConnectionSelected = true
+                let controls = harness.controls()
+                XCTAssertEqual(controls.count, expected.count * 2)
+                let control = try XCTUnwrap(controls.indices.contains(index * 2 + 1) ? controls[index * 2 + 1] : nil)
+                harness.click(control)
+                XCTAssertEqual(model.connectionSettingsKind, provider)
+                XCTAssertFalse(model.codexConnectionSelected)
+            }
+        }
+        XCTAssertEqual(openings, 4)
+    }
+
     func testConnectionSettingsButton() {
         var opened = 0
         let custom = SettingsHarness(ConnectionSettingsButton().environment(\.connectionSettingsAction, { opened += 1 }).padding(), width: 300, height: 100)

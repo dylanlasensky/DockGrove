@@ -9,9 +9,20 @@ struct RichWidgetCard: View {
     @ObservedObject var kit: Toolkit
     var open: () -> Void
     var body: some View {
-        HStack(spacing: 8) {
-            Button(action: open) { summary.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading).contentShape(Rectangle()) }.buttonStyle(.plain)
-            controls
+        Group {
+            if kind == .pet {
+                // Keep the live SpriteKit view outside Button's cached label rendering.
+                summary.accessibilityHidden(true).overlay {
+                    Button(action: open) { Color.clear.contentShape(Rectangle()) }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(kit.pet.state.name), \(kit.pet.state.mood). Open companion care.")
+                }
+            } else {
+                HStack(spacing: 8) {
+                    Button(action: open) { summary.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading).contentShape(Rectangle()) }.buttonStyle(.plain)
+                    controls
+                }
+            }
         }.padding(.horizontal, kind == .pet ? 4 : 12).padding(.vertical, kind == .pet ? 2 : 9).frame(maxWidth: .infinity, maxHeight: .infinity)
             .background { if model.albumColors && [.spotify,.appleMusic,.music].contains(kind), let player=musicPlayer, player.artwork != nil { RoundedRectangle(cornerRadius:18).fill(LinearGradient(colors:[player.artworkTint,Color(white:0.07)],startPoint:.topLeading,endPoint:.bottomTrailing)) } }
             .foregroundStyle(model.albumColors && musicPlayer?.artwork != nil ? Color.white : Color.primary)
