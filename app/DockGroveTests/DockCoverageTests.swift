@@ -150,6 +150,28 @@ import UniformTypeIdentifiers
 
     func menuTitles(at point: CGPoint) -> [String] { menu(at: point)?.items.map(\.title) ?? [] }
 
+    /// Follows submenu titles, as `["Options", "Keep in Dock"]`, to an item of the menu at `point`.
+    func menuItem(_ path: [String], at point: CGPoint) -> NSMenuItem? {
+        var items = menu(at: point)?.items ?? []
+        for (depth, title) in path.enumerated() {
+            guard let item = items.first(where: { $0.title == title }) else { return nil }
+            if depth == path.count - 1 { return item }
+            guard let submenu = item.submenu else { return nil }
+            submenu.update()
+            items = submenu.items
+        }
+        return nil
+    }
+
+    @discardableResult func choose(_ path: [String], inMenuAt point: CGPoint, file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        guard let item = menuItem(path, at: point), let menu = item.menu else {
+            XCTFail("No menu item \(path.joined(separator: " > ")) in \(menuTitles(at: point))", file: file, line: line); return false
+        }
+        menu.performActionForItem(at: menu.index(of: item))
+        spin()
+        return true
+    }
+
     /// Scans the window for the first context menu offering `title`, then chooses it.
     @discardableResult func chooseAnywhere(_ title: String, skip: Int = 0, file: StaticString = #filePath, line: UInt = #line) -> Bool {
         var skipped = 0
@@ -912,48 +934,146 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         var launched: [URL] = []
         model.openApplication = { launched.append($0) }
         let app = hostApp
+        // A fake Accessibility client: hover refreshes and window focus never reach real apps.
+        let savedAX = AccessibilityClient.current, savedModifiers = DockSystemEffect.modifiers
+        defer { AccessibilityClient.current = savedAX; DockSystemEffect.modifiers = savedModifiers }
+        final class Activations { var pids: [pid_t] = [] }
+        let activations = Activations()
+        var client = AccessibilityClient()
+        client.isTrusted = { true }
+        client.runningApplications = { [] }
+        client.set = { _, _, _ in .success }
+        client.perform = { _, _ in .success }
+        client.activate = { activations.pids.append($0.processIdentifier) }
+        AccessibilityClient.current = client
         let harness = DockHarness(AppTile(app: app, model: model), size: CGSize(width: 80, height: 80))
         defer { harness.close() }
-        harness.click(CGPoint(x: 40, y: 45))
+        let point = CGPoint(x: 40, y: 45)
+        harness.click(point)
         XCTAssertEqual(launched, [app.url])
         harness.window.acceptsMouseMovedEvents = true
-        harness.hover(CGPoint(x: 40, y: 45), entering: true)
+        harness.hover(point, entering: true)
+        wait { !model.toolkit.windows.loading }
         harness.hover(CGPoint(x: 200, y: 200), entering: false)
-        let point = CGPoint(x: 40, y: 45)
-        let titles = harness.menuTitles(at: point)
-        XCTAssertTrue(titles.contains("Windows…"), "\(titles)")
-        harness.choose("Windows…", inMenuAt: point)
-        if case .present(let window)? = effects.last { XCTAssertEqual(window.title, "App windows") } else { XCTFail("Windows… should present a window") }
+
+        // Running: its windows lead, then the Mac Dock's actions, then DockGrove's extras.
+        let element = AXUIElementCreateApplication(getpid())
+        model.toolkit.windows.windows = [
+            ManagedWindow(id: "report", owner: .current, element: element, title: WindowManager.windowTitle(app: NSRunningApplication.current.localizedName, window: "Report", fallback: "")),
+            ManagedWindow(id: "bare", owner: .current, element: element, title: "Bare")
+        ]
+        harness.spin()
+        let hide = NSRunningApplication.current.isHidden ? "Show" : "Hide"
+        XCTAssertEqual(harness.menuTitles(at: point).filter { !$0.isEmpty }, ["Report", "Bare", "Options", "Show All Windows", hide, "Quit", "Replace app…", "Undo app change", "Move left", "Move right"])
+        harness.choose("Report", inMenuAt: point)
+        XCTAssertEqual(model.toolkit.windows.selectedID, "report")
+        XCTAssertEqual(activations.pids, [getpid()])
+        harness.choose("Show All Windows", inMenuAt: point)
+        if case .present(let window)? = effects.last { XCTAssertEqual(window.title, "App windows") } else { XCTFail("Show All Windows should present a window") }
         model.appPickerWindow?.close()
         harness.choose("Replace app…", inMenuAt: point)
         if case .present(let window)? = effects.last { XCTAssertEqual(window.title, "Choose an application") } else { XCTFail("Replace app… should present the picker") }
         model.appPickerWindow?.close()
-        harness.choose("Open " + app.name, inMenuAt: point)
-        XCTAssertEqual(launched.count, 2)
-        harness.choose("Move left", inMenuAt: point)
-        harness.choose("Move right", inMenuAt: point)
-        harness.choose(titles.contains("Hide app") ? "Hide app" : "Show app", inMenuAt: point)
-        if case .setHidden(let running, _)? = effects.last { XCTAssertEqual(running.processIdentifier, ProcessInfo.processInfo.processIdentifier) } else { XCTFail("Hide should go through effects") }
-        harness.choose("Show in Finder", inMenuAt: point)
+        harness.choose(hide, inMenuAt: point)
+        if case .setHidden(let running, _)? = effects.last { XCTAssertEqual(running.processIdentifier, getpid()) } else { XCTFail("Hide should go through effects") }
+        harness.choose("Quit", inMenuAt: point)
+        if case .terminate(let running)? = effects.last { XCTAssertEqual(running.processIdentifier, getpid()) } else { XCTFail("Quit should go through effects") }
+        DockSystemEffect.modifiers = { .option }
+        harness.choose("Quit", inMenuAt: point)
+        if case .forceTerminate? = effects.last {} else { XCTFail("Option held while choosing Quit force quits") }
+        harness.hover(point, entering: true)
+        harness.hover(CGPoint(x: 200, y: 200), entering: false)
+        harness.choose("Force Quit", inMenuAt: point)
+        if case .forceTerminate(let running)? = effects.last { XCTAssertEqual(running.processIdentifier, getpid()) } else { XCTFail("Force Quit should go through effects") }
+        DockSystemEffect.modifiers = { [] }
+        harness.choose(["Options", "Show in Finder"], inMenuAt: point)
         if case .reveal(let urls)? = effects.last { XCTAssertEqual(urls, [app.url]) } else { XCTFail("Reveal should go through effects") }
-        harness.choose("Quit app", inMenuAt: point)
-        if case .terminate(let running)? = effects.last { XCTAssertEqual(running.processIdentifier, ProcessInfo.processInfo.processIdentifier) } else { XCTFail("Quit should go through effects") }
-        harness.choose("Unpin", inMenuAt: point)
+
+        // Keep in Dock is a checkmark that pins and unpins.
+        XCTAssertEqual(harness.menuItem(["Options", "Keep in Dock"], at: point)?.state, .on)
+        harness.choose(["Options", "Keep in Dock"], inMenuAt: point)
         XCTAssertFalse(model.apps.contains(app))
         harness.spin(0.1)
+        XCTAssertEqual(harness.menuItem(["Options", "Keep in Dock"], at: point)?.state, .off)
         harness.choose("Undo app change", inMenuAt: point)
         XCTAssertTrue(model.apps.contains(app))
         harness.spin(0.1)
-        harness.choose("Unpin", inMenuAt: point)
+        harness.choose(["Options", "Keep in Dock"], inMenuAt: point)
         harness.spin(0.1)
-        harness.choose("Pin to Dock", inMenuAt: point)
+        harness.choose(["Options", "Keep in Dock"], inMenuAt: point)
         XCTAssertTrue(model.apps.contains(app))
+        harness.choose("Move left", inMenuAt: point)
+        XCTAssertNotEqual(model.apps.last, app)
+        harness.choose("Move right", inMenuAt: point)
+        XCTAssertEqual(model.apps.last, app)
 
         // Dropping a file opens it with the app.
         let fixture = try file("Dropped.txt")
         drop(filePasteboard([fixture]), at: point, in: harness)
         wait { !openFileEffects.isEmpty }
         XCTAssertEqual(openFileEffects.count, 1)
+
+        // Not running: Open, and Options offers Remove from Dock.
+        let idle = DockApp(url: scratch.appendingPathComponent("Idle.app"))
+        model.apps.append(idle)
+        let idleTile = DockHarness(AppTile(app: idle, model: model), size: CGSize(width: 80, height: 80))
+        defer { idleTile.close() }
+        XCTAssertEqual(idleTile.menuTitles(at: point).filter { !$0.isEmpty }, ["Options", "Open", "Replace app…", "Undo app change", "Move left", "Move right"])
+        idleTile.choose("Open", inMenuAt: point)
+        XCTAssertEqual(launched.last, idle.url)
+        idleTile.choose(["Options", "Remove from Dock"], inMenuAt: point)
+        XCTAssertFalse(model.apps.contains(idle))
+    }
+
+    func testDockBarMenu() throws {
+        let model = dockModel(widgets: [])
+        var settings = 0
+        model.settingsAction = { settings += 1 }
+        let dock = DockHarness(DockView(model: model), size: CGSize(width: 900, height: 160))
+        dock.resize(dock.host.fittingSize)
+        dock.chooseAnywhere("Dock Settings…")
+        XCTAssertEqual(settings, 1)
+        dock.close()
+
+        let harness = DockHarness(Color.clear.frame(width: 200, height: 100).contentShape(Rectangle()).contextMenu { DockBarMenu(model: model, kit: model.toolkit) }, size: CGSize(width: 200, height: 100))
+        defer { harness.close() }
+        let point = CGPoint(x: 100, y: 50)
+        model.toolkit.autoHide = false
+        model.toolkit.edge = "Bottom"
+        XCTAssertEqual(harness.menuTitles(at: point), ["Turn Hiding On", "Position on Screen", "", "Dock Settings…"])
+        harness.choose("Turn Hiding On", inMenuAt: point)
+        XCTAssertTrue(model.toolkit.autoHide)
+        harness.choose("Turn Hiding Off", inMenuAt: point)
+        XCTAssertFalse(model.toolkit.autoHide)
+        XCTAssertEqual(harness.menuItem(["Position on Screen", "Bottom"], at: point)?.state, .on)
+        for edge in ["Top", "Floating", "Bottom"] {
+            harness.choose(["Position on Screen", edge], inMenuAt: point)
+            XCTAssertEqual(model.toolkit.edge, edge)
+        }
+        model.replacingDock = true
+        harness.spin()
+        let position = harness.menuItem(["Position on Screen"], at: point), top = harness.menuItem(["Position on Screen", "Top"], at: point)
+        XCTAssertTrue(position?.isEnabled == false || top?.isEnabled == false, "a replacement Dock stays at the bottom")
+        harness.choose("Dock Settings…", inMenuAt: point)
+        XCTAssertEqual(settings, 2)
+    }
+
+    func testUsageTileMenu() throws {
+        let model = dockModel(widgets: [])
+        model.fetchUsage = { _ in throw UsageError.service }
+        var settings = 0
+        model.settingsAction = { settings += 1 }
+        let harness = DockHarness(UsageTile(model: model), size: CGSize(width: 220, height: 90))
+        defer { harness.close() }
+        let point = CGPoint(x: 110, y: 45)
+        XCTAssertEqual(harness.menuTitles(at: point), ["Refresh Usage", "Account Settings…", "", "Remove from Dock"])
+        harness.choose("Refresh Usage", inMenuAt: point)
+        wait { !model.fetching }
+        harness.choose("Account Settings…", inMenuAt: point)
+        XCTAssertEqual(settings, 1)
+        XCTAssertTrue(model.codexConnectionSelected)
+        harness.choose("Remove from Dock", inMenuAt: point)
+        XCTAssertFalse(model.showUsageCard)
     }
 
     func testAcceptFilesAndAppWindows() throws {

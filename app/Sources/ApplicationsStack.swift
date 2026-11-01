@@ -27,6 +27,9 @@ struct ApplicationsStackTile: View {
         .contextMenu {
             Button("Open Applications Folder") { DockSystemEffect.handler(.open(URL(fileURLWithPath: "/Applications"))) }
             Button("Refresh Applications") { model.toolkit.scanApplications(force: true) }
+            Button("Show in Finder") { DockSystemEffect.handler(.reveal([URL(fileURLWithPath: "/Applications")])) }
+            Divider()
+            Button("Remove from Dock") { model.showApplicationsStack = false }
         }
     }
 }

@@ -66,7 +66,9 @@ import SwiftUI
         XCTAssertNotNil(AppsLauncher.shared.panel, "pressing the tile opens the launcher")
         harness.press("Applications")
         XCTAssertNil(AppsLauncher.shared.panel, "pressing it again closes the launcher")
-        XCTAssertEqual(harness.menuTitles(at: point), ["Open Applications Folder", "Refresh Applications"])
+        XCTAssertEqual(harness.menuTitles(at: point), ["Open Applications Folder", "Refresh Applications", "Show in Finder", "", "Remove from Dock"])
+        harness.choose("Show in Finder", inMenuAt: point)
+        if case .reveal(let urls)? = effects.last { XCTAssertEqual(urls.map(\.path), ["/Applications"]) } else { XCTFail("Finder reveal should go through effects") }
         harness.choose("Open Applications Folder", inMenuAt: point)
         if case .open(let url)? = effects.last { XCTAssertEqual(url.path, "/Applications") } else { XCTFail("folder should open through effects") }
         let before = model.toolkit.appIndex.count
@@ -76,6 +78,8 @@ import SwiftUI
         let deadline = Date().addingTimeInterval(10)
         while model.toolkit.appIndex.count == before, Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
         XCTAssertEqual(model.toolkit.appIndex.count, before + 1, "refresh rescans and finds the new app")
+        harness.choose("Remove from Dock", inMenuAt: point)
+        XCTAssertFalse(model.showApplicationsStack)
     }
 
     func testLauncherWindowOpensClosesOnResignAndEscape() {
