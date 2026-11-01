@@ -1,0 +1,107 @@
+# Starter alternative names for common Mac apps. DockGrove copies these into
+# ~/Library/Application Support/DockGrove/AppIndex.yml when it first finds an app;
+# edit that file to add your own.
+version: 1
+apps:
+  - name: "System Settings"
+    bundle: "com.apple.systempreferences"
+    aliases: ["preferences", "settings", "control panel"]
+  - name: "Safari"
+    bundle: "com.apple.Safari"
+    aliases: ["browser", "web"]
+  - name: "Google Chrome"
+    bundle: "com.google.Chrome"
+    aliases: ["chrome", "browser", "web"]
+  - name: "Firefox"
+    bundle: "org.mozilla.firefox"
+    aliases: ["browser", "web"]
+  - name: "Arc"
+    bundle: "company.thebrowser.Browser"
+    aliases: ["browser", "web"]
+  - name: "Terminal"
+    bundle: "com.apple.Terminal"
+    aliases: ["shell", "console", "command line", "cli"]
+  - name: "iTerm"
+    bundle: "com.googlecode.iterm2"
+    aliases: ["iterm2", "shell", "console"]
+  - name: "Activity Monitor"
+    bundle: "com.apple.ActivityMonitor"
+    aliases: ["task manager", "processes", "cpu"]
+  - name: "Visual Studio Code"
+    bundle: "com.microsoft.VSCode"
+    aliases: ["vscode", "code", "editor"]
+  - name: "Xcode"
+    bundle: "com.apple.dt.Xcode"
+    aliases: ["ide", "swift"]
+  - name: "Finder"
+    bundle: "com.apple.finder"
+    aliases: ["files", "explorer"]
+  - name: "Mail"
+    bundle: "com.apple.mail"
+    aliases: ["email", "inbox"]
+  - name: "Messages"
+    bundle: "com.apple.MobileSMS"
+    aliases: ["imessage", "sms", "texts", "chat"]
+  - name: "FaceTime"
+    bundle: "com.apple.FaceTime"
+    aliases: ["video call", "call"]
+  - name: "Music"
+    bundle: "com.apple.Music"
+    aliases: ["itunes", "songs"]
+  - name: "Spotify"
+    bundle: "com.spotify.client"
+    aliases: ["music", "songs"]
+  - name: "Notes"
+    bundle: "com.apple.Notes"
+    aliases: ["notepad", "memo"]
+  - name: "TextEdit"
+    bundle: "com.apple.TextEdit"
+    aliases: ["notepad", "text editor", "editor"]
+  - name: "Calendar"
+    bundle: "com.apple.iCal"
+    aliases: ["ical", "schedule", "events"]
+  - name: "Reminders"
+    bundle: "com.apple.reminders"
+    aliases: ["todo", "tasks"]
+  - name: "Photos"
+    bundle: "com.apple.Photos"
+    aliases: ["pictures", "images", "gallery"]
+  - name: "Preview"
+    bundle: "com.apple.Preview"
+    aliases: ["pdf", "image viewer"]
+  - name: "App Store"
+    bundle: "com.apple.AppStore"
+    aliases: ["store", "updates"]
+  - name: "Calculator"
+    bundle: "com.apple.calculator"
+    aliases: ["calc", "math"]
+  - name: "Disk Utility"
+    bundle: "com.apple.DiskUtility"
+    aliases: ["drives", "format", "partition"]
+  - name: "Screenshot"
+    bundle: "com.apple.screenshot.launcher"
+    aliases: ["screen capture", "snip", "recording"]
+  - name: "ChatGPT"
+    bundle: "com.openai.chat"
+    aliases: ["openai", "gpt", "ai"]
+  - name: "Claude"
+    bundle: "com.anthropic.claudefordesktop"
+    aliases: ["anthropic", "ai"]
+  - name: "Slack"
+    bundle: "com.tinyspeck.slackmacgap"
+    aliases: ["chat", "work"]
+  - name: "Microsoft Word"
+    bundle: "com.microsoft.Word"
+    aliases: ["word", "docx", "documents"]
+  - name: "Microsoft Excel"
+    bundle: "com.microsoft.Excel"
+    aliases: ["excel", "spreadsheet", "xlsx"]
+  - name: "Pages"
+    bundle: "com.apple.iWork.Pages"
+    aliases: ["word processor", "documents"]
+  - name: "Numbers"
+    bundle: "com.apple.iWork.Numbers"
+    aliases: ["spreadsheet"]
+  - name: "Keynote"
+    bundle: "com.apple.iWork.Keynote"
+    aliases: ["slides", "presentation", "powerpoint"]

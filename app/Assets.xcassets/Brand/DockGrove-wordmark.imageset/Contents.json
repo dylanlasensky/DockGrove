@@ -1,0 +1,15 @@
+{
+  "images": [
+    {
+      "filename": "DockGrove-wordmark.png",
+      "idiom": "universal"
+    }
+  ],
+  "properties": {
+    "preserves-vector-representation": false
+  },
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}

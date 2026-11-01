@@ -1,0 +1,47 @@
+{
+  "identifier": "DOCKGROVE01",
+  "nonRenewingSubscriptions": [],
+  "products": [
+    {
+      "displayPrice": "4.99",
+      "familyShareable": false,
+      "internalID": "1149001",
+      "localizations": [
+        {
+          "description": "Unlock everyday widgets with one purchase.",
+          "displayName": "DockGrove Plus",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.dylan.wavedock.plus",
+      "referenceName": "DockGrove Plus",
+      "type": "NonConsumable"
+    },
+    {
+      "displayPrice": "9.99",
+      "familyShareable": false,
+      "internalID": "1149002",
+      "localizations": [
+        {
+          "description": "Unlock every widget, all companions, GitHub, and AI usage.",
+          "displayName": "DockGrove Full Access",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "com.dylan.wavedock.full",
+      "referenceName": "DockGrove Full Access",
+      "type": "NonConsumable"
+    }
+  ],
+  "settings": {
+    "_failTransactionsEnabled": false,
+    "_locale": "en_US",
+    "_storefront": "USA",
+    "_storeKitErrors": []
+  },
+  "subscriptionGroups": [],
+  "version": {
+    "major": 4,
+    "minor": 0
+  }
+}

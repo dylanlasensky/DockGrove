@@ -1,0 +1,103 @@
+import Link from "next/link";
+import type { Metadata } from "next";
+import Brand from "@/components/site/Brand";
+import PreviewBanner from "@/components/site/PreviewBanner";
+import SkipLink from "@/components/site/SkipLink";
+
+export const metadata: Metadata = {
+  title: "Privacy",
+};
+
+/** Port of website/public/privacy.html. */
+export default function PrivacyPage() {
+  return (
+    <>
+      <SkipLink />
+      <PreviewBanner />
+      <main className="section document" id="main">
+        <Brand />
+        <h1>
+          Your Mac.
+          <br />
+          Your control.
+        </h1>
+        <p>
+          Privacy information for the DockGrove 1.0 commercial release candidate. Updated October
+          29, 2026. This describes the implementation under review; live sales are not enabled. The
+          public website currently serves static pages only. The purchase, activation and recovery
+          services described below are not deployed.
+        </p>
+        <h2>Local app data</h2>
+        <p>
+          Notes, tasks, layouts, shortcuts, companion progress and voice memos are stored locally on
+          your Mac. Microphone recording starts only when you choose Record. Clipboard history is
+          opt-in and stays in memory. These items are not uploaded to a DockGrove server.{" "}
+        </p>
+        <h2>Purchases and activation</h2>
+        <p>
+          Stripe hosts checkout and processes card details. DockGrove stores the purchase email,
+          Stripe session and payment identifiers, payment status, and license records. The
+          activation service stores a hash of a generated installation identifier and activation
+          timestamps to enforce the personal-device allowance. It does not need your Mac’s serial
+          number, documents, or browsing history.
+        </p>
+        <p>
+          License keys and recovery tokens are checked against cryptographic hashes; signed
+          activation entitlements are cached locally. The website uses an essential HttpOnly
+          purchase-session cookie to retrieve your own purchase after checkout. It does not store
+          license keys in localStorage. Recovery links carry a short-lived token in the URL
+          fragment, which the recovery page removes before completing verification.
+        </p>
+        <h2>Hosting and recovery email</h2>
+        <p>
+          The candidate backend is designed for Cloudflare Workers, D1 and private R2 storage.
+          Cloudflare processes network requests, including network metadata. Rate limiting uses
+          request-derived hashes. If configured, Resend delivers purchase-recovery messages and
+          receives the recipient’s email and recovery message. This service must be configured
+          before recovery emails can be delivered.
+        </p>
+        <h2>Connected widgets</h2>
+        <p>
+          Enabled integrations contact their named services. Calendar uses macOS EventKit; music
+          controls use macOS Automation. The weather widget sends your entered city to Apple for
+          geocoding and requests current conditions from Apple WeatherKit for the matching
+          coordinates when you refresh. It does not request your device’s location. Currency
+          conversion sends the currency pair to Frankfurter. GitHub and API widgets contact the
+          selected provider. API credentials are stored in macOS Keychain. Optional music artwork is
+          fetched from the music provider’s image service.
+        </p>
+        <h2>AI usage</h2>
+        <p>
+          Codex uses your existing local sign-in to retrieve reported allowance windows. It does not
+          count ordinary ChatGPT messages. Claude Code and Gemini bridges retain supported numeric
+          usage statistics rather than prompts or responses. Connecting a usage widget does not run
+          AI inference.
+        </p>
+        <h2>Cookies, retention and choices</h2>
+        <p>
+          This website has no advertising or custom analytics. Essential purchase-session cookies
+          support checkout. The backend periodically clears expired recovery tokens and rate-limit
+          records; purchase and license records remain available for activation and recovery. A
+          final retention and deletion policy requires owner review before live sales.
+        </p>
+        <p>
+          You can revoke optional macOS permissions in System Settings. Deactivate a Mac from the app
+          before transferring its activation slot. For purchase or data requests, use the support
+          link below to request a private contact method; do not post email addresses, license
+          keys, or payment information publicly.
+        </p>
+        <h2>Release status</h2>
+        <p>
+          This candidate is not Apple-notarized and has not undergone a production security audit.
+          Live checkout, approved customer terms, and final support handling are release
+          prerequisites.
+        </p>
+        <p className="support-link">
+          <Link href="/">← Back to DockGrove</Link> ·{" "}
+          <a href="https://github.com/dylanlasensky/DockGrove/issues">Support</a> ·{" "}
+          <Link href="/privacy">Privacy</Link>
+        </p>
+      </main>
+    </>
+  );
+}

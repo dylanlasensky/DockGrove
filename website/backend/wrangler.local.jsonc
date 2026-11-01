@@ -1,0 +1,25 @@
+{
+  // Local container config for backend/Dockerfile + dev.mjs. Never deployed:
+  // no account, routes or real bindings; D1 and R2 are wrangler's local emulation.
+  "name": "dockgrove-api-local",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-28",
+  "vars": {
+    "SALES_MODE": "test",
+    "PUBLIC_ORIGIN": "http://localhost:8080",
+    "STRIPE_PRICE_ID": "",
+    "STRIPE_PRODUCT_ID": "",
+    "ENTITLEMENT_KEY_ID": "test-1",
+    "RELEASE_OBJECT": "DockGrove-1.zip"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "dockgrove-commerce-local",
+      "database_id": "dockgrove-commerce-local",
+      "migrations_dir": "../migrations"
+    }
+  ],
+  "r2_buckets": [{ "binding": "RELEASES", "bucket_name": "dockgrove-releases-local" }],
+  "triggers": { "crons": ["*/5 * * * *"] }
+}

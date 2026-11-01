@@ -1,0 +1,15 @@
+{
+  "images": [
+    {
+      "filename": "golden-dog.png",
+      "idiom": "universal"
+    }
+  ],
+  "properties": {
+    "preserves-vector-representation": false
+  },
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}

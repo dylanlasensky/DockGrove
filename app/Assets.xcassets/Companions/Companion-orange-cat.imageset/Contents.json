@@ -1,0 +1,15 @@
+{
+  "images": [
+    {
+      "filename": "orange-cat.png",
+      "idiom": "universal"
+    }
+  ],
+  "properties": {
+    "preserves-vector-representation": false
+  },
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}

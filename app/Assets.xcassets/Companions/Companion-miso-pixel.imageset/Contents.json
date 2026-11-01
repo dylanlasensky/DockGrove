@@ -1,0 +1,15 @@
+{
+  "images": [
+    {
+      "filename": "miso-pixel.png",
+      "idiom": "universal"
+    }
+  ],
+  "properties": {
+    "preserves-vector-representation": false
+  },
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}
