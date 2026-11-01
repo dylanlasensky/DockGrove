@@ -147,6 +147,23 @@ import ServiceManagement
         XCTAssertEqual(restored.animal, "Fox"); XCTAssertEqual(restored.state.sessions, 1)
     }
 
+    func testLivePortraitTracksSelectionAndRestWithoutRecreation() throws {
+        let pet = Companion(defaults: IntegrationsUI.defaults(self))
+        let harness = SettingsHarness(LiveCompanionPortrait(pet: pet, accent: .blue), width: 166, height: 64)
+        defer { harness.close() }
+        let stage = try XCTUnwrap(harness.views(CompanionStage.self).first)
+        pet.animal = "Dragon"
+        harness.settle()
+        XCTAssertEqual(stage.animal, "Dragon")
+        pet.state.resting = true
+        harness.settle()
+        XCTAssertTrue(stage.resting)
+        pet.animal = "Black cat"
+        harness.settle()
+        XCTAssertEqual(stage.animal, "Black cat")
+        XCTAssertTrue(stage === harness.views(CompanionStage.self).first)
+    }
+
     func testCompanionViewStatesAndActions() {
         let pet = Companion(defaults: IntegrationsUI.defaults(self))
         IntegrationsUI.render(CompanionView(pet: pet, accent: .orange))

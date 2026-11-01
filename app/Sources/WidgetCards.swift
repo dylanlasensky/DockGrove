@@ -33,7 +33,7 @@ struct RichWidgetCard: View {
     @ViewBuilder var summary: some View {
         switch kind {
         case .pet:
-            CatPortrait(resting: kit.pet.state.resting, animal: kit.pet.animal, accent: model.color, playRequest: kit.pet.playRequest)
+            LiveCompanionPortrait(pet: kit.pet, accent: model.color)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .accessibilityLabel("\(kit.pet.state.name), \(kit.pet.state.mood). Open companion care.")
 

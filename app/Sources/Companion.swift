@@ -83,6 +83,16 @@ struct CatPortrait: NSViewRepresentable {
         view.refreshScene()
     }
 }
+/// Observe the companion directly so its selection and care state update even while
+/// a floating panel is hosting a popover in a different run-loop mode.
+struct LiveCompanionPortrait: View {
+    @ObservedObject var pet: Companion
+    var accent: Color
+    var body: some View {
+        CatPortrait(resting: pet.state.resting, animal: pet.animal, accent: accent, playRequest: pet.playRequest)
+    }
+}
+
 struct CompanionView: View {
     @ObservedObject var pet: Companion
     var accent: Color
