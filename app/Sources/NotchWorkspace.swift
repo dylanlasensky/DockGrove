@@ -146,7 +146,7 @@ struct NotchFocusPlaceholder: View {
             Image(systemName: "sun.max").font(.title2)
             VStack(alignment: .leading, spacing: 4) {
                 Text("A little space to focus").font(.headline)
-                Text("Scroll for your widgets.").font(.caption).foregroundStyle(.secondary)
+                Text("Use the pills below for your widgets.").font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
         }.frame(width: 300, height: 64).padding(10).background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
@@ -233,27 +233,29 @@ struct NotchLockedTray: View {
     }
 }
 
+/// One slide-able piece of the file tray; the shelf packs these into pages.
+enum NotchTrayItem: Hashable {
+    case locked, tray, airDrop, file(String)
+    @MainActor static func items(model: DockModel, kit: Toolkit) -> [NotchTrayItem] {
+        model.canAccess(.files) ? [.tray, .airDrop] + kit.files.map(NotchTrayItem.file) : [.locked]
+    }
+    func width(_ viewport: CGFloat) -> CGFloat { self == .locked ? 220 : NotchFileLayout.halfWidth(viewport) }
+}
+
 struct NotchTrayView: View {
     @ObservedObject var model: DockModel
     @ObservedObject var kit: Toolkit
     @ObservedObject var controller: NotchController
+    let item: NotchTrayItem
     var body: some View {
-        HStack(spacing: 10) {
-            if !model.canAccess(.files) { NotchLockedTray() } else {
-                NotchDropZone(destination: .tray, controller: controller, width: NotchFileLayout.halfWidth(controller.expandedWidth))
-                if controller.airDropReview {
-                    NotchAirDropReview(controller: controller, width: NotchFileLayout.halfWidth(controller.expandedWidth))
-                } else {
-                    NotchDropZone(destination: .airDrop, controller: controller, width: NotchFileLayout.halfWidth(controller.expandedWidth))
-                }
-                if !kit.files.isEmpty {
-                    VStack(spacing: 8) {
-                        Text("\(kit.files.count) file\(kit.files.count == 1 ? "" : "s")").font(.caption)
-                    }.frame(width: 70)
-                        .contextMenu { Button("Clear tray") { kit.files.removeAll(); controller.trayMessage = "Original files are unchanged." } }
-                        .accessibilityAction(named: Text("Clear tray")) { kit.files.removeAll(); controller.trayMessage = "Original files are unchanged." }
-                    ForEach(kit.files, id: \.self) { path in trayItem(path).frame(width: NotchFileLayout.halfWidth(controller.expandedWidth)) }
-                }
+        Group {
+            switch item {
+            case .locked: NotchLockedTray()
+            case .tray: NotchDropZone(destination: .tray, controller: controller, width: item.width(controller.expandedWidth))
+            case .airDrop:
+                if controller.airDropReview { NotchAirDropReview(controller: controller, width: item.width(controller.expandedWidth)) }
+                else { NotchDropZone(destination: .airDrop, controller: controller, width: item.width(controller.expandedWidth)) }
+            case .file(let path): trayItem(path).frame(width: item.width(controller.expandedWidth))
             }
         }.frame(height: 84).help(controller.trayMessage ?? "File shortcuts: removing them leaves the originals unchanged.")
     }

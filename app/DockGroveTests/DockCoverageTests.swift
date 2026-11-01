@@ -596,6 +596,39 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         harness.spin(0.1)
         controller.showingFiles = false
         harness.spin(0.1)
+        // Slides: pills page through widgets, opening a widget jumps to its slide, nothing scrolls.
+        let slides = harness.labels().filter { $0.hasPrefix("Notch slide ") }.count
+        XCTAssertGreaterThan(slides, 1, "\(harness.labels())")
+        XCTAssertFalse(harness.has("Open \(model.notchWidgets.last!.title) from notch"))
+        harness.press("Notch slide \(slides) of \(slides)")
+        harness.spin(0.4)
+        XCTAssertTrue(harness.has("Open \(model.notchWidgets.last!.title) from notch"), "\(harness.labels())")
+        XCTAssertFalse(harness.has("Open Focus from notch"))
+        harness.press("Notch slide 1 of \(slides)")
+        harness.spin(0.4)
+        XCTAssertTrue(harness.has("Open Focus from notch"))
+        controller.selectedWidget = model.notchWidgets.last
+        harness.spin(0.4)
+        XCTAssertTrue(harness.has("Close \(model.notchWidgets.last!.title) controls"), "\(harness.labels())")
+        controller.selectedWidget = nil
+        // The file tray header counts files and clears them, leaving originals alone.
+        let kept = try file("Kept.txt")
+        model.toolkit.files = [kept.path]
+        controller.showingFiles = true
+        harness.spin(0.2)
+        XCTAssertTrue(harness.has("File tray · 1 file"), "\(harness.labels())")
+        harness.chooseAnywhere("Clear tray")
+        XCTAssertTrue(model.toolkit.files.isEmpty)
+        model.toolkit.files = [kept.path, try file("Also.txt").path]
+        harness.spin(0.1)
+        XCTAssertTrue(harness.has("File tray · 2 files"), "\(harness.labels())")
+        harness.act("Clear tray")
+        XCTAssertTrue(model.toolkit.files.isEmpty)
+        XCTAssertEqual(controller.trayMessage, "Original files are unchanged.")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: kept.path))
+        controller.showingFiles = false
+        harness.spin(0.1)
+
         // With housing geometry known, the shelf mirrors its measurements.
         controller.update(suppressed: false)
         controller.setExpanded(true)
@@ -610,7 +643,7 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         let existing = try file("Existing.txt")
         model.toolkit.files = [existing.path, scratch.appendingPathComponent("Gone.txt").path]
         controller.setExpanded(true); controller.showingFiles = true
-        let harness = DockHarness(NotchTrayView(model: model, kit: model.toolkit, controller: controller), size: CGSize(width: 1800, height: 120))
+        let harness = DockHarness(NotchTrayStrip(model: model, kit: model.toolkit, controller: controller), size: CGSize(width: 1800, height: 120))
         defer { harness.close() }
         XCTAssertTrue(harness.has("File tray drop zone"), "\(harness.labels())")
         let panel = DockFakeOpenPanel(); panel.response = .cancel
@@ -658,18 +691,12 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         XCTAssertEqual(controller.trayMessage, "Shortcut removed. Original file is unchanged.")
         harness.act("Remove shortcut")
         XCTAssertTrue(model.toolkit.files.isEmpty)
-        model.toolkit.files = [existing.path]
-        harness.spin(0.1)
-        harness.chooseAnywhere("Clear tray")
-        XCTAssertTrue(model.toolkit.files.isEmpty)
-        model.toolkit.files = [existing.path]
-        harness.spin(0.1)
-        harness.act("Clear tray")
-        XCTAssertTrue(model.toolkit.files.isEmpty)
-        XCTAssertEqual(controller.trayMessage, "Original files are unchanged.")
         XCTAssertTrue(FileManager.default.fileExists(atPath: existing.path))
+        let gated = DockModel(defaults: defaults(), purchasesEnabled: true)
+        if !gated.canAccess(.files) { XCTAssertEqual(NotchTrayItem.items(model: gated, kit: gated.toolkit), [.locked]) }
+        XCTAssertEqual(NotchTrayItem.locked.width(760), 220)
 
-        let locked = DockHarness(NotchLockedTray(), size: CGSize(width: 300, height: 100))
+        let locked = DockHarness(NotchTrayView(model: model, kit: model.toolkit, controller: controller, item: .locked), size: CGSize(width: 300, height: 100))
         locked.close()
         let placeholder = DockHarness(NotchFocusPlaceholder(), size: CGSize(width: 400, height: 100))
         placeholder.close()
@@ -1155,5 +1182,26 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         orphan.mouseDown(with: event(.leftMouseDown, 0, 0))
         orphan.mouseDragged(with: event(.leftMouseDragged, 30, 30))
         XCTAssertEqual(orphan.sessions.count, 1)
+    }
+}
+
+/// The whole file tray in one row, so tray items can be tested without paging.
+struct NotchTrayStrip: View {
+    @ObservedObject var model: DockModel
+    @ObservedObject var kit: Toolkit
+    @ObservedObject var controller: NotchController
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(NotchTrayItem.items(model: model, kit: kit), id: \.self) { NotchTrayView(model: model, kit: kit, controller: controller, item: $0) }
+        }
+    }
+}
+
+final class NotchPagingTests: XCTestCase {
+    func testPacksItemsIntoSlides() {
+        XCTAssertEqual(NotchPaging.pages([], available: 100, spacing: 10), [0..<0])
+        XCTAssertEqual(NotchPaging.pages([40, 40, 40], available: 100, spacing: 10), [0..<2, 2..<3])
+        XCTAssertEqual(NotchPaging.pages([45, 45], available: 100, spacing: 10), [0..<2])
+        XCTAssertEqual(NotchPaging.pages([30, 150, 30], available: 100, spacing: 10), [0..<1, 1..<2, 2..<3], "an oversized item gets its own slide")
     }
 }
