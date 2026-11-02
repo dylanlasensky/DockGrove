@@ -1,0 +1,133 @@
+/** Accent packs, generated from app/Sources/Design.swift and app/Assets.xcassets/Colors. Keep in sync with the app. */
+
+export interface Accent { name: string; light: string; dark: string }
+export interface AccentPack { name: string; group: string; mood: string; colors: Accent[] }
+
+export const ACCENT_GROUPS = ["All","Essentials","Nature","Soft","Vivid","Earth","Seasonal"] as const;
+
+export const ACCENT_PACKS: AccentPack[] = [
+  {name: "Classic", group: "Essentials", mood: "The original DockGrove accents", colors: [
+    {name: "None", light: "#23252A", dark: "#E9EBF0"},
+    {name: "White", light: "#FFFFFF", dark: "#FFFFFF"},
+    {name: "Mint", light: "#6EE0BA", dark: "#6EE0BA"},
+    {name: "Blue", light: "#4D83E8", dark: "#4D83E8"},
+    {name: "Lilac", light: "#C2A6FF", dark: "#C2A6FF"},
+    {name: "Coral", light: "#FF9178", dark: "#FF9178"},
+    {name: "Rose", light: "#FF85B0", dark: "#FF85B0"},
+    {name: "Gold", light: "#F7C761", dark: "#F7C761"},
+  ]},
+  {name: "Coastal", group: "Nature", mood: "Ocean blues and sandy shores", colors: [
+    {name: "Coastal Ocean", light: "#187C9D", dark: "#57C9E5"},
+    {name: "Coastal Seafoam", light: "#247D6D", dark: "#78D9BF"},
+    {name: "Coastal Sand", light: "#A16A21", dark: "#EAC681"},
+    {name: "Coastal Sky", light: "#3B73BE", dark: "#8CBFFF"},
+  ]},
+  {name: "Orchard", group: "Nature", mood: "Fresh fruit and garden greens", colors: [
+    {name: "Orchard Leaf", light: "#478239", dark: "#A3D580"},
+    {name: "Orchard Peach", light: "#C76338", dark: "#FFB28C"},
+    {name: "Orchard Berry", light: "#B83A72", dark: "#F48DB9"},
+    {name: "Orchard Honey", light: "#A77915", dark: "#F6D66F"},
+  ]},
+  {name: "Dusk", group: "Soft", mood: "Muted evening colors", colors: [
+    {name: "Dusk Violet", light: "#8558BD", dark: "#C5A1F1"},
+    {name: "Dusk Indigo", light: "#575CB9", dark: "#A4AEFF"},
+    {name: "Dusk Ember", light: "#C15436", dark: "#F29A7C"},
+    {name: "Dusk Mauve", light: "#976082", dark: "#DDB3D1"},
+  ]},
+  {name: "Forest", group: "Nature", mood: "Deep greens and woodland tones", colors: [
+    {name: "Forest Fern", light: "#46763A", dark: "#A3C978"},
+    {name: "Forest Moss", light: "#6B7738", dark: "#C1CC86"},
+    {name: "Forest Pine", light: "#216856", dark: "#74C7A6"},
+    {name: "Forest Bark", light: "#80634E", dark: "#C9AA8B"},
+    {name: "Forest Mist", light: "#65898A", dark: "#A5CBCC"},
+    {name: "Forest Clover", light: "#3F8853", dark: "#8ED59C"},
+  ]},
+  {name: "Arctic", group: "Nature", mood: "Cool blues and glacier tones", colors: [
+    {name: "Arctic Glacier", light: "#377F9F", dark: "#8CD4EB"},
+    {name: "Arctic Ice", light: "#647CAF", dark: "#B4CDF4"},
+    {name: "Arctic Fjord", light: "#36618F", dark: "#7FADE0"},
+    {name: "Arctic Polar", light: "#758699", dark: "#CBD8E8"},
+    {name: "Arctic Lagoon", light: "#277E86", dark: "#7DD6D8"},
+    {name: "Arctic Periwinkle", light: "#6976B1", dark: "#BCC6F8"},
+  ]},
+  {name: "Sorbet", group: "Soft", mood: "Gentle fruit-inspired pastels", colors: [
+    {name: "Sorbet Peach", light: "#B76C50", dark: "#FFC4A8"},
+    {name: "Sorbet Lemon", light: "#9A8228", dark: "#F8E39B"},
+    {name: "Sorbet Pistachio", light: "#6C8744", dark: "#C4DCA0"},
+    {name: "Sorbet Lilac", light: "#9471AA", dark: "#DEBEF1"},
+    {name: "Sorbet Melon", light: "#B8677B", dark: "#F7BBCC"},
+    {name: "Sorbet Blueberry", light: "#6E85B7", dark: "#BED3FF"},
+  ]},
+  {name: "Blossom", group: "Soft", mood: "Florals, rosewater and soft jade", colors: [
+    {name: "Blossom Sakura", light: "#B65E86", dark: "#F4B2D0"},
+    {name: "Blossom Wisteria", light: "#8C68AA", dark: "#D5B2F0"},
+    {name: "Blossom Rosewater", light: "#B97683", dark: "#F6C6CE"},
+    {name: "Blossom Jade", light: "#5A8C7A", dark: "#A6DCC8"},
+    {name: "Blossom Petal", light: "#B474A6", dark: "#EDBCE2"},
+    {name: "Blossom Iris", light: "#6D70AC", dark: "#BBBFF0"},
+  ]},
+  {name: "Neon", group: "Vivid", mood: "Electric accents with high energy", colors: [
+    {name: "Neon Lime", light: "#5D860F", dark: "#B8F34A"},
+    {name: "Neon Cyan", light: "#008D9A", dark: "#48EDFA"},
+    {name: "Neon Pink", light: "#CA328C", dark: "#FF73CA"},
+    {name: "Neon Violet", light: "#8346DA", dark: "#B78BFF"},
+    {name: "Neon Orange", light: "#CB681C", dark: "#FFA64D"},
+    {name: "Neon Laser", light: "#A88B00", dark: "#F4F04D"},
+  ]},
+  {name: "Arcade", group: "Vivid", mood: "Bold retro game colors", colors: [
+    {name: "Arcade Magenta", light: "#BD3180", dark: "#F56BB6"},
+    {name: "Arcade Azure", light: "#246CC8", dark: "#6FA9FF"},
+    {name: "Arcade Aqua", light: "#008975", dark: "#55DCC5"},
+    {name: "Arcade Coin", light: "#A67E10", dark: "#F5CC54"},
+    {name: "Arcade Cherry", light: "#C14450", dark: "#F8838E"},
+    {name: "Arcade Plum", light: "#813DB1", dark: "#C387ED"},
+  ]},
+  {name: "Desert", group: "Earth", mood: "Sand, terracotta and sunset stone", colors: [
+    {name: "Desert Terracotta", light: "#AF6242", dark: "#DF9D77"},
+    {name: "Desert Dune", light: "#9A7A46", dark: "#D7BD89"},
+    {name: "Desert Clay", light: "#A86B60", dark: "#DEABA1"},
+    {name: "Desert Cactus", light: "#667647", dark: "#B3C18B"},
+    {name: "Desert Oasis", light: "#3E8181", dark: "#8CC8C5"},
+    {name: "Desert Sunset", light: "#B07445", dark: "#E8B47D"},
+  ]},
+  {name: "Coffee", group: "Earth", mood: "Warm cafe neutrals", colors: [
+    {name: "Coffee Espresso", light: "#735544", dark: "#C49A7F"},
+    {name: "Coffee Latte", light: "#9C7E62", dark: "#DFC6A6"},
+    {name: "Coffee Mocha", light: "#87666B", dark: "#D0ADB3"},
+    {name: "Coffee Caramel", light: "#A46E2B", dark: "#E4B775"},
+    {name: "Coffee Matcha", light: "#737C4D", dark: "#BCC997"},
+    {name: "Coffee Cream", light: "#9E937C", dark: "#E7DFC9"},
+  ]},
+  {name: "Slate", group: "Earth", mood: "Quiet mineral and monochrome tones", colors: [
+    {name: "Slate Graphite", light: "#626875", dark: "#B7BFCE"},
+    {name: "Slate Steel", light: "#637F91", dark: "#AEC9DD"},
+    {name: "Slate Pebble", light: "#8D857D", dark: "#D1C9BF"},
+    {name: "Slate Silver", light: "#79838E", dark: "#CDD6E2"},
+    {name: "Slate Basalt", light: "#796F89", dark: "#C7BBD7"},
+    {name: "Slate Sage", light: "#71847B", dark: "#BBCFC2"},
+  ]},
+  {name: "Autumn", group: "Seasonal", mood: "Harvest reds and golden leaves", colors: [
+    {name: "Autumn Maple", light: "#B35438", dark: "#EB9878"},
+    {name: "Autumn Amber", light: "#AA7618", dark: "#EBC268"},
+    {name: "Autumn Cranberry", light: "#A33D57", dark: "#DF839D"},
+    {name: "Autumn Pumpkin", light: "#B66B24", dark: "#F0AC64"},
+    {name: "Autumn Olive", light: "#77792F", dark: "#C4C77B"},
+    {name: "Autumn Chestnut", light: "#865A49", dark: "#CAA08C"},
+  ]},
+  {name: "Aurora", group: "Nature", mood: "Northern lights after dark", colors: [
+    {name: "Aurora Mint", light: "#258567", dark: "#70E3B4"},
+    {name: "Aurora Teal", light: "#247F92", dark: "#73D7EC"},
+    {name: "Aurora Indigo", light: "#5C57AD", dark: "#ACA4F8"},
+    {name: "Aurora Orchid", light: "#A550AB", dark: "#E393E9"},
+    {name: "Aurora Dawn", light: "#B85F84", dark: "#F49BBF"},
+    {name: "Aurora Emerald", light: "#30894D", dark: "#7EE19A"},
+  ]},
+  {name: "Festive", group: "Seasonal", mood: "Jewel tones and celebration", colors: [
+    {name: "Festive Ruby", light: "#B6384A", dark: "#F17D8C"},
+    {name: "Festive Emerald", light: "#237B59", dark: "#72D6A6"},
+    {name: "Festive Gold", light: "#A77C14", dark: "#F2CE64"},
+    {name: "Festive Sapphire", light: "#3D5BB1", dark: "#96ACF5"},
+    {name: "Festive Amethyst", light: "#8950AD", dark: "#C88FEA"},
+    {name: "Festive Copper", light: "#AB6846", dark: "#E7A67F"},
+  ]},
+];

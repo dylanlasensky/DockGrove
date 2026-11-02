@@ -83,8 +83,10 @@ test('home redesign keeps all companions, interactive previews and the marketing
  assert(/<button[^>]*id="checkout-button"[^>]*disabled/.test(html));
  assert(html.includes('data-coming-soon="true"'));
  assert(html.includes('https://dockgrove.com/') && html.includes('DockGrove-wordmark.png'));
- for(const id of ['features','intelligence','widgets','companions','questions','download']) assert(html.includes(`id="${id}"`),id);
+ for(const id of ['features','intelligence','notch','launcher','widgets','companions','questions','download']) assert(html.includes(`id="${id}"`),id);
  assert(html.includes('Start demo focus timer') && html.includes('Preview Dock appearance'));
+ assert(html.includes('Notch shelf preview') && html.includes('Search applications') && html.includes('Pick a mood'));
+ assert(html.includes('Ocean blues and sandy shores') && html.includes('Northern lights after dark'),'accent packs mirror the app');
 });
 
 test('stylesheet keeps accessibility and theming media rules',()=>{
