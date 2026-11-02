@@ -94,7 +94,7 @@ struct ToolTile: View {
             Button("Move earlier") { kit.moveWidget(kind, by: -1) }
             Button("Move later") { kit.moveWidget(kind, by: 1) }
             Divider()
-            Button("Remove widget") { kit.toggle(kind, false) }
+            Button("Remove from Dock") { kit.toggle(kind, false) }
         }
         .popover(isPresented: $interaction.expanded, arrowEdge: kit.edge == "Top" ? .bottom : .top) {
             VStack(alignment: .leading, spacing: 15) {

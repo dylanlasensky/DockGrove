@@ -235,20 +235,81 @@ extension DockModel {
     }
 }
 
+/// Packs items left to right into slides no wider than the expanded notch, so the shelf pages
+/// with pills instead of scrolling. An item wider than a slide gets a slide of its own.
+enum NotchPaging {
+    static func pages(_ widths: [CGFloat], available: CGFloat, spacing: CGFloat) -> [Range<Int>] {
+        var pages: [Range<Int>] = [], start = 0, used: CGFloat = 0
+        for (index, width) in widths.enumerated() {
+            if index > start, used + spacing + width > available {
+                pages.append(start..<index); start = index; used = width
+            } else { used += (index > start ? spacing : 0) + width }
+        }
+        if start < widths.count { pages.append(start..<widths.count) }
+        return pages.isEmpty ? [0..<0] : pages
+    }
+}
+
+/// Shows content at its natural height, shrinking it to fit its box rather than scrolling.
+struct NotchFit<Content: View>: View {
+    let size: CGSize
+    @ViewBuilder var content: Content
+    @State private var natural: CGFloat = 0
+    var body: some View {
+        content.fixedSize(horizontal: false, vertical: true)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { natural = $0 }
+            .scaleEffect(natural > size.height ? size.height / natural : 1, anchor: .top)
+            .frame(width: size.width, height: size.height, alignment: .top).clipped()
+    }
+}
+
+/// Counts the tray's files and clears them; it observes the toolkit so the count stays live.
+struct NotchTrayHeader: View {
+    @ObservedObject var kit: Toolkit
+    let controller: NotchController
+    var body: some View {
+        let count = kit.files.count, title = "File tray" + (count == 0 ? "" : " · \(count) file\(count == 1 ? "" : "s")")
+        Label(title, systemImage: "tray").font(.caption)
+            .accessibilityElement(children: .ignore).accessibilityLabel(title)
+            .contextMenu { if count > 0 { Button("Clear tray", action: clear) } }
+            .accessibilityAction(named: Text("Clear tray"), clear)
+    }
+    private func clear() { kit.files.removeAll(); controller.trayMessage = "Original files are unchanged." }
+}
+
 struct NotchShelfView: View {
+    enum Item: Hashable { case home, widget(ToolKind), noMatches, tray(NotchTrayItem) }
     @ObservedObject var model: DockModel
     @ObservedObject var controller: NotchController
     @State private var query = ""
+    @State private var page = 0
+    @State private var forward = true
     private var widgets: [ToolKind] {
         model.notchWidgets.filter { $0 != .files && (query.isEmpty || $0.title.localizedCaseInsensitiveContains(query)) }
     }
+    private var items: [Item] {
+        if controller.showingFiles { return NotchTrayItem.items(model: model, kit: model.toolkit).map(Item.tray) }
+        let found = widgets.map(Item.widget)
+        return (query.isEmpty ? [.home] : []) + (found.isEmpty ? [.noMatches] : found)
+    }
+    private var spacing: CGFloat { controller.showingFiles ? 10 : 14 }
+    private func width(_ item: Item) -> CGFloat {
+        switch item {
+        case .home: 540  // music card or focus placeholder (320) + spacing + focus timer (208)
+        case .widget(let kind): controller.selectedWidget == kind ? 512 : 160
+        case .noMatches: 200
+        case .tray(let tray): tray.width(controller.expandedWidth)
+        }
+    }
+    private var pages: [Range<Int>] { NotchPaging.pages(items.map(width), available: controller.expandedWidth - 32, spacing: spacing) }
     var body: some View {
+        let items = items, pages = pages, current = min(page, pages.count - 1)
         VStack(spacing: 0) {
             if controller.expanded {
                 HStack(spacing: 12) {
                     HStack(spacing: 6) {
                         if controller.showingFiles {
-                            Label("File tray", systemImage: "tray").font(.caption)
+                            NotchTrayHeader(kit: model.toolkit, controller: controller)
                             Spacer()
                         } else {
                             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
@@ -263,32 +324,19 @@ struct NotchShelfView: View {
                         Button { controller.setExpanded(false) } label: { Image(systemName: "chevron.up").padding(8) }.accessibilityLabel("Collapse notch")
                     }.padding(.trailing, 8).frame(maxWidth: .infinity)
                 }.frame(height: controller.geometry?.housing.height ?? 32)
-                ScrollViewReader { proxy in
-                    ScrollView(.horizontal) {
-                        HStack(spacing: 14) {
-                            if controller.showingFiles {
-                                NotchTrayView(model: model, kit: model.toolkit, controller: controller).id("tray")
-                            } else {
-                                if query.isEmpty {
-                                    NotchHomeView(model: model, kit: model.toolkit, controller: controller).id("essentials")
-                                    divider
-                                }
-                                ForEach(widgets) { kind in widget(kind).id(kind.rawValue) }
-                                if widgets.isEmpty { Text("No matching widgets").font(.caption).foregroundStyle(.secondary).frame(width: 200) }
-                            }
-                        }.padding(.horizontal, 16).padding(.vertical, 8)
-                    }.frame(height: 112)
-                        .onChange(of: controller.showingFiles) { _, files in
-                            proxy.scrollTo(files ? "tray" : (query.isEmpty ? "essentials" : (widgets.first?.rawValue ?? "essentials")), anchor: .leading)
-                        }
-                        .onChange(of: controller.airDropReview) { _, _ in proxy.scrollTo("tray", anchor: .leading) }
-                        .onChange(of: controller.selectedWidget) { _, kind in
-                            if let kind { withAnimation(.easeInOut(duration: 0.2)) { proxy.scrollTo(kind.rawValue, anchor: .center) } }
-                        }
-                        .onChange(of: query) { _, value in
-                            proxy.scrollTo(value.isEmpty ? "essentials" : (widgets.first?.rawValue ?? "essentials"), anchor: .leading)
-                        }
-                }
+                VStack(spacing: 6) {
+                    HStack(spacing: spacing) {
+                        ForEach(items[pages[current]], id: \.self) { item($0) }
+                    }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).frame(height: 84)
+                        .id(current).transition(.push(from: forward ? .trailing : .leading))
+                    pills(count: pages.count, current: current)
+                }.padding(.top, 6).frame(height: 112, alignment: .top).clipped()
+                    .onChange(of: controller.showingFiles) { _, _ in show(0) }
+                    .onChange(of: controller.airDropReview) { _, _ in show(0) }
+                    .onChange(of: query) { _, _ in show(0) }
+                    .onChange(of: controller.selectedWidget) { _, kind in
+                        if let kind, let index = items.firstIndex(of: .widget(kind)), let slide = pages.firstIndex(where: { $0.contains(index) }) { show(slide) }
+                    }
             } else {
                 Button { controller.setExpanded(true) } label: { Color.black.contentShape(Rectangle()) }.accessibilityLabel("Expand DockGrove notch")
             }
@@ -300,6 +348,30 @@ struct NotchShelfView: View {
             }
             .buttonStyle(.plain).preferredColorScheme(.dark)
     }
+    private func show(_ slide: Int) {
+        forward = slide >= page
+        withAnimation(.snappy(duration: 0.28)) { page = slide }
+    }
+    /// Slide pills: the current slide is a wide pill, the others are dots; each one jumps to its slide.
+    private func pills(count: Int, current: Int) -> some View {
+        HStack(spacing: 6) {
+            ForEach(0..<count, id: \.self) { index in
+                Button { show(index) } label: {
+                    Capsule().fill(.white.opacity(index == current ? 0.9 : 0.3))
+                        .frame(width: index == current ? 18 : 6, height: 6).padding(.vertical, 4).padding(.horizontal, 1).contentShape(Rectangle())
+                }.accessibilityLabel("Notch slide \(index + 1) of \(count)")
+                    .accessibilityAddTraits(index == current ? .isSelected : [])
+            }
+        }.frame(height: 14).opacity(count > 1 ? 1 : 0).accessibilityHidden(count < 2)
+    }
+    @ViewBuilder private func item(_ item: Item) -> some View {
+        switch item {
+        case .home: NotchHomeView(model: model, kit: model.toolkit, controller: controller)
+        case .widget(let kind): widget(kind)
+        case .noMatches: Text("No matching widgets").font(.caption).foregroundStyle(.secondary).frame(width: 200)
+        case .tray(let tray): NotchTrayView(model: model, kit: model.toolkit, controller: controller, item: tray)
+        }
+    }
     private func tab(_ title: String, files: Bool) -> some View {
         Button {
             controller.selectedWidget = nil
@@ -310,7 +382,6 @@ struct NotchShelfView: View {
         }.accessibilityLabel(title + " notch tab")
             .accessibilityAddTraits(controller.showingFiles == files ? .isSelected : [])
     }
-    private var divider: some View { Rectangle().fill(.white.opacity(0.14)).frame(width: 1, height: 58).accessibilityHidden(true) }
     @ViewBuilder private func widget(_ kind: ToolKind) -> some View {
         if controller.selectedWidget == kind {
             HStack(spacing: 12) {
@@ -318,10 +389,10 @@ struct NotchShelfView: View {
                     Image(systemName: kind.icon)
                     Button { controller.selectedWidget = nil } label: { Image(systemName: "xmark.circle.fill") }.accessibilityLabel("Close " + kind.title + " controls")
                 }.frame(width: 24)
-                ScrollView(.vertical) {
+                NotchFit(size: CGSize(width: 460, height: 68)) {
                     ToolTile(kind: kind, model: model, kit: model.toolkit).contents
                         .frame(maxWidth: .infinity, alignment: .leading).padding(4)
-                }.frame(width: 460, height: 76)
+                }
             }.padding(8).background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
         } else {
             Button {

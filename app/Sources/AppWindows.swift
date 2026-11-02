@@ -23,7 +23,10 @@ extension WindowManager: AppWindowListing {}
     case openFiles([URL], application: URL, completion: (NSRunningApplication?, Error?) -> Void)
     case setHidden(NSRunningApplication, Bool)
     case terminate(NSRunningApplication)
+    case forceTerminate(NSRunningApplication)
     static var handler: (DockSystemEffect) -> Void = DockSystemEffect.perform
+    /// Keys held while a menu is built; Option turns Quit into Force Quit.
+    static var modifiers: () -> NSEvent.ModifierFlags = { NSEvent.modifierFlags }
     static func perform(_ effect: DockSystemEffect) {
         switch effect {
         case .present(let window): window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
@@ -33,6 +36,7 @@ extension WindowManager: AppWindowListing {}
             NSWorkspace.shared.open(urls, withApplicationAt: application, configuration: NSWorkspace.OpenConfiguration(), completionHandler: completion)
         case .setHidden(let app, let hidden): if hidden { app.hide() } else { app.unhide() }
         case .terminate(let app): app.terminate()
+        case .forceTerminate(let app): app.forceTerminate()
         }
     }
 }
@@ -53,7 +57,17 @@ struct AppWindowsView<Manager: AppWindowListing>: View {
         }.padding(20).frame(width: 440).onAppear { manager.refresh() }
     }
 }
+extension ManagedWindow {
+    /// The window's own title, without the owning app's name that the Windows widget leads with.
+    var menuTitle: String {
+        let prefix = WindowManager.windowTitle(app: owner.localizedName, window: "", fallback: "")
+        return title.hasPrefix(prefix) ? String(title.dropFirst(prefix.count)) : title
+    }
+}
 extension DockModel {
+    func runningApplication(_ app: DockApp) -> NSRunningApplication? {
+        NSWorkspace.shared.runningApplications.first { $0.bundleURL?.standardizedFileURL.path == app.id }
+    }
     func showAppWindows(_ app: DockApp) {
         guard canUseFeatures else { settingsAction?(); return }
         appPickerWindow?.close()
