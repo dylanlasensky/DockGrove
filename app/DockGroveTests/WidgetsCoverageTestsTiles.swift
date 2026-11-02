@@ -66,9 +66,10 @@ struct WidgetsContentsHost: View {
         kit.weatherSnapshot = weather(); kit.weatherText = "21°"
         for kind in [ToolKind.water, .focus, .weather] { _ = tile(kind) }
         let search = tile(.search)
+        kit.query = "Calc"
         search.press(ToolKind.search.title)
-        search.pump(0.3)
-        search.press(ToolKind.search.title)
+        XCTAssertEqual(log.names.last, "searchApps:Calc", "App search opens the launcher with its query")
+        kit.query = ""
         let weatherTile = tile(.weather)
         weatherTile.press(ToolKind.weather.title)
         weatherTile.pump(0.3)
@@ -85,6 +86,7 @@ struct WidgetsContentsHost: View {
         if let first = open.first { _ = WidgetHost.axBool(first, "accessibilityPerformPress"); rich.pump(0.3); _ = WidgetHost.axBool(first, "accessibilityPerformPress"); rich.pump() }
         let richSearch = tile(.search)
         if let first = richSearch.elements().first(where: { WidgetHost.role($0) == "AXButton" }) { _ = WidgetHost.axBool(first, "accessibilityPerformPress"); richSearch.pump(0.2) }
+        XCTAssertEqual(log.names.last, "searchApps:")
 
         kit.edge = "Top"
         for (kind, shape) in [(ToolKind.tasks, "circle"), (.search, "pill"), (.weather, "square"), (.github, "square"), (.water, "circle")] {
@@ -122,15 +124,10 @@ struct WidgetsContentsHost: View {
     }
 
     func testSearchContents() {
-        kit.applications = [DockApp(url: URL(fileURLWithPath: finder)), DockApp(url: URL(fileURLWithPath: calculator))]
-        model.apps = [DockApp(url: URL(fileURLWithPath: finder))]
+        kit.query = "Calc"
         let host = contents(.search)
-        let calc = kit.applications[1].name
-        host.press(calc)
-        XCTAssertEqual(log.names, ["launch:" + calculator])
-        host.press("Pin app", index: 1)
-        kit.query = "Calc"; host.pump()
-        XCTAssertTrue(host.has(calc))
+        host.press("Search Applications")
+        XCTAssertEqual(log.names, ["searchApps:Calc"], "hosted contents hand off to the launcher")
     }
 
     func testTasksFocusNotesContents() {

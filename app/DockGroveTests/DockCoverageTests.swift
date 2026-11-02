@@ -570,9 +570,14 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         harness.spin(0.3)
         harness.press("Close Focus controls")
         XCTAssertNil(controller.selectedWidget)
+        model.toolkit.query = "Fin"
         harness.press("Open App search from notch")
-        XCTAssertEqual(controller.selectedWidget, .search)
-        controller.selectedWidget = nil
+        XCTAssertNil(controller.selectedWidget, "App search opens the launcher instead of inline controls")
+        XCTAssertNotNil(AppsLauncher.shared.panel)
+        if case .present(let window)? = effects.last { XCTAssertTrue(window === AppsLauncher.shared.panel) } else { XCTFail("the launcher should present through effects") }
+        XCTAssertFalse(AppsLauncher.shared.pager.searchIsEmpty, "the widget's query pre-fills the search")
+        AppsLauncher.shared.close()
+        model.toolkit.query = ""
         harness.press("Files notch tab")
         XCTAssertTrue(controller.showingFiles)
         harness.spin(0.1)
@@ -899,8 +904,8 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         if case .present(let window)? = effects.last { XCTAssertEqual(window.title, "App windows") } else { XCTFail("Windows… should present a window") }
         model.appPickerWindow?.close()
         harness.choose("Replace app…", inMenuAt: point)
-        if case .present(let window)? = effects.last { XCTAssertEqual(window.title, "Choose an application") } else { XCTFail("Replace app… should present the picker") }
-        model.appPickerWindow?.close()
+        if case .present(let window)? = effects.last { XCTAssertTrue(window === AppsLauncher.shared.panel) } else { XCTFail("Replace app… should present the launcher") }
+        AppsLauncher.shared.close()
         harness.choose("Open " + app.name, inMenuAt: point)
         XCTAssertEqual(launched.count, 2)
         harness.choose("Move left", inMenuAt: point)

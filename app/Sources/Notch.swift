@@ -326,7 +326,7 @@ struct NotchShelfView: View {
         } else {
             Button {
                 guard model.canAccess(kind) else { return }
-                if kind == .search { model.toolkit.scanApplications() }
+                if kind == .search { model.showAppLauncher(query: model.toolkit.query); return }
                 controller.selectedWidget = kind
             } label: {
                 VStack(spacing: 7) {

@@ -208,9 +208,11 @@ private func usageResponse() throws -> UsageResponse {
         model.dropApp(c.id, onto: c)
         XCTAssertEqual(model.apps, [c, b, a])
 
+        let present = AppsLauncher.shared.present
+        AppsLauncher.shared.present = { _ in }
+        defer { AppsLauncher.shared.close(); AppsLauncher.shared.present = present }
         model.addApps()
-        XCTAssertNotNil(model.appPickerWindow)
-        model.appPickerWindow?.close(); model.appPickerWindow = nil
+        XCTAssertNotNil(AppsLauncher.shared.panel, "+ opens the Applications launcher")
     }
 
     func testProfilesSaveApplyExportImport() throws {

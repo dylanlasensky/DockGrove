@@ -34,14 +34,25 @@ struct ApplicationsStackTile: View {
 /// Full-screen app browser modelled on the macOS Apps app: blurred desktop, centred search, paged icon grid.
 @MainActor final class AppsLauncher {
     static let shared = AppsLauncher()
+    /// What clicking an app does: open it, pin it to the Dock (the + tile), or swap it into a tile.
+    enum Mode: Equatable {
+        case launch, add, replace(DockApp)
+        var title: String? {
+            switch self {
+            case .launch: return nil
+            case .add: return "Add an app to the Dock"
+            case .replace(let app): return "Replace " + app.name
+            }
+        }
+    }
     private final class Panel: NSPanel {
         override var canBecomeKey: Bool { true }
         override func cancelOperation(_ sender: Any?) { AppsLauncher.shared.close(restorePrevious: true) }
         override func keyDown(with event: NSEvent) { if !AppsLauncher.shared.pager.handleKey(event) { super.keyDown(with: event) } }
     }
     private(set) var panel: NSPanel?
-    /// Brings the launcher on screen; tests replace it so nothing covers the real desktop.
-    var present: (NSPanel) -> Void = { panel in NSApp.activate(); panel.makeKeyAndOrderFront(nil) }
+    /// Brings the launcher on screen through the system-effect seam, so tests never cover the real desktop.
+    var present: (NSPanel) -> Void = { DockSystemEffect.handler(.present($0)) }
     private var previousApplication: NSRunningApplication?
     private var monitors: [Any] = []
     private var resignObserver: NSObjectProtocol?
@@ -49,15 +60,17 @@ struct ApplicationsStackTile: View {
 
     func toggle(model: DockModel) { panel == nil ? show(model: model) : close(restorePrevious: true) }
 
-    func show(model: DockModel) {
-        previousApplication = NSWorkspace.shared.frontmostApplication
+    func show(model: DockModel, mode: Mode = .launch, query: String = "") {
+        let previous = panel == nil ? NSWorkspace.shared.frontmostApplication : previousApplication
+        close()
+        previousApplication = previous
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main ?? NSScreen.screens[0]
         let panel = Panel(contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = .popUpMenu; panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         panel.isReleasedWhenClosed = false
-        pager.page = 0; pager.searchIsEmpty = true
-        let root = AppsLauncherView(model: model, kit: model.toolkit, pager: pager) { [weak self] in self?.close(restorePrevious: true) }
+        pager.page = 0; pager.searchIsEmpty = query.isEmpty
+        let root = AppsLauncherView(model: model, kit: model.toolkit, pager: pager, mode: mode, query: query) { [weak self] in self?.close(restorePrevious: true) }
             .preferredColorScheme(model.scheme)
         panel.contentView = NSHostingView(rootView: root)
         panel.setFrame(screen.frame, display: false)
@@ -134,12 +147,17 @@ struct AppsLauncherView: View {
     @ObservedObject var model: DockModel
     @ObservedObject var kit: Toolkit
     @ObservedObject var pager: AppsPager
+    var mode: AppsLauncher.Mode = .launch
     var close: () -> Void
-    @State private var query = ""
+    @State private var query: String
     @State private var shown = false
     @State private var drag: CGFloat = 0
     @FocusState private var searchFocused: Bool
     static let columns = 7, rows = 5
+    init(model: DockModel, kit: Toolkit, pager: AppsPager, mode: AppsLauncher.Mode = .launch, query: String = "", close: @escaping () -> Void) {
+        self.model = model; self.kit = kit; self.pager = pager; self.mode = mode; self.close = close
+        _query = State(initialValue: query)
+    }
     private var results: [DockApp] { kit.appIndex.search(query) }
     private var pages: [[DockApp]] {
         let perPage = Self.columns * Self.rows, all = results
@@ -155,7 +173,11 @@ struct AppsLauncherView: View {
                 .onTapGesture(perform: close)
                 .gesture(DragGesture(minimumDistance: 16).onChanged { drag = $0.translation.width }.onEnded(finishDrag))
             VStack(spacing: 0) {
-                searchField.padding(.top, 54)
+                VStack(spacing: 10) {
+                    if let title = mode.title { Text(title).font(.title3.weight(.semibold)).accessibilityLabel(title).accessibilityAddTraits(.isHeader) }
+                    searchField
+                    if mode != .launch, let error = model.systemError { Text(error).font(.caption).foregroundStyle(.red) }
+                }.padding(.top, 54)
                 GeometryReader { geo in
                     HStack(spacing: 0) {
                         ForEach(pages.indices, id: \.self) { index in
@@ -184,7 +206,7 @@ struct AppsLauncherView: View {
         HStack(spacing: 6) {
             Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
             TextField("Search", text: $query).textFieldStyle(.plain).focused($searchFocused)
-                .onSubmit { if let first = results.first { launch(first) } }
+                .onSubmit { if let first = results.first { choose(first) } }
             if !query.isEmpty {
                 Button { query = ""; searchFocused = true } label: { Image(systemName: "xmark.circle.fill") }
                     .buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Clear search").help("Clear search")
@@ -205,8 +227,8 @@ struct AppsLauncherView: View {
             ForEach(Array(apps.enumerated()), id: \.element.id) { offset, app in
                 AppsLauncherIcon(app: app, name: kit.appIndex.name(of: app), iconSize: icon,
                                  highlighted: first && offset == 0 && !query.isEmpty,
-                                 pinned: model.apps.contains(app),
-                                 launch: { launch(app) }, pin: { model.pin(app) })
+                                 pinned: model.apps.contains(app), badged: mode != .launch,
+                                 choose: { choose(app) }, launch: { launch(app) }, pin: { model.pin(app) })
                     .frame(width: cellWidth, height: cellHeight)
             }
         }
@@ -245,6 +267,17 @@ struct AppsLauncherView: View {
     }
 
     private func launch(_ app: DockApp) { kit.recordLaunch(app, query: query); close(); model.open(app) }
+    /// Clicking an icon: launch it, or add/replace a Dock tile and close once the model accepts it.
+    private func choose(_ app: DockApp) {
+        switch mode {
+        case .launch: launch(app)
+        case .add, .replace:
+            guard !(mode == .add && model.apps.contains(app)) else { return }
+            if case .replace(let old) = mode { guard model.chooseApp(app, replacing: old) else { return } }
+            else { guard model.chooseApp(app, replacing: nil) else { return } }
+            kit.recordLaunch(app, query: query); close()
+        }
+    }
 }
 
 private struct AppsLauncherIcon: View {
@@ -253,14 +286,24 @@ private struct AppsLauncherIcon: View {
     let iconSize: CGFloat
     let highlighted: Bool
     let pinned: Bool
+    /// Add and replace modes mark apps already in the Dock.
+    let badged: Bool
+    let choose: () -> Void
     let launch: () -> Void
     let pin: () -> Void
     @State private var hovered = false
     var body: some View {
-        Button(action: launch) {
+        Button(action: choose) {
             VStack(spacing: 8) {
                 Image(nsImage: app.icon).resizable().interpolation(.high).frame(width: iconSize, height: iconSize)
                     .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
+                    .overlay(alignment: .topTrailing) {
+                        if badged && pinned {
+                            Image(systemName: "checkmark.circle.fill").font(.system(size: 18)).foregroundStyle(.white, .green)
+                                .accessibilityHidden(true).help("Already in the Dock")
+                        }
+                    }
+                    .opacity(badged && pinned ? 0.55 : 1)
                 Text(name).font(.system(size: 12, weight: .medium)).lineLimit(1).truncationMode(.tail)
                     .shadow(color: .black.opacity(0.25), radius: 1.5, y: 0.5)
             }
@@ -269,6 +312,7 @@ private struct AppsLauncherIcon: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PressScaleStyle())
+        .accessibilityValue(badged && pinned ? "Already in the Dock" : "")
         .help(app.id)
         .onHover { hovered = $0 }
         .animation(.easeOut(duration: 0.12), value: hovered)
