@@ -262,7 +262,7 @@ final class DockPanel: NSPanel {
     @MainActor static func main() {
         // Hosted XCTest runs need a run loop but never the Dock, menu bar item or system changes.
         if TestEnvironment.isXCTest { NSApplication.shared.run(); return }
-        if CommandLine.arguments.contains("--claude-statusline") { exit(LocalAIStore.capture(.claude)) }
+        if CommandLine.arguments.contains("--claude-statusline") { exit(LocalAIStore.capture(.claude, then: LocalAIStore.chainedCommand(CommandLine.arguments))) }
         if CommandLine.arguments.contains("--gemini-report") { exit(LocalAIStore.capture(.gemini)) }
         if CommandLine.arguments.contains("--restore-dock") {
             do { try SystemDock.restore(); print("Apple Dock preferences restored.") } catch { print("Could not restore Apple Dock: \(error)"); exit(1) }

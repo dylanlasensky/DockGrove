@@ -427,6 +427,30 @@ extension Binding: IntegrationsAnyBinding {
         XCTAssertEqual(try capture(Data("not json".utf8), .gemini), 1)
     }
 
+    func testChainedCaptureRunsTheOriginalStatusLine() throws {
+        let root = try IntegrationsUI.temporaryDirectory(self)
+        func chain(_ data: Data, _ original: String, shell: String = "/bin/sh") throws -> (Int32, String) {
+            let input = root.appendingPathComponent(UUID().uuidString), output = root.appendingPathComponent(UUID().uuidString)
+            try data.write(to: input); try Data().write(to: output)
+            let reader = try FileHandle(forReadingFrom: input), writer = try FileHandle(forWritingTo: output)
+            defer { try? reader.close() }
+            let status = LocalAIStore.capture(.claude, input: reader, directory: root, then: original, output: writer, shell: URL(fileURLWithPath: shell))
+            try writer.close()
+            return (status, try String(contentsOf: output, encoding: .utf8))
+        }
+        // The original gets the same bytes on stdin; its output and exit status are forwarded.
+        let (status, output) = try chain(claudeReport, "printf 'mine:'; /bin/cat; exit 3")
+        XCTAssertEqual(status, 3); XCTAssertEqual(output, "mine:" + String(data: claudeReport, encoding: .utf8)!)
+        XCTAssertEqual(try LocalAIStore.load(.claude, directory: root).windows.first?.used, 24)
+        // A report DockGrove cannot read never breaks the user's status line.
+        try FileManager.default.removeItem(at: LocalAIStore.url(.claude, directory: root))
+        XCTAssertEqual(try chain(Data("not json".utf8), "/bin/cat").1, "not json")
+        XCTAssertThrowsError(try LocalAIStore.load(.claude, directory: root))
+        // An original that ignores a large input still exits normally (no SIGPIPE).
+        XCTAssertEqual(try chain(Data(repeating: 0x41, count: 300_000), "printf ok").0, 0)
+        XCTAssertEqual(try chain(claudeReport, "/bin/cat", shell: root.appendingPathComponent("missing-shell").path).0, 127)
+    }
+
     func testWidgetRefreshStatusLineImportClearAndCopy() throws {
         let (widget, root) = try widget(.claude)
         widget.refresh(); XCTAssertNil(widget.report); XCTAssertEqual(widget.status, LocalAIError.missing.localizedDescription)
@@ -437,7 +461,17 @@ extension Binding: IntegrationsAnyBinding {
 
         widget.connectClaude(); XCTAssertTrue(widget.status.hasPrefix("Connected."))
         widget.disconnectClaude(); XCTAssertTrue(widget.status.hasPrefix("DockGrove status line removed"))
-        try JSONSerialization.data(withJSONObject: ["statusLine": ["type": "command", "command": "custom"]]).write(to: widget.settingsURL)
+        let custom: NSDictionary = ["type": "command", "command": "~/.claude/statusline-command.sh", "padding": 1]
+        try JSONSerialization.data(withJSONObject: ["statusLine": custom]).write(to: widget.settingsURL)
+        func statusLine() throws -> NSDictionary? { (try JSONSerialization.jsonObject(with: Data(contentsOf: widget.settingsURL)) as? NSDictionary)?["statusLine"] as? NSDictionary }
+        widget.connectClaude(); XCTAssertTrue(widget.status.contains("custom status line keeps working"))
+        XCTAssertEqual(try statusLine()?["command"] as? String, widget.command + " --then '~/.claude/statusline-command.sh'")
+        XCTAssertEqual(try statusLine()?["padding"] as? Int, 1)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: ClaudeStatusLineSetup.originalURL(widget.directory).path))
+        widget.connectClaude(); XCTAssertEqual(try statusLine()?["command"] as? String, widget.command + " --then '~/.claude/statusline-command.sh'")
+        widget.disconnectClaude(); XCTAssertTrue(widget.status.hasSuffix("Your original status line was restored."))
+        XCTAssertEqual(try statusLine(), custom)
+        try JSONSerialization.data(withJSONObject: ["statusLine": ["type": "static"]]).write(to: widget.settingsURL)
         widget.connectClaude(); XCTAssertEqual(widget.status, LocalAIError.existingStatusLine.localizedDescription)
         widget.disconnectClaude(); XCTAssertEqual(widget.status, LocalAIError.changedSettings.localizedDescription)
         try Data("not json".utf8).write(to: widget.settingsURL)

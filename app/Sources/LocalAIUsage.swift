@@ -21,7 +21,7 @@ enum LocalAIError: Error, LocalizedError {
     var errorDescription: String? { switch self {
     case .invalid: return "This is not a supported usage report. No new data was saved."
     case .tooLarge: return "This report is too large. The maximum is 20 MB."
-    case .existingStatusLine: return "Claude Code already has a custom status line. It has been preserved. Use the setup guide to integrate DockGrove’s capture command."
+    case .existingStatusLine: return "Claude Code’s status line is not a command, so DockGrove left it unchanged and it keeps working. Use the setup guide to add DockGrove’s capture command to it."
     case .changedSettings: return "The status line changed outside DockGrove. It was preserved; remove the DockGrove command manually if needed."
     case .missing: return "No local report yet. Connect a status line or import a report to begin."
     } }
@@ -102,7 +102,36 @@ enum LocalAIStore {
         }
         return data
     }
-    static func capture(_ provider: LocalAIProvider, input: FileHandle = .standardInput, directory: URL = folder) -> Int32 {
+    /// The user's own status-line command passed after `--then`, if any.
+    static func chainedCommand(_ arguments: [String]) -> String? {
+        guard let index = arguments.firstIndex(of: "--then"), index + 1 < arguments.count else { return nil }
+        return arguments[index + 1]
+    }
+    /// Reads at most `maxBytes + 1` bytes without throwing, so a chained status line still gets its input.
+    static func boundedPrefix(_ handle: FileHandle) -> Data {
+        var data = Data()
+        while data.count <= maxBytes, let chunk = try? handle.read(upToCount: min(65_536, maxBytes + 1 - data.count)), !chunk.isEmpty { data.append(chunk) }
+        return data
+    }
+    /// With `original`, saves the report when it decodes and then runs the user's own status line
+    /// through `/bin/sh -c` with the same input, forwarding its output and exit status. A capture
+    /// failure never breaks their status line. Without it, prints DockGrove's own status line.
+    static func capture(_ provider: LocalAIProvider, input: FileHandle = .standardInput, directory: URL = folder, then original: String? = nil, output: FileHandle = .standardOutput, shell: URL = URL(fileURLWithPath: "/bin/sh")) -> Int32 {
+        if let original {
+            let data = boundedPrefix(input)
+            if let report = try? decode(data, provider: provider) { try? save(report, provider: provider, directory: directory) }
+            let process = Process(), pipe = Pipe()
+            process.executableURL = shell; process.arguments = ["-c", original]
+            process.standardInput = pipe; process.standardOutput = output
+            // An original that exits without reading its input must not kill DockGrove with SIGPIPE.
+            _ = fcntl(pipe.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)
+            do { try process.run() } catch { fputs("DockGrove: could not run the original status line.\n", stderr); return 127 }
+            try? pipe.fileHandleForReading.close()
+            let writer = pipe.fileHandleForWriting
+            DispatchQueue.global().async { try? writer.write(contentsOf: data); try? writer.close() }
+            process.waitUntilExit()
+            return process.terminationStatus
+        }
         do {
             let report = try decode(boundedInput(input), provider: provider)
             try save(report, provider: provider, directory: directory)
@@ -117,27 +146,59 @@ enum ClaudeStatusLineSetup {
     static func quote(_ path: String) -> String { "'" + path.replacingOccurrences(of: "'", with: "'\\''") + "'" }
     static var command: String { quote(Bundle.main.executableURL!.path) + " --claude-statusline" }
     static var settingsURL: URL { FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/settings.json") }
-    static func install(at url: URL = settingsURL, command: String = command) throws {
+    /// Where the user's own status line is kept while DockGrove's capture wraps it.
+    static func originalURL(_ directory: URL) -> URL { directory.appendingPathComponent("claude-statusline-original.json") }
+    /// Reverses `quote`; nil for anything `quote` could not have produced.
+    static func unquote(_ value: String) -> String? {
+        guard value.count >= 2, value.hasPrefix("'"), value.hasSuffix("'") else { return nil }
+        let parts = String(value.dropFirst().dropLast()).components(separatedBy: "'\\''")
+        guard !parts.contains(where: { $0.contains("'") }) else { return nil }
+        return parts.joined(separator: "'")
+    }
+    private static func writeJSON(_ object: [String: Any], to url: URL) throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        try JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys]).write(to: url, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+    }
+    /// Enables DockGrove's capture. A custom command status line keeps working: DockGrove runs it
+    /// after reading usage (`--then`), and its original settings are saved in `backups` so `remove`
+    /// can restore them exactly. Returns true when a custom status line is wrapped.
+    @discardableResult
+    static func install(at url: URL = settingsURL, command: String = command, backups: URL = LocalAIStore.folder) throws -> Bool {
         var settings: [String: Any] = [:]
         if FileManager.default.fileExists(atPath: url.path) {
             guard let root = try JSONSerialization.jsonObject(with: LocalAIStore.boundedFile(url)) as? [String: Any] else { throw LocalAIError.invalid }; settings = root
         }
+        var row: [String: Any] = ["type": "command", "command": command], wrapped = false
         if let existing = settings["statusLine"], !(existing is NSNull) {
-            guard let row = existing as? [String: Any], row["command"] as? String == command, row["type"] as? String == "command" else { throw LocalAIError.existingStatusLine }
-            return
+            guard let current = existing as? [String: Any], current["type"] as? String == "command", let original = current["command"] as? String else { throw LocalAIError.existingStatusLine }
+            if original == command { return false }
+            if original.hasPrefix(command + " --then ") { return true }
+            let chained = command + " --then " + quote(original)
+            try writeJSON(["command": chained, "original": current], to: originalURL(backups))
+            row = current; row["command"] = chained; wrapped = true
         }
-        settings["statusLine"] = ["type": "command", "command": command]
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-        try JSONSerialization.data(withJSONObject: settings, options: [.prettyPrinted, .sortedKeys]).write(to: url, options: .atomic)
-        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        settings["statusLine"] = row
+        try writeJSON(settings, to: url)
+        return wrapped
     }
-    static func remove(at url: URL = settingsURL, command: String = command) throws {
-        guard FileManager.default.fileExists(atPath: url.path) else { return }
+    /// Removes DockGrove's capture, restoring a wrapped status line. Returns true when one was restored.
+    @discardableResult
+    static func remove(at url: URL = settingsURL, command: String = command, backups: URL = LocalAIStore.folder) throws -> Bool {
+        guard FileManager.default.fileExists(atPath: url.path) else { return false }
         guard var settings = try JSONSerialization.jsonObject(with: LocalAIStore.boundedFile(url)) as? [String: Any] else { throw LocalAIError.invalid }
-        guard let value = settings["statusLine"] else { return }
-        guard let row = value as? [String: Any], row["command"] as? String == command else { throw LocalAIError.changedSettings }
-        settings.removeValue(forKey: "statusLine")
-        try JSONSerialization.data(withJSONObject: settings, options: [.prettyPrinted, .sortedKeys]).write(to: url, options: .atomic)
+        guard let value = settings["statusLine"] else { return false }
+        guard var row = value as? [String: Any], let current = row["command"] as? String else { throw LocalAIError.changedSettings }
+        let backup = originalURL(backups), prefix = command + " --then "
+        if current == command { settings.removeValue(forKey: "statusLine") }
+        else if current.hasPrefix(prefix) {
+            if let saved = try? JSONSerialization.jsonObject(with: LocalAIStore.boundedFile(backup)) as? [String: Any], saved["command"] as? String == current, let original = saved["original"] as? [String: Any] { settings["statusLine"] = original }
+            else if let original = unquote(String(current.dropFirst(prefix.count))) { row["command"] = original; settings["statusLine"] = row }
+            else { throw LocalAIError.changedSettings }
+        } else { throw LocalAIError.changedSettings }
+        try writeJSON(settings, to: url)
+        try? FileManager.default.removeItem(at: backup)
+        return current != command
     }
 }
 @MainActor final class LocalAIWidget: ObservableObject {
@@ -163,11 +224,17 @@ enum ClaudeStatusLineSetup {
         catch { report = nil; status = (error as? LocalAIError ?? .invalid).localizedDescription }
     }
     func connectClaude() {
-        do { try ClaudeStatusLineSetup.install(at: settingsURL, command: command); status = "Connected. Start a new Claude Code session and send a prompt to receive its report." }
+        do {
+            let wrapped = try ClaudeStatusLineSetup.install(at: settingsURL, command: command, backups: directory)
+            status = "Connected." + (wrapped ? " Your custom status line keeps working; DockGrove reads usage, then runs it." : "") + " Start a new Claude Code session and send a prompt to receive its report."
+        }
         catch { status = (error as? LocalAIError ?? .invalid).localizedDescription }
     }
     func disconnectClaude() {
-        do { try ClaudeStatusLineSetup.remove(at: settingsURL, command: command); status = "DockGrove status line removed. Existing Claude settings preserved." }
+        do {
+            let restored = try ClaudeStatusLineSetup.remove(at: settingsURL, command: command, backups: directory)
+            status = "DockGrove status line removed. " + (restored ? "Your original status line was restored." : "Existing Claude settings preserved.")
+        }
         catch { status = (error as? LocalAIError ?? .invalid).localizedDescription }
     }
     func importReport() {
@@ -197,7 +264,7 @@ struct LocalAIUsageView: View {
             if setupAllowed {
                 if widget.provider == .claude {
                     AISignInControls(signIn: widget.signIn, provider: .claude) { widget.connectClaude() }
-                    Text("After sign-in, DockGrove enables its usage status line. An existing custom status line is preserved. Usage arrives after your next Claude Code response.").font(.caption).foregroundStyle(.secondary)
+                    Text("After sign-in, DockGrove enables its usage status line. An existing custom status line keeps working: DockGrove reads usage, then runs it. Usage arrives after your next Claude Code response.").font(.caption).foregroundStyle(.secondary)
                     Divider()
                 } else { GeminiSignInControls(); Divider() }
             }
@@ -228,7 +295,7 @@ struct LocalAIUsageView: View {
             if widget.provider == .claude {
                 Button("Set up Claude Code status line", action: widget.connectClaude)
                 Button("Remove DockGrove status line", action: widget.disconnectClaude)
-                Text("Adds a command to ~/.claude/settings.json. Custom status lines are never overwritten. Keep DockGrove in the same location after connecting.").font(.caption2).foregroundStyle(.secondary)
+                Text("Adds a command to ~/.claude/settings.json. A custom status line keeps working and is restored exactly when you remove DockGrove’s. Keep DockGrove in the same location after connecting.").font(.caption2).foregroundStyle(.secondary)
             } else {
                 Button("Import Gemini session JSON…", action: widget.importReport)
                 Button("Copy CLI capture command", action: widget.copyCaptureCommand)

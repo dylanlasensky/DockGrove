@@ -183,10 +183,16 @@ import AppKit
         let harness = host(model, .claude, .signIn, height: 1100)
         defer { harness.close() }
         XCTAssertNotNil(widget.timer, "The form starts the usage reader")
+        // The user's own status line survives every enable/remove the form performs.
+        try FileManager.default.createDirectory(at: widget.settingsURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try JSONSerialization.data(withJSONObject: ["statusLine": ["type": "command", "command": "/bin/cat", "padding": 3]]).write(to: widget.settingsURL)
         clickForm(harness)
         wait { widget.signIn.authenticated }
         harness.settle(0.1)
         XCTAssertTrue(FileManager.default.fileExists(atPath: widget.settingsURL.path), "Capture writes only the temporary Claude settings")
+        let line = try XCTUnwrap((try JSONSerialization.jsonObject(with: Data(contentsOf: widget.settingsURL)) as? [String: Any])?["statusLine"] as? [String: Any])
+        XCTAssertTrue(["/bin/cat", widget.command + " --then '/bin/cat'"].contains(line["command"] as? String ?? ""))
+        XCTAssertEqual(line["padding"] as? Int, 3)
         widget.status = "Could not read the report."
         harness.settle()
         widget.status = ""
