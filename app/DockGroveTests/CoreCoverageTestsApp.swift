@@ -222,6 +222,10 @@ private final class CoreOtherInstance: NSRunningApplication {
         let dock = try XCTUnwrap(delegate.workspace.docks.first, "workspace.add creates an extra dock")
         dock.model.manageDocksAction?()
         dock.model.visibilityAction?()
+        var restorePrompts: [String] = []
+        delegate.runAlert = { restorePrompts.append($0.messageText); return .alertSecondButtonReturn }
+        dock.model.restoreAppleDockAction?()
+        XCTAssertEqual(restorePrompts, ["Restore Apple’s Dock?"], "an extra dock's Restore Apple Dock reaches the app's confirmation")
         _ = dock.model.toolkit.windows.usableFrameProvider?(screen)
         dock.model.objectWillChange.send()
         dock.model.toolkit.objectWillChange.send()

@@ -131,7 +131,7 @@ import AppKit
     func testAppearanceEveryControl() {
         let model = makeSettingsModel(self)
         model.isAdditionalDock = true
-        let harness = SettingsHarness(StudioAppearance(model: model).padding(), width: 900, height: 3200)
+        let harness = SettingsHarness(StudioAppearance(model: model).padding(), width: 900, height: 4200)
         defer { harness.close() }
         let wells = { harness.views(NSColorWell.self).map { $0.convert($0.bounds, to: nil) } }
         // Color wells open the shared color panel; set them directly instead.
@@ -139,9 +139,17 @@ import AppKit
         XCTAssertTrue(["Automatic", "Glass", "Graphite", "Pearl"].contains(model.theme))
         // Filtering color groups shifts later controls, so click the toggles again. A toggle's
         // frame is its whole labelled row: wide and short (16 pt here, taller on older SDKs).
+        // Clicking the Dock length slider or Fit length re-lays the panel, so stop at the first click that
+        // flips Rich widget cards instead of sweeping past it (a second pass could flip it back).
         let rich = model.toolkit.richWidgets
-        harness.clickAll { $0.height <= 22 && $0.width >= 100 }
-        XCTAssertNotEqual(model.toolkit.richWidgets, rich)
+        var index = 0
+        while model.toolkit.richWidgets == rich {
+            harness.settle(0.1) // control frames only move after the hosting view redraws
+            let frames = harness.controls().filter { $0.height <= 22 && $0.width >= 100 }
+            guard index < frames.count else { break }
+            harness.click(frames[index]); index += 1
+        }
+        XCTAssertNotEqual(model.toolkit.richWidgets, rich, "one of the switches is Rich widget cards")
         harness.select(2, in: harness.segments().last!)
         XCTAssertEqual(model.toolkit.edge, "Floating")
         harness.select(0, in: harness.segments().last!)

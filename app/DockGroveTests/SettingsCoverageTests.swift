@@ -11,6 +11,7 @@ import AppKit
         model.closeSettingsAction = { [unowned self] in self.log.append("close") }
         model.manageDocksAction = { [unowned self] in self.log.append("manage") }
         model.changeDockAction = { [unowned self] in self.log.append("dock:\($0)") }
+        model.restoreAppleDockAction = { [unowned self] in self.log.append("restore") }
         model.visibilityAction = { [unowned self] in self.log.append("visibility") }
         model.settingsAction = { [unowned self] in self.log.append("settings") }
         let view = SettingsView(model: model, section: section, purchases: store, terminate: { [unowned self] _ in self.log.append("quit") })
@@ -36,7 +37,7 @@ import AppKit
         defer { harness.close() }
         // Link-style buttons have no key-view proxy; sweep the bottom of the sidebar.
         harness.scan(x: 60, from: 20, to: 200, step: 4)
-        XCTAssertTrue(log.contains("manage") && log.contains("dock:false") && log.contains("quit"), "\(log)")
+        XCTAssertTrue(log.contains("manage") && log.contains("restore") && log.contains("quit"), "\(log)")
         let done = harness.controls().filter { $0.minX > 900 }.first!
         harness.click(done)
         XCTAssertEqual(log.last, "close")

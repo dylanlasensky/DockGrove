@@ -186,8 +186,9 @@ struct StackCalloutShape: Shape {
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         guard sort != .name else { return byName }
         let urls: [URL] = byName.map { $0.app.url }
-        let rank: [URL: Int] = Dictionary(sort.sorted(urls).enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
-        return byName.sorted { (rank[$0.app.url] ?? .max) < (rank[$1.app.url] ?? .max) }
+        var byURL: [URL: (app: DockApp, name: String)] = [:]
+        for item in byName where byURL[item.app.url] == nil { byURL[item.app.url] = item }
+        return sort.sorted(urls).compactMap { byURL[$0] }
     }
 
     func toggle(model: DockModel, anchor: CGRect?) {

@@ -307,7 +307,7 @@ struct AppsLauncherView: View {
     private func searchField(_ results: [DockApp]) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass").font(.system(size: 19, weight: .medium)).foregroundStyle(.secondary)
-            TextField("Search Apps", text: $state.query).textFieldStyle(.plain).font(.system(size: 21)).focused($searchFocused)
+            TextField("Search", text: $state.query).textFieldStyle(.plain).font(.system(size: 21)).focused($searchFocused)
                 .onSubmit { if results.indices.contains(state.selection) { choose(results[state.selection]) } }
             if !state.query.isEmpty {
                 Button { state.query = ""; searchFocused = true } label: { Image(systemName: "xmark.circle.fill") }

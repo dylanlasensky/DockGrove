@@ -108,3 +108,13 @@ Utilities.swift: static SystemPicker.chooseFile(message:) # builds and runs a mo
 ~ Toolkit.swift: Toolkit.sampleSystem() # battery line runs only on machines with a power source (CI VMs have none)
 ~ SystemMonitor.swift: implicit closure #1 in CoreAudioHardware.volume(_:) # `&&` tail runs only when the default output device reports a main volume scalar (Bluetooth outputs such as AirPods do not)
 ~ SystemMonitor.swift: implicit closure #2 in CoreAudioHardware.volume(_:) # as above
+AIUsage.swift: implicit closure #1 in variable initialization expression of static AIUsageWidget.loadsSavedKey # short-circuited under XCTest; only a real app launch evaluates the UI-test flags
+AIUsage.swift: implicit closure #2 in variable initialization expression of static AIUsageWidget.loadsSavedKey # short-circuited under XCTest; only a real app launch evaluates the UI-test flags
+AppsStackPopover.swift: implicit closure #1 in AppsStackPopover.toggle(model:anchor:) # no recorded tile anchor: falls back to the real pointer location
+AppsStackPopover.swift: implicit closure #3 in implicit closure #2 in AppsStackPopover.toggle(model:anchor:) # fallback screen when the anchor is on no screen
+AppsStackPopover.swift: implicit closure #4 in AppsStackPopover.toggle(model:anchor:) # last-resort frame when the Mac reports no screens
+AppsStackPopover.swift: closure #2 in AppsStackPopover.show(model:anchor:visible:) # hosted view's launch callback; only a click in the on-screen panel calls it (AppsStackView is tested with its own callbacks)
+AppsStackPopover.swift: closure #3 in AppsStackPopover.show(model:anchor:visible:) # hosted view's Open in Finder callback; only a click in the on-screen panel calls it
+AppsStackPopover.swift: closure #6 in AppsStackPopover.show(model:anchor:visible:) # global mouse-down monitor only fires for real clicks in other apps
+AppsStackPopover.swift: closure #1 in closure #6 in AppsStackPopover.show(model:anchor:visible:) # body of that global click monitor
+AppsStackPopover.swift: closure #2 in AppsStackView.body.getter # onExitCommand only fires for a real Esc in the on-screen panel; Esc dismissal is tested through the panel's cancelOperation

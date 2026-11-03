@@ -46,7 +46,7 @@ import ServiceManagement
         spin(0.1)
     }
 
-    func close() { window.orderOut(nil); window.contentView = nil; window.close() }
+    func close() { window.makeFirstResponder(nil); window.orderOut(nil); window.contentView = nil; window.close() }
 
     // Accessibility
 
