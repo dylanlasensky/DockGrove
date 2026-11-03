@@ -244,8 +244,8 @@ struct StudioAppearance: View {
                     }.buttonStyle(.plain)
                 }
             }
-            if !model.isAdditionalDock { NotchSettingsView(model: model) }
             StudioToolbarSize(model: model)
+            if !model.isAdditionalDock { NotchSettingsView(model: model) }
             StudioWidgetShapes(model: model)
             StudioPanel(title: "Color") {
                 StudioColorPacks(model: model)
@@ -409,18 +409,21 @@ private struct StudioPanel<Content: View>: View {
 struct StudioToolbarSize: View {
     @ObservedObject var model: DockModel
     var body: some View {
-        StudioPanel(title: "Toolbar size") {
+        StudioPanel(title: "Size") {
             HStack(spacing: 12) {
                 preset("Compact", width: 0.65, height: 88, icon: 40)
                 preset("Balanced", width: 0.85, height: 104, icon: 48)
                 preset("Spacious", width: 1, height: 140, icon: 56)
             }
-            StudioNumberControl(title: "Toolbar width", value: $model.widthFraction, range: 0.35...1, step: 0.01, scale: 100, unit: "%", onBegin: model.rememberStudioLayout)
-            StudioNumberControl(title: "Toolbar height", value: Binding(get: { model.barHeight }, set: { model.toolbarHeight = $0 }), range: max(88, model.iconSize + 44)...180, step: 2, unit: "pt", onBegin: model.rememberStudioLayout)
+            DockLengthSlider(model: model, onBegin: model.rememberStudioLayout)
+            Toggle("Fit length to content", isOn: Binding(get: { model.fitToolbarToContent }, set: { model.rememberStudioLayout(); model.fitToolbarToContent = $0 }))
+            if model.fitToolbarToContent {
+                Text("The Dock is only as long as its items need, up to the Dock length. Moving the Dock length slider turns this off.").font(.caption).foregroundStyle(.secondary)
+            }
+            StudioNumberControl(title: "Dock height", value: Binding(get: { model.barHeight }, set: { model.toolbarHeight = $0 }), range: max(88, model.iconSize + 44)...180, step: 2, unit: "pt", onBegin: model.rememberStudioLayout)
             StudioNumberControl(title: "Icon size", value: $model.iconSize, range: 32...64, step: 2, unit: "pt", onBegin: model.rememberStudioLayout)
-            Toggle("Fit width to content", isOn: Binding(get: { model.fitToolbarToContent }, set: { model.rememberStudioLayout(); model.fitToolbarToContent = $0 }))
             HStack(alignment: .top) {
-                Text("Width is a percentage of your display. The bar keeps each widget whole and uses pages when needed. Height grows to keep icons comfortable.").font(.caption).foregroundStyle(.secondary)
+                Text("Dock length is a percentage of your display and applies on every edge. The Dock keeps each widget whole and uses pages when needed. Height grows to keep icons comfortable.").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button("Reset size") { model.rememberStudioLayout(); model.widthFraction = 1; model.toolbarHeight = 92; model.iconSize = 48; model.fitToolbarToContent = true }
             }
@@ -442,6 +445,32 @@ struct StudioToolbarSize: View {
     }
 }
 
+
+/// Native Dock length slider, like System Settings ▸ Desktop & Dock ▸ Size. Moving it sets an
+/// explicit length, which turns off fit-to-items so the change is always visible.
+struct DockLengthSlider: View {
+    @ObservedObject var model: DockModel
+    var onBegin: () -> Void = {}
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Dock length")
+                Spacer()
+                Text("\(Int((model.widthFraction * 100).rounded())) %").monospacedDigit().foregroundStyle(.secondary)
+            }
+            HStack(spacing: 8) {
+                Text("Short").font(.caption).foregroundStyle(.secondary)
+                Slider(value: Binding(get: { model.widthFraction }, set: { model.setDockLength($0) }), in: 0.35...1) { editing in
+                    if editing { onBegin() }
+                }
+                .accessibilityLabel("Dock length")
+                .accessibilityValue("\(Int((model.widthFraction * 100).rounded())) percent of the display")
+                .help("Drag to change how long the Dock is")
+                Text("Long").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+}
 
 /// Scrubbable value badge with discrete buttons for keyboard and assistive access.
 struct StudioNumberControl: View {
