@@ -115,7 +115,7 @@ jobs:
     steps:
       - name: Skip when CLOUDFLARE_API_TOKEN is not configured
         if: env.CLOUDFLARE_API_TOKEN == ''
-        run: echo "::notice::CLOUDFLARE_API_TOKEN secret is not set in the production environment; skipping deploy."
+        run: echo "::warning::CLOUDFLARE_API_TOKEN secret is not set in the production environment; skipping deploy. The live site was NOT updated."
       - uses: actions/checkout@v4
         if: env.CLOUDFLARE_API_TOKEN != ''
       - uses: actions/download-artifact@v4
