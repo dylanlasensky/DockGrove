@@ -109,7 +109,7 @@ struct RichWidgetCard: View {
             let widget = kind == .openaiUsage ? kit.openaiUsage : kind == .anthropicUsage ? kit.anthropicUsage : kit.cursorUsage
             VStack(alignment: .leading, spacing: 4) { eyebrow(kind == .openaiUsage ? "OPENAI API" : kind == .anthropicUsage ? "CLAUDE API" : "CURSOR TEAM", icon: "chart.bar.xaxis")
                 Text(widget.snapshot?.totals.first.map { $0.formatted() } ?? "Connect usage").font(.system(size: widget.snapshot == nil ? 12 : 22, weight: .medium)).lineLimit(1)
-            }
+            }.onAppear { widget.start() }
         case .currency:
             VStack(alignment: .leading, spacing: 4) { eyebrow(kit.currency.base + " → " + kit.currency.quote, icon: "arrow.left.arrow.right"); Text(kit.currency.converted.map { $0.formatted(.number.precision(.fractionLength(2))) } ?? "Daily exchange rates").font(.system(size: kit.currency.report == nil ? 12 : 23, weight: .medium)).lineLimit(1) }
         case .voiceMemo:

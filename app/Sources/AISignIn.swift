@@ -15,23 +15,46 @@ enum AISignInProvider {
 }
 
 enum AICommand {
-    static func executable(_ name: String, custom: String = "") -> String? {
-        ([custom, NSHomeDirectory() + "/.local/bin/" + name, "/opt/homebrew/bin/" + name, "/usr/local/bin/" + name])
+    /// Folders where CLI installers put executables. Apps opened from Finder do not inherit the
+    /// login shell's PATH, so npm/nvm/bun/volta/pnpm globals and Claude's local install are listed explicitly.
+    static func searchDirectories(home: String = NSHomeDirectory()) -> [String] {
+        var directories = [home + "/.local/bin", "/opt/homebrew/bin", "/usr/local/bin", home + "/.claude/local",
+                           home + "/.npm-global/bin", home + "/.npm/bin", home + "/.bun/bin", home + "/.volta/bin",
+                           home + "/Library/pnpm", home + "/.yarn/bin"]
+        let nvm = home + "/.nvm/versions/node"
+        let versions = (try? FileManager.default.contentsOfDirectory(atPath: nvm)) ?? []
+        directories += versions.sorted { $0.compare($1, options: .numeric) == .orderedDescending }.map { nvm + "/" + $0 + "/bin" }
+        return directories
+    }
+    static func executable(_ name: String, custom: String = "", home: String = NSHomeDirectory()) -> String? {
+        ([(custom as NSString).expandingTildeInPath] + searchDirectories(home: home).map { $0 + "/" + name })
             .first { !$0.isEmpty && FileManager.default.isExecutableFile(atPath: $0) }
     }
-    static var environment: [String: String] {
+    /// PATH for a CLI child. The executable's own folder comes first so `#!/usr/bin/env node`
+    /// scripts find the node that installed them (for example under nvm).
+    static func searchPath(for executable: String? = nil, home: String = NSHomeDirectory()) -> String {
+        var parts = [home + "/.local/bin", "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
+        if let executable, !executable.isEmpty {
+            let folder = (executable as NSString).deletingLastPathComponent
+            if !folder.isEmpty { parts.removeAll { $0 == folder }; parts.insert(folder, at: 0) }
+        }
+        return parts.joined(separator: ":")
+    }
+    static var environment: [String: String] { environment(for: nil) }
+    static func environment(for executable: String?) -> [String: String] {
         // Do not inherit API-key overrides that would silently select a different account.
         var result: [String: String] = [:]
         for name in ["HOME", "USER", "LOGNAME", "TMPDIR", "LANG", "CODEX_HOME", "CLAUDE_CONFIG_DIR", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY"] {
             result[name] = ProcessInfo.processInfo.environment[name]
         }
-        result["PATH"] = NSHomeDirectory() + "/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+        result["PATH"] = searchPath(for: executable)
         return result
     }
     static func geminiScript(executable: String, directory: String) -> String {
-        """
+        let folder = (executable as NSString).deletingLastPathComponent
+        return """
         #!/bin/zsh
-        export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+        export PATH=\(ClaudeStatusLineSetup.quote(folder.isEmpty ? "/usr/bin" : folder))":$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
         unset GEMINI_API_KEY GOOGLE_API_KEY GOOGLE_GENAI_USE_VERTEXAI GOOGLE_GENAI_USE_GCA
         cd -- \(ClaudeStatusLineSetup.quote(directory)) || exit 1
         printf '%s\\n' 'Choose Sign in with Google in Gemini. If already signed in, use /auth to change accounts.' 'Exit Gemini when finished, then import a session report in DockGrove.'
@@ -66,7 +89,7 @@ enum AICommand {
         let child = Process()
         child.executableURL = URL(fileURLWithPath: path)
         child.arguments = checkOnly ? provider.statusArguments : provider.arguments
-        child.environment = AICommand.environment
+        child.environment = AICommand.environment(for: path)
         child.currentDirectoryURL = FileManager.default.temporaryDirectory
         child.standardInput = FileHandle.nullDevice
         // No auth URLs, tokens, email addresses or other CLI output enter app logs.

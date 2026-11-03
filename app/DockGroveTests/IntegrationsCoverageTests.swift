@@ -208,7 +208,86 @@ extension Binding: IntegrationsAnyBinding {
             XCTAssertEqual(provider.documentation.scheme, "https")
             XCTAssertEqual(provider.accountURL.scheme, "https")
         }
-        for failure in [AIUsageFailure.invalid, .denied, .limited, .service, .keychain] { XCTAssertFalse(failure.errorDescription!.isEmpty) }
+        for failure in [AIUsageFailure.invalid, .denied, .limited, .service, .keychain, .adminKeyRequired(.anthropic), .adminKeyRequired(.openai), .adminKeyRequired(.cursor), .rejected(400, nil), .rejected(404, "x")] { XCTAssertFalse(failure.errorDescription!.isEmpty) }
+        XCTAssertEqual(AIUsageFailure.adminKeyRequired(.cursor).errorDescription, AIUsageFailure.denied.errorDescription)
+    }
+
+    func testClaudeReportIncludesTodayBucket() throws {
+        // 2026-11-03T15:30:00Z. Claude returns only buckets that end before `ending_at`, so sending
+        // `ending_at=now` dropped today; a non-midnight `starting_at` dropped the first day as well.
+        let now = Date(timeIntervalSince1970: 1_793_719_800)
+        let start = AIProvider.anthropic.windowStart(now: now)
+        XCTAssertEqual(ISO8601DateFormatter().string(from: start), "2026-10-28T00:00:00Z")
+        let request = try AIProvider.anthropic.request(key: "fixture", start: start, end: now, page: nil)
+        let items = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
+        XCTAssertEqual(request.url?.path, "/v1/organizations/usage_report/messages")
+        XCTAssertEqual(items.first { $0.name == "starting_at" }?.value, "2026-10-28T00:00:00Z")
+        XCTAssertNil(items.first { $0.name == "ending_at" })
+        XCTAssertEqual(items.first { $0.name == "limit" }?.value, "7")
+        XCTAssertEqual(items.first { $0.name == "bucket_width" }?.value, "1d")
+        XCTAssertEqual(AIProvider.openai.windowStart(now: now), now.addingTimeInterval(-7 * 86400))
+        // The documented response shape, including extra fields and a null cursor, decodes.
+        let documented = Data(#"{"data":[{"starting_at":"2026-11-03T00:00:00Z","ending_at":"2026-11-04T00:00:00Z","results":[{"account_id":null,"api_key_id":null,"cache_creation":{"ephemeral_1h_input_tokens":0,"ephemeral_5m_input_tokens":3},"cache_read_input_tokens":200,"context_window":null,"inference_geo":null,"model":null,"output_tokens":500,"server_tool_use":{"web_search_requests":0},"service_account_id":null,"service_tier":null,"speed":null,"uncached_input_tokens":1500,"workspace_id":null}]},{"starting_at":"2026-11-02T00:00:00Z","ending_at":"2026-11-03T00:00:00Z","results":[]}],"has_more":false,"next_page":null}"#.utf8)
+        XCTAssertEqual(try AIProvider.anthropic.decode(documented).totals, [1703, 500])
+    }
+
+    func testRejectedKeysExplainWhichKeyIsNeeded() async throws {
+        func failure(_ provider: AIProvider, key: String, status: Int, body: String = "") async -> AIUsageFailure? {
+            do { _ = try await AIUsageClient.fetch(provider, key: key) { _ in (Data(body.utf8), status) }; return nil }
+            catch { return error as? AIUsageFailure }
+        }
+        let claudeBody = #"{"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"}}"#
+        let standard = await failure(.anthropic, key: "sk-ant-api03-fixture", status: 401, body: claudeBody)
+        XCTAssertEqual(standard, .adminKeyRequired(.anthropic))
+        XCTAssertTrue(standard!.errorDescription!.contains("sk-ant-admin"))
+        let anthropicAdmin = await failure(.anthropic, key: "sk-ant-admin01-fixture", status: 403)
+        XCTAssertEqual(anthropicAdmin, .denied)
+        let project = await failure(.openai, key: "sk-proj-fixture", status: 401)
+        XCTAssertEqual(project, .adminKeyRequired(.openai))
+        let openAIAdmin = await failure(.openai, key: "sk-admin-fixture", status: 401)
+        XCTAssertEqual(openAIAdmin, .denied)
+        let cursor = await failure(.cursor, key: "key_fixture", status: 401)
+        XCTAssertEqual(cursor, .denied)
+        let limited = await failure(.anthropic, key: "sk-ant-admin01-fixture", status: 429)
+        XCTAssertEqual(limited, .limited)
+        let server = await failure(.anthropic, key: "sk-ant-admin01-fixture", status: 529)
+        XCTAssertEqual(server, .service)
+
+        let bad = await failure(.anthropic, key: "sk-ant-admin01-fixture", status: 400, body: #"{"type":"error","error":{"type":"invalid_request_error","message":"limit: must be at most 31\nfor 1d"}}"#)
+        XCTAssertEqual(bad, .rejected(400, "limit: must be at most 31 for 1d"))
+        XCTAssertEqual(bad?.errorDescription, "The service refused the usage request (HTTP 400): limit: must be at most 31 for 1d")
+        XCTAssertEqual(AIUsageClient.message(Data(#"{"error":"Team not found"}"#.utf8), key: "k"), "Team not found")
+        XCTAssertEqual(AIUsageClient.message(Data(#"{"message":"Bad date range"}"#.utf8), key: "k"), "Bad date range")
+        XCTAssertNil(AIUsageClient.message(Data(#"{"error":{"message":"bad key sk-secret"}}"#.utf8), key: "sk-secret"), "The key is never echoed")
+        XCTAssertNil(AIUsageClient.message(Data("<html>".utf8), key: "k"))
+        XCTAssertEqual(AIUsageClient.message(Data(("{\"message\":\"" + String(repeating: "a", count: 300) + "\"}").utf8), key: "k")?.count, 201)
+        let notFound = await failure(.cursor, key: "key_fixture", status: 404, body: "not json")
+        XCTAssertEqual(notFound, .rejected(404, nil))
+    }
+
+    func testStartLoadsASavedKeyOncePerLaunch() async throws {
+        let keychain = MemoryKeychain(); keychain.install()
+        let saved = AIUsageWidget.loadsSavedKey
+        defer { AIUsageWidget.loadsSavedKey = saved }
+        XCTAssertFalse(saved, "Test hosts never auto-read a saved key")
+        var requests = 0
+        let report = openAIReport
+        let widget = AIUsageWidget(.openai)
+        widget.makeTransport = { ({ _ in requests += 1; return (report, 200) }, {}) }
+        widget.start(); XCTAssertEqual(requests, 0)
+
+        AIUsageWidget.loadsSavedKey = true
+        widget.start() // No saved key: stays quiet, no request.
+        XCTAssertEqual(requests, 0); XCTAssertEqual(widget.status, "")
+
+        keychain.items["openai"] = Data("sk-admin-fixture".utf8)
+        let relaunched = AIUsageWidget(.openai)
+        relaunched.makeTransport = { ({ _ in requests += 1; return (report, 200) }, {}) }
+        relaunched.start()
+        await IntegrationsUI.settle { !relaunched.busy }
+        XCTAssertEqual(relaunched.snapshot?.totals, [100, 20]); XCTAssertEqual(requests, 1)
+        relaunched.start()
+        XCTAssertEqual(requests, 1, "Appearing again does not refetch")
     }
 
     func testDecodeRejectsPartialCursorPagesAndOverflow() throws {
@@ -308,7 +387,7 @@ extension Binding: IntegrationsAnyBinding {
 
         respond = { _ in (Data(), 401) }
         widget.refresh(); await IntegrationsUI.settle { !widget.busy }
-        XCTAssertNil(widget.snapshot); XCTAssertEqual(widget.status, AIUsageFailure.denied.localizedDescription)
+        XCTAssertNil(widget.snapshot); XCTAssertEqual(widget.status, AIUsageFailure.adminKeyRequired(.openai).localizedDescription)
         respond = { _ in throw URLError(.notConnectedToInternet) }
         widget.refresh(); await IntegrationsUI.settle { !widget.busy }
         XCTAssertEqual(widget.status, AIUsageFailure.service.localizedDescription)
@@ -531,6 +610,42 @@ extension Binding: IntegrationsAnyBinding {
 
 @MainActor final class IntegrationsSignInTests: XCTestCase {
     private func settle(_ signIn: AISignIn) { XCTAssertTrue(IntegrationsUI.wait(10) { !signIn.busy }) }
+
+    func testCLILookupCoversInstallersAGUIAppPATHMisses() throws {
+        // Finder-launched apps get a minimal PATH, so npm/nvm and Claude's local installs must be searched directly.
+        let home = try IntegrationsUI.temporaryDirectory(self).path
+        let name = "dockgrove-fixture-cli-" + UUID().uuidString.prefix(8)
+        func install(_ folder: String) throws -> String {
+            try FileManager.default.createDirectory(atPath: home + folder, withIntermediateDirectories: true)
+            let path = home + folder + "/" + name
+            try "#!/bin/sh\nexit 0\n".write(toFile: path, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: path)
+            return path
+        }
+        XCTAssertNil(AICommand.executable(name, home: home))
+        _ = try install("/.nvm/versions/node/v9.11.0/bin")
+        let newest = try install("/.nvm/versions/node/v22.3.0/bin")
+        XCTAssertEqual(AICommand.executable(name, home: home), newest, "Newest nvm node wins")
+        let local = try install("/.claude/local")
+        XCTAssertEqual(AICommand.executable(name, home: home), local)
+        let npm = try install("/.npm-global/bin")
+        XCTAssertEqual(AICommand.executable(name, home: home), local, "Earlier folders keep priority")
+        XCTAssertEqual(AICommand.executable(name, custom: npm, home: home), npm, "A chosen executable wins")
+        let preferred = try install("/.local/bin")
+        XCTAssertEqual(AICommand.executable(name, home: home), preferred)
+        XCTAssertEqual(UsageClient.executable(custom: newest, home: home), newest)
+        for folder in ["/.bun/bin", "/.volta/bin", "/Library/pnpm"] { XCTAssertTrue(AICommand.searchDirectories(home: home).contains(home + folder)) }
+
+        // Node-script CLIs need their own folder (where nvm keeps `node`) on the child's PATH.
+        let path = AICommand.searchPath(for: newest, home: home).split(separator: ":").map(String.init)
+        XCTAssertEqual(path.first, home + "/.nvm/versions/node/v22.3.0/bin")
+        XCTAssertTrue(path.contains("/usr/bin"))
+        let homebrew = AICommand.searchPath(for: "/opt/homebrew/bin/codex", home: home).split(separator: ":").map(String.init)
+        XCTAssertEqual(homebrew.first, "/opt/homebrew/bin"); XCTAssertEqual(homebrew.filter { $0 == "/opt/homebrew/bin" }.count, 1)
+        XCTAssertEqual(AICommand.environment(for: newest)["PATH"]?.hasPrefix(home + "/.nvm/versions/node/v22.3.0/bin:"), true)
+        XCTAssertNil(AICommand.environment(for: newest)["ANTHROPIC_API_KEY"])
+        XCTAssertTrue(AICommand.geminiScript(executable: newest, directory: home).contains("export PATH='" + home + "/.nvm/versions/node/v22.3.0/bin'\":$HOME/.local/bin"))
+    }
 
     func testSetupLinksMissingCLIAndDefaultCallback() throws {
         XCTAssertEqual(AISignInProvider.codex.setupURL.host, "developers.openai.com")

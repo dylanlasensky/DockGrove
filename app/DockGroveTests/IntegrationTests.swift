@@ -105,7 +105,7 @@ import AppKit
             if provider == .cursor { precondition(request.httpMethod == "POST" && request.httpBody != nil && request.value(forHTTPHeaderField: "Authorization") == "Basic " + Data("fixture-only:".utf8).base64EncodedString()) }
             return (data, 200)
         }
-        precondition(requests == 1 && report.totals == expected && report.end == now && report.end.timeIntervalSince(report.start) == 7 * 86400)
+        precondition(requests == 1 && report.totals == expected && report.end == now && report.start == provider.windowStart(now: now) && report.end.timeIntervalSince(report.start) > 6 * 86400 && report.end.timeIntervalSince(report.start) <= 7 * 86400)
         for status in [401, 403, 429, 500, 302] {
             do { _ = try await AIUsageClient.fetch(provider, key: "fixture-only") { _ in (data, status) }; preconditionFailure("HTTP error accepted") } catch { precondition(error is AIUsageFailure) }
         }

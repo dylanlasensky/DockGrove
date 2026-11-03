@@ -59,12 +59,10 @@ enum UsageError: LocalizedError {
 }
 
 enum UsageClient {
-    static func executable(custom: String) -> String? {
-        let candidates = [custom,
+    static func executable(custom: String, home: String = NSHomeDirectory()) -> String? {
+        let candidates = [(custom as NSString).expandingTildeInPath,
             "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex",
-            "/Applications/Codex.app/Contents/Resources/codex",
-            "/opt/homebrew/bin/codex", "/usr/local/bin/codex",
-            NSHomeDirectory() + "/.local/bin/codex"]
+            "/Applications/Codex.app/Contents/Resources/codex"] + AICommand.searchDirectories(home: home).map { $0 + "/codex" }
         return candidates.first { !$0.isEmpty && FileManager.default.isExecutableFile(atPath: $0) }
     }
 
@@ -80,7 +78,7 @@ enum UsageClient {
         child.standardOutput = output
         child.standardError = FileHandle.nullDevice
         var environment = ProcessInfo.processInfo.environment
-        environment["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+        environment["PATH"] = AICommand.searchPath(for: executable)
         child.environment = environment
         child.currentDirectoryURL = URL(fileURLWithPath: NSTemporaryDirectory())
         // A child that exits early must produce an error, never SIGPIPE the app.

@@ -10,13 +10,23 @@ enum AIProvider: String, CaseIterable {
         URL(string: self == .openai ? "https://platform.openai.com/settings/organization/admin-keys" : self == .anthropic ? "https://platform.claude.com/settings/admin-keys" : "https://cursor.com/dashboard")!
     }
     var labels: [String] { self == .cursor ? ["Agent requests", "Chat requests", "Composer requests", "Accepted tabs"] : ["Input tokens", "Output tokens"] }
+    /// Start of the seven-day report. Claude snaps buckets to UTC days and returns only buckets
+    /// that start at or after `starting_at`, so it starts at the UTC midnight six days back to include today.
+    func windowStart(now: Date) -> Date {
+        guard self == .anthropic else { return now.addingTimeInterval(-7 * 86400) }
+        var utc = Calendar(identifier: .gregorian); utc.timeZone = TimeZone(identifier: "UTC")!
+        return utc.date(byAdding: .day, value: -6, to: utc.startOfDay(for: now))!
+    }
+    /// Key prefix of the admin credential each usage report needs, used to explain a rejected key.
+    var adminKeyPrefix: String? { self == .openai ? "sk-admin-" : self == .anthropic ? "sk-ant-admin" : nil }
     func request(key: String, start: Date, end: Date, page: String?) throws -> URLRequest {
         var components = URLComponents(string: self == .openai ? "https://api.openai.com/v1/organization/usage/completions" : self == .anthropic ? "https://api.anthropic.com/v1/organizations/usage_report/messages" : "https://api.cursor.com/teams/daily-usage-data")!
         if self == .openai {
             components.queryItems = [URLQueryItem(name: "start_time", value: String(Int(start.timeIntervalSince1970))), URLQueryItem(name: "end_time", value: String(Int(end.timeIntervalSince1970))), URLQueryItem(name: "bucket_width", value: "1d"), URLQueryItem(name: "limit", value: "31")]
         } else if self == .anthropic {
-            let iso = ISO8601DateFormatter()
-            components.queryItems = [URLQueryItem(name: "starting_at", value: iso.string(from: start)), URLQueryItem(name: "ending_at", value: iso.string(from: end)), URLQueryItem(name: "bucket_width", value: "1d"), URLQueryItem(name: "limit", value: "31")]
+            // No `ending_at`: Claude returns only buckets that end before it, which would drop today's
+            // still-open bucket. Seven daily buckets from `windowStart` cover the six past days and today.
+            components.queryItems = [URLQueryItem(name: "starting_at", value: ISO8601DateFormatter().string(from: start)), URLQueryItem(name: "bucket_width", value: "1d"), URLQueryItem(name: "limit", value: "7")]
         }
         if let page, self != .cursor { components.queryItems?.append(URLQueryItem(name: "page", value: page)) }
         var request = URLRequest(url: components.url!); request.timeoutInterval = 20
@@ -72,9 +82,17 @@ enum AIProvider: String, CaseIterable {
 }
 struct AIUsagePage { let totals: [Int64]; let next: String? }
 struct AIUsageSnapshot { let totals: [Int64]; let start: Date; let end: Date }
-enum AIUsageFailure: Error, LocalizedError {
+enum AIUsageFailure: Error, LocalizedError, Equatable {
     case invalid, denied, limited, service, keychain
+    /// A 401/403 for a key that is not the provider's admin key type.
+    case adminKeyRequired(AIProvider)
+    /// Another 4xx, with the provider's own explanation when it sent one.
+    case rejected(Int, String?)
     var errorDescription: String? { switch self {
+    case .adminKeyRequired(.anthropic): return "Claude rejected this key. The usage report needs an Admin API key (starts with sk-ant-admin) created by an organization admin in Claude Console › Settings › Admin keys. Standard sk-ant-api keys and individual accounts cannot read usage."
+    case .adminKeyRequired(.openai): return "OpenAI rejected this key. The usage report needs an Admin key (starts with sk-admin-) from Organization settings › Admin keys. Project and personal keys cannot read usage."
+    case .adminKeyRequired: return AIUsageFailure.denied.errorDescription
+    case let .rejected(status, message): return "The service refused the usage request (HTTP \(status))" + (message.map { ": " + $0 } ?? ".")
     case .invalid: return "The service returned an incomplete or unsupported usage report. No total is shown."
     case .denied: return "The key was rejected or lacks admin access. Check this service's admin key and permissions."
     case .limited: return "The service rate limit was reached. Try again later."
@@ -88,11 +106,11 @@ final class NoUsageRedirects: NSObject, URLSessionTaskDelegate, @unchecked Senda
 enum AIUsageClient {
     typealias Transport = (URLRequest) async throws -> (Data, Int)
     static func fetch(_ provider: AIProvider, key: String, now: Date = Date(), transport: Transport) async throws -> AIUsageSnapshot {
-        let start = now.addingTimeInterval(-7 * 86400)
+        let start = provider.windowStart(now: now)
         var page: String?, seen = Set<String>(), totals = [Int64](repeating: 0, count: provider.labels.count)
         for _ in 0..<100 {
             let (data, status) = try await transport(provider.request(key: key, start: start, end: now, page: page))
-            guard status == 200 else { throw status == 401 || status == 403 ? AIUsageFailure.denied : status == 429 ? AIUsageFailure.limited : AIUsageFailure.service }
+            guard status == 200 else { throw failure(provider, status: status, body: data, key: key) }
             guard data.count <= 20_000_000 else { throw AIUsageFailure.invalid }
             let result = try provider.decode(data)
             for i in totals.indices { let (sum, overflow) = totals[i].addingReportingOverflow(result.totals[i]); guard !overflow else { throw AIUsageFailure.invalid }; totals[i] = sum }
@@ -100,6 +118,24 @@ enum AIUsageClient {
             guard seen.insert(next).inserted else { throw AIUsageFailure.invalid }; page = next
         }
         throw AIUsageFailure.invalid
+    }
+    static func failure(_ provider: AIProvider, status: Int, body: Data, key: String) -> AIUsageFailure {
+        switch status {
+        case 401, 403:
+            if let prefix = provider.adminKeyPrefix, !key.hasPrefix(prefix) { return .adminKeyRequired(provider) }
+            return .denied
+        case 429: return .limited
+        case 400..<500: return .rejected(status, message(body, key: key))
+        default: return .service
+        }
+    }
+    /// The provider's error text (`{"error":{"message":…}}`, `{"error":"…"}` or `{"message":…}`), shortened, never echoing the key.
+    static func message(_ body: Data, key: String) -> String? {
+        guard body.count < 100_000, let object = try? JSONSerialization.jsonObject(with: body) as? [String: Any] else { return nil }
+        let raw = (object["error"] as? [String: Any])?["message"] as? String ?? object["error"] as? String ?? object["message"] as? String
+        guard let text = raw?.components(separatedBy: .newlines).joined(separator: " ").trimmingCharacters(in: .whitespaces), !text.isEmpty,
+              key.isEmpty || !text.contains(key) else { return nil }
+        return text.count > 200 ? String(text.prefix(200)) + "…" : text
     }
 }
 enum UsageKeychain {
@@ -135,6 +171,9 @@ enum UsageKeychain {
     @Published var status = ""
     @Published var autoRefresh = false
     private var generation = 0
+    private var started = false
+    /// Whether `start()` may read a saved key. Off in test hosts, so rendering never reads the real Keychain.
+    static var loadsSavedKey = !(TestEnvironment.isXCTest || CommandLine.arguments.contains("--ui-test") || CommandLine.arguments.contains("--native-test"))
     private(set) var timer: Timer?
     /// Creates the HTTP transport for one refresh and its cleanup. Tests inject a local transport.
     var makeTransport: () -> (AIUsageClient.Transport, () -> Void) = AIUsageWidget.sessionTransport
@@ -155,6 +194,13 @@ enum UsageKeychain {
         let key = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty, !key.contains("\n"), !key.contains("\r") else { status = "Enter a valid admin key."; return }
         do { try UsageKeychain.save(key, provider: provider); refresh() } catch { status = AIUsageFailure.keychain.localizedDescription }
+    }
+    /// Loads usage once per launch for a key saved earlier, so the widget is not blank after a restart.
+    func start() {
+        guard Self.loadsSavedKey, !started, snapshot == nil, !busy else { return }
+        started = true
+        guard (try? UsageKeychain.load(provider)) != nil else { return }
+        refresh()
     }
     func forget() {
         generation += 1; busy = false; snapshot = nil; autoRefresh = false
@@ -211,6 +257,6 @@ struct AIUsageView: View {
                 Button("Refresh", action: widget.refresh).disabled(widget.busy)
             }
             Link("API setup and permissions", destination: widget.provider.documentation)
-        }
+        }.onAppear { widget.start() }
     }
 }
