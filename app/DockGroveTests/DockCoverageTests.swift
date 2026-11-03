@@ -1052,7 +1052,16 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         let point = CGPoint(x: 100, y: 50)
         model.toolkit.autoHide = false
         model.toolkit.edge = "Bottom"
-        XCTAssertEqual(harness.menuTitles(at: point), ["Turn Hiding On", "Position on Screen", "", "Dock Settings…"])
+        var restores = 0
+        model.restoreAppleDockAction = { restores += 1 }
+        XCTAssertEqual(harness.menuTitles(at: point), ["Turn Hiding On", "Position on Screen", "", "Restore Apple Dock…", "Dock Settings…"])
+        XCTAssertEqual(harness.menuItem(["Restore Apple Dock…"], at: point)?.isEnabled, false, "nothing to restore yet")
+        model.appleDockModified = true
+        harness.spin()
+        XCTAssertEqual(harness.menuItem(["Restore Apple Dock…"], at: point)?.isEnabled, true, "saved originals enable restore")
+        harness.choose("Restore Apple Dock…", inMenuAt: point)
+        XCTAssertEqual(restores, 1)
+        model.appleDockModified = false
         harness.choose("Turn Hiding On", inMenuAt: point)
         XCTAssertTrue(model.toolkit.autoHide)
         harness.choose("Turn Hiding Off", inMenuAt: point)
@@ -1066,8 +1075,13 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         harness.spin()
         let position = harness.menuItem(["Position on Screen"], at: point), top = harness.menuItem(["Position on Screen", "Top"], at: point)
         XCTAssertTrue(position?.isEnabled == false || top?.isEnabled == false, "a replacement Dock stays at the bottom")
+        XCTAssertEqual(harness.menuItem(["Restore Apple Dock…"], at: point)?.isEnabled, true, "replacing enables restore")
         harness.choose("Dock Settings…", inMenuAt: point)
         XCTAssertEqual(settings, 2)
+        model.isAdditionalDock = true
+        model.objectWillChange.send()
+        harness.spin()
+        XCTAssertFalse(harness.menuTitles(at: point).contains("Restore Apple Dock…"), "additional docks don't own Apple's Dock")
     }
 
     func testUsageTileMenu() throws {

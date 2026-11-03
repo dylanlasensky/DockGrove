@@ -279,6 +279,79 @@ private let corePlus = AccessTier.plus.productID!, coreFull = AccessTier.full.pr
         XCTAssertEqual(domain["autohide"] as? Bool, true)
     }
 
+    func testOriginalsAreCapturedOnceAndRestoredExactly() throws {
+        domain = ["autohide": false, "autohide-delay": 0.4, "tilesize": 64.0, "orientation": "left"]
+        XCTAssertFalse(SystemDock.needsRestore(), "an untouched Dock has nothing to restore")
+        try SystemDock.hide()
+        try SystemDock.hide() // second launch / re-enable while already replacing
+        let journal = try XCTUnwrap(SystemDock.manager.savedOriginal)
+        XCTAssertEqual(journal["autohide"], DockPreference(type: "boolean", value: "0"))
+        XCTAssertEqual(journal["autohide-delay"], DockPreference(type: "float", value: "0.4"))
+        XCTAssertTrue(SystemDock.needsRestore())
+        XCTAssertFalse(calls.contains { $0.contains("tilesize") || $0.contains("orientation") }, "only autohide keys are written")
+        try SystemDock.restore()
+        XCTAssertEqual(domain["autohide"] as? Bool, false)
+        XCTAssertEqual(domain["autohide-delay"] as? Double, 0.4)
+        XCTAssertEqual(domain["tilesize"] as? Double, 64)
+        XCTAssertEqual(domain["orientation"] as? String, "left")
+        XCTAssertEqual(calls.filter { $0 == ["/usr/bin/killall", "Dock"] }.count, 3, "two hides and one restore relaunch the Dock")
+        XCTAssertFalse(SystemDock.needsRestore())
+
+        // Idempotent: a second restore neither writes nor relaunches the Dock.
+        calls = []
+        try SystemDock.restore()
+        XCTAssertTrue(calls.allSatisfy { $0.dropFirst().first == "export" }, "\(calls)")
+        XCTAssertEqual(domain["autohide-delay"] as? Double, 0.4)
+    }
+
+    func testCrashRecoveryAndLostJournal() throws {
+        // Crash while replacing: the journal survives in the store, and the next launch's
+        // restore (a fresh manager) puts the originals back.
+        domain = ["autohide": true, "autohide-delay": 0.1]
+        try SystemDock.hide()
+        let relaunched = SystemDock.manager
+        try relaunched.restore()
+        XCTAssertEqual(domain["autohide"] as? Bool, true)
+        XCTAssertEqual(domain["autohide-delay"] as? Double, 0.1)
+
+        // Journal lost (preferences wiped) while hidden: Apple's Dock is still recognisably
+        // hidden, so restore returns it to Apple's defaults instead of leaving it hidden.
+        domain = ["autohide": false]
+        try SystemDock.hide()
+        SystemDock.store.removeObject(forKey: DockRestoration.key)
+        XCTAssertTrue(SystemDock.needsRestore(), "a DockGrove-hidden Dock still offers restore")
+        try SystemDock.restore()
+        XCTAssertNil(domain["autohide"]); XCTAssertNil(domain["autohide-delay"])
+
+        // Journal lost, then replacement re-enabled: DockGrove's own values are never journaled
+        // as the user's originals.
+        domain = ["autohide": false, "autohide-delay": 0.3]
+        try SystemDock.hide()
+        SystemDock.store.removeObject(forKey: DockRestoration.key)
+        try SystemDock.hide()
+        XCTAssertEqual(SystemDock.manager.savedOriginal?["autohide-delay"]?.type, "missing")
+        XCTAssertEqual(SystemDock.manager.savedOriginal?["autohide"]?.type, "missing")
+        try SystemDock.restore()
+        XCTAssertNil(domain["autohide"]); XCTAssertNil(domain["autohide-delay"])
+
+        // A corrupt journal no longer blocks restore forever.
+        domain = ["autohide": true, "autohide-delay": 86400.0]
+        SystemDock.store.set(Data("corrupt".utf8), forKey: DockRestoration.key)
+        try SystemDock.restore()
+        XCTAssertNil(domain["autohide-delay"])
+        XCTAssertNil(SystemDock.store.data(forKey: DockRestoration.key))
+        domain = ["autohide": true]
+        SystemDock.store.set(Data("corrupt".utf8), forKey: DockRestoration.key)
+        calls = []
+        try SystemDock.restore()
+        XCTAssertEqual(domain["autohide"] as? Bool, true, "a Dock DockGrove isn't hiding is left alone")
+        XCTAssertFalse(calls.contains(["/usr/bin/killall", "Dock"]))
+        XCTAssertNil(SystemDock.store.data(forKey: DockRestoration.key))
+        // A legacy v0.2 journal also counts as something to restore.
+        SystemDock.store.set("true", forKey: "originalDockAutohide")
+        XCTAssertTrue(SystemDock.needsRestore())
+    }
+
     func testVisibilityPolicy() {
         var policy = DockVisibility()
         let start = Date()

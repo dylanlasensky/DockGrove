@@ -264,6 +264,56 @@ private final class CoreOtherInstance: NSRunningApplication {
         XCTAssertEqual(testingDelegate.applicationShouldTerminate(NSApplication.shared), .terminateNow, "UI-test mode skips Dock restore")
     }
 
+    func testRestoreAppleDockIsReachableWhenNotReplacing() throws {
+        let delegate = delegate()
+        var alerts: [String] = []
+        var answer = NSApplication.ModalResponse.alertSecondButtonReturn
+        delegate.runAlert = { alerts.append($0.messageText); return answer }
+        launch(delegate)
+        let model = try XCTUnwrap(delegate.model)
+        XCTAssertFalse(model.replacingDock)
+        XCTAssertFalse(model.canRestoreAppleDock, "nothing saved and the Dock is untouched")
+
+        // Originals saved by an earlier run (e.g. a crash) make restore available while not replacing.
+        let journal = try JSONEncoder().encode(["autohide": DockPreference(type: "boolean", value: "0"), "autohide-delay": DockPreference(type: "float", value: "0.5")])
+        SystemDock.store.set(journal, forKey: DockRestoration.key)
+        delegate.refreshAppleDockState()
+        XCTAssertTrue(model.canRestoreAppleDock)
+
+        // The settings button / bar menu confirm first; Cancel leaves everything alone.
+        dockCalls = []
+        model.restoreAppleDockAction?()
+        XCTAssertEqual(alerts, ["Restore Apple’s Dock?"])
+        XCTAssertTrue(dockCalls.isEmpty, "cancel never touches the Dock")
+        XCTAssertNotNil(SystemDock.store.data(forKey: DockRestoration.key))
+        answer = .alertFirstButtonReturn
+        model.restoreAppleDockAction?()
+        XCTAssertTrue(dockCalls.contains(["/usr/bin/defaults", "write", "com.apple.dock", "autohide", "-bool", "false"]), "\(dockCalls)")
+        XCTAssertTrue(dockCalls.contains(["/usr/bin/defaults", "write", "com.apple.dock", "autohide-delay", "-float", "0.5"]))
+        XCTAssertTrue(dockCalls.contains(["/usr/bin/killall", "Dock"]))
+        XCTAssertNil(SystemDock.store.data(forKey: DockRestoration.key))
+        XCTAssertFalse(model.canRestoreAppleDock)
+
+        // The status-menu item restores without a confirmation, even when not replacing.
+        let item = try XCTUnwrap(delegate.status.menu?.items.first { $0.title == "Restore Apple Dock" })
+        SystemDock.store.set(journal, forKey: DockRestoration.key)
+        alerts = []; dockCalls = []
+        NSApp.sendAction(try XCTUnwrap(item.action), to: item.target, from: item)
+        XCTAssertTrue(dockCalls.contains(["/usr/bin/killall", "Dock"]))
+        XCTAssertTrue(alerts.isEmpty)
+        XCTAssertNil(SystemDock.store.data(forKey: DockRestoration.key))
+
+        // A failed restore says so and keeps the originals for another try.
+        SystemDock.store.set(journal, forKey: DockRestoration.key)
+        dockFailures = true
+        delegate.restore()
+        XCTAssertEqual(alerts, ["Apple Dock could not be restored"])
+        XCTAssertNotNil(SystemDock.store.data(forKey: DockRestoration.key))
+        XCTAssertTrue(model.canRestoreAppleDock)
+        dockFailures = false
+        SystemDock.store.removeObject(forKey: DockRestoration.key)
+    }
+
     func testDefaultAlertRunsModally() {
         let alert = NSAlert()
         alert.addButton(withTitle: "Retry"); alert.addButton(withTitle: "Quit anyway")

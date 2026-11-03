@@ -169,6 +169,29 @@ import AppKit
         XCTAssertEqual(log.last, "dock:true")
     }
 
+    func testRestoreAppleDockButtonStates() {
+        var restores = 0
+        let model = makeSettingsModel(self)
+        model.restoreAppleDockAction = { restores += 1 }
+        let harness = SettingsHarness(StudioBehavior(model: model).environment(\.studioAccess, .fixed(tier: .free)).padding(), width: 900, height: 2400)
+        defer { harness.close() }
+        // A disabled SwiftUI button has no key-view proxy, so the focusable count tracks the enabled state.
+        let idle = harness.controls().count
+        XCTAssertFalse(model.canRestoreAppleDock)
+        model.appleDockModified = true
+        harness.settle(0.1)
+        XCTAssertEqual(harness.controls().count, idle + 1, "saved originals enable the button")
+        // Order: stack, clock, use-as-Dock switch, Restore Apple Dock…
+        harness.click(harness.controls()[3])
+        XCTAssertEqual(restores, 1)
+        model.appleDockModified = false; model.replacingDock = true
+        harness.settle(0.1)
+        XCTAssertEqual(harness.controls().count, idle + 1, "replacing the Dock enables the button")
+        model.replacingDock = false
+        harness.settle(0.1)
+        XCTAssertEqual(harness.controls().count, idle)
+    }
+
     func testEntryPreviewsForEveryEntry() throws {
         let model = makeSettingsModel(self)
         let app = try tempApp("Alpha")

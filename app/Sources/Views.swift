@@ -198,6 +198,9 @@ struct DockBarMenu: View {
             }
         }.disabled(model.replacingDock)
         Divider()
+        if !model.isAdditionalDock {
+            Button("Restore Apple Dock…") { model.restoreAppleDockAction?() }.disabled(!model.canRestoreAppleDock)
+        }
         Button("Dock Settings…") { model.settingsAction?() }
     }
 }
