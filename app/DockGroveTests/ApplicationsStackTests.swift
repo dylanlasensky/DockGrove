@@ -171,6 +171,76 @@ import SwiftUI
         harness.click(CGPoint(x: 12, y: 12))
     }
 
+    func testPlusAndReplaceOpenTheLauncherInTheirModes() {
+        let model = model(apps: 2)
+        let launcher = AppsLauncher.shared
+        model.systemError = "stale"
+        model.addApps()
+        let first = launcher.panel
+        XCTAssertNotNil(first, "+ opens the Applications launcher")
+        XCTAssertNil(model.systemError)
+        let sample = model.toolkit.appIndex.search("Sample 00")[0]
+        model.showAppPicker(replacing: sample) // reopening while open swaps in a fresh panel
+        XCTAssertNotNil(launcher.panel)
+        XCTAssertFalse(launcher.panel === first)
+        model.showAppLauncher(query: "Sample")
+        XCTAssertFalse(launcher.pager.searchIsEmpty, "a widget query pre-fills the search")
+        launcher.close()
+        XCTAssertEqual(AppsLauncher.Mode.launch.title, nil)
+        XCTAssertEqual(AppsLauncher.Mode.replace(sample).title, "Replace " + sample.name)
+    }
+
+    func testAddModePinsOnceAndCloses() {
+        let model = model(apps: 3)
+        let pager = AppsPager()
+        var closed = 0
+        let harness = DockHarness(AppsLauncherView(model: model, kit: model.toolkit, pager: pager, mode: .add) { closed += 1 }, size: CGSize(width: 1400, height: 900))
+        defer { harness.close() }
+        harness.spin(0.4)
+        XCTAssertTrue(harness.has("Add an app to the Dock"), "\(harness.labels())")
+        harness.press("Sample 01")
+        XCTAssertEqual(model.apps.map(\.url.lastPathComponent), ["Sample 01.app"])
+        XCTAssertEqual(closed, 1)
+        XCTAssertTrue(launched.isEmpty, "adding never launches")
+        harness.spin(0.2)
+        harness.press("Sample 01")
+        XCTAssertEqual(model.apps.count, 1, "an app already in the Dock is not added again")
+        XCTAssertEqual(closed, 1)
+        // Return adds the top match; a vanished bundle reports the error inline and stays open.
+        harness.enter("Sample 02")
+        harness.spin(0.3)
+        let field = harness.textFields()[0]
+        if let action = field.action { NSApp.sendAction(action, to: field.target, from: field) }
+        XCTAssertEqual(model.apps.count, 2)
+        XCTAssertEqual(closed, 2)
+        try? FileManager.default.removeItem(at: model.toolkit.appIndex.search("Sample 00")[0].url)
+        harness.enter("Sample 00")
+        harness.spin(0.3)
+        if let action = field.action { NSApp.sendAction(action, to: field.target, from: field) }
+        harness.spin(0.2)
+        XCTAssertEqual(closed, 2)
+        XCTAssertEqual(model.systemError, "This application is no longer installed.")
+    }
+
+    func testReplaceModeSwapsTheTile() {
+        let model = model(apps: 3)
+        let index = model.toolkit.appIndex
+        let old = index.search("Sample 00")[0], new = index.search("Sample 01")[0]
+        model.apps = [old]
+        model.systemError = "Problem" // renders the inline error under the search field
+        var closed = 0
+        let harness = DockHarness(AppsLauncherView(model: model, kit: model.toolkit, pager: AppsPager(), mode: .replace(old)) { closed += 1 }, size: CGSize(width: 1400, height: 900))
+        defer { harness.close() }
+        harness.spin(0.4)
+        XCTAssertTrue(harness.has("Replace " + old.name), "\(harness.labels())")
+        harness.press("Sample 00") // already in the Dock: rejected, launcher stays open
+        XCTAssertEqual(closed, 0)
+        XCTAssertEqual(model.systemError, "That application is already in the Dock.")
+        harness.press("Sample 01")
+        XCTAssertEqual(model.apps, [new])
+        XCTAssertEqual(closed, 1)
+    }
+
     func testExistingLayoutDoesNotGainApplicationsStack() {
         let model = model(apps: 0)
         model.defaults.set([], forKey: "apps")

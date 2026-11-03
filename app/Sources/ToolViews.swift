@@ -8,7 +8,7 @@ import EventKit
 /// Views send these through `\.widgetEffects` so tests can observe them without touching the Mac.
 enum WidgetEffect {
     case open(URL), reveal([URL]), copy(String), characterPalette
-    case launch(DockModel, DockApp), exportProfiles(DockModel), importProfiles(DockModel)
+    case launch(DockModel, DockApp), searchApps(DockModel, String), exportProfiles(DockModel), importProfiles(DockModel)
     case setLogin(Utilities, Bool), browse(Utilities, URL), chooseFolder(Utilities), screenshot(Utilities), pickColor(Utilities), loadReminders(Utilities), completeReminder(Utilities, EKReminder)
     case addFiles(Toolkit), fetchWeather(Toolkit), refreshGitHub(GitHubWidget), music(MusicPlayer, MusicCommand)
     @MainActor static func perform(_ effect: WidgetEffect) -> Bool {
@@ -18,6 +18,7 @@ enum WidgetEffect {
         case .copy(let text): NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string)
         case .characterPalette: NSApp.orderFrontCharacterPalette(nil)
         case .launch(let model, let app): model.open(app)
+        case .searchApps(let model, let query): model.showAppLauncher(query: query)
         case .exportProfiles(let model): model.exportProfiles()
         case .importProfiles(let model): model.importProfiles()
         case .setLogin(let utility, let enabled): utility.setLogin(enabled)
@@ -49,6 +50,7 @@ struct ToolTile: View {
     @ObservedObject var model: DockModel
     @ObservedObject var kit: Toolkit
     @StateObject private var interaction = TileInteraction()
+    @Environment(\.widgetEffects) private var effects
     var caption: String {
         switch kind {
         case .pet: return kit.pet.state.name
@@ -67,13 +69,13 @@ struct ToolTile: View {
     var body: some View {
         Group {
             if kit.shape(for: kind) != .rounded {
-                Button { interaction.expanded.toggle(); if kind == .search { kit.scanApplications() } } label: {
+                Button { open() } label: {
                     ShapedWidgetFace(kind: kind, style: kit.shape(for: kind), caption: caption, accent: model.color, animal: kit.pet.animal, resting: kit.pet.state.resting, weatherAttribution: kind == .weather && kit.weatherSnapshot != nil)
                 }.buttonStyle(.plain).help(kind.title).accessibilityLabel(kind.title + ": " + caption)
             } else if kit.richWidgets {
-                RichWidgetCard(kind: kind, model: model, kit: kit) { interaction.expanded.toggle(); if kind == .search { kit.scanApplications() } }
+                RichWidgetCard(kind: kind, model: model, kit: kit) { open() }
             } else {
-                Button { interaction.expanded.toggle(); if kind == .search { kit.scanApplications() } } label: {
+                Button { open() } label: {
                     VStack(spacing: 5) {
                         Image(systemName: kind == .weather ? (kit.weatherSnapshot?.symbolName ?? kind.icon) : kind.icon).font(.system(size: 20, weight: .medium)).foregroundStyle(model.color)
                         Text(caption).font(.system(size: 10, weight: .medium)).lineLimit(1).monospacedDigit()
@@ -104,6 +106,8 @@ struct ToolTile: View {
             }.padding(22).frame(width: 350).preferredColorScheme(model.scheme)
         }
     }
+    /// App search opens the full-screen Applications launcher; every other widget toggles its popover.
+    private func open() { if kind == .search { effects(.searchApps(model, kit.query)) } else { interaction.expanded.toggle() } }
     var contents: some View {
         ToolTileContents(kind: kind, model: model, kit: kit, interaction: interaction).environment(\.connectionSettingsAction, { model.openConnectionSettings(kind) })
     }
@@ -149,17 +153,7 @@ struct ToolTileContents: View {
             Divider()
             MusicPlayerView(player: kit.appleMusic).environment(\.connectionSettingsAction, { model.openConnectionSettings(.appleMusic) })
         case .search:
-            TextField("Find an app…", text: $kit.query).textFieldStyle(.roundedBorder)
-            ScrollView { LazyVStack(spacing: 4) {
-                ForEach(kit.appIndex.search(kit.query)) { app in
-                    HStack {
-                        Button { kit.recordLaunch(app, query: kit.query); effects(.launch(model, app)); interaction.expanded = false } label: {
-                            HStack { Image(nsImage: app.icon).resizable().frame(width: 28, height: 28); Text(app.name); Spacer() }
-                        }.buttonStyle(.plain)
-                        Button { model.pin(app) } label: { Image(systemName: model.apps.contains(app) ? "pin.fill" : "pin") }.disabled(model.apps.contains(app)).help("Pin app")
-                    }.padding(6)
-                }
-            }}.frame(height: 290)
+            Button { effects(.searchApps(model, kit.query)) } label: { Label("Search Applications", systemImage: "magnifyingglass") }.buttonStyle(.bordered)
         case .notes:
             TextEditor(text: $kit.note).font(.body).frame(height: 230).padding(6).background(.white.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
             Text("Saved automatically on this Mac.").font(.caption).foregroundStyle(.secondary)

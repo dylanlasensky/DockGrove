@@ -12,7 +12,7 @@ Notch.swift: static NotchController.runOpenPanel(message:) # modal NSOpenPanel
 NotchWorkspace.swift: closure #3 in NotchTrayView.trayItem(_:) # SwiftUI onDrag item provider only runs inside a real system drag session
 ToolViews.swift: static WidgetEffect.perform(_:) # live system side effects (NSWorkspace open/launch, pasteboard, panels, login item, profile import/export); tests use the WidgetEffects seam
 ToolViews.swift: implicit closure #1 in variable initialization expression of static WidgetEffectsKey.defaultValue # production default pointing at WidgetEffect.perform; tests always inject a fake
-ToolViews.swift: closure #3 in closure #1 in closure #1 in closure #1 in closure #15 in ToolTileContents.body.getter # onDrag item provider for the files row; only a real drag session calls it
+ToolViews.swift: closure #3 in closure #1 in closure #1 in closure #1 in closure #16 in ToolTileContents.body.getter # onDrag item provider for the files row; only a real drag session calls it
 UtilityViews.swift: closure #3 in closure #1 in closure #1 in closure #5 in UtilityView.content.getter # onDrag item provider for the folders row; only a real drag session calls it
 ExtraWidgets.swift: LiveVoiceMemoDevice.requestMicrophone() # real microphone permission prompt
 ExtraWidgets.swift: LiveVoiceMemoDevice.exportDestination() # modal NSSavePanel
@@ -65,11 +65,11 @@ WeatherClient.swift: implicit closure #1 in static AppleWeatherClient.liveCurren
 WeatherClient.swift: implicit closure #2 in static AppleWeatherClient.liveCurrent(_:) # async let child task of the live call
 
 # Applications launcher
-ApplicationsStack.swift: implicit closure #1 in AppsLauncher.show(model:) # fallback screen when the pointer is on no screen
-ApplicationsStack.swift: implicit closure #2 in implicit closure #1 in AppsLauncher.show(model:) # last-resort fallback screen when there is no main screen
-ApplicationsStack.swift: closure #2 in AppsLauncher.show(model:) # live presentation (activates the app and covers the real desktop); tests replace `present`
-ApplicationsStack.swift: closure #4 in AppsLauncher.show(model:) # local scroll-wheel monitor only receives real hardware events; AppsPager.scroll is tested directly
-ApplicationsStack.swift: implicit closure #1 in closure #1 in AppsLauncherView.emptyState.getter # loading placeholder only during the very first scan of an empty catalog
+ApplicationsStack.swift: implicit closure #1 in AppsLauncher.show(model:mode:query:) # fallback screen when the pointer is on no screen
+ApplicationsStack.swift: implicit closure #2 in implicit closure #1 in AppsLauncher.show(model:mode:query:) # last-resort fallback screen when there is no main screen
+ApplicationsStack.swift: closure #2 in AppsLauncher.show(model:mode:query:) # the hosted view's close callback; only real backdrop clicks or Esc in the on-screen panel call it
+ApplicationsStack.swift: closure #4 in AppsLauncher.show(model:mode:query:) # local scroll-wheel monitor only receives real hardware events; AppsPager.scroll is tested directly
+~ ApplicationsStack.swift: implicit closure #1 in closure #1 in AppsLauncherView.emptyState.getter # loading placeholder only during the very first scan of an empty catalog
 Utilities.swift: static SystemPicker.chooseFolder() # builds and runs a modal NSOpenPanel
 Utilities.swift: static SystemPicker.chooseFile(message:) # builds and runs a modal NSOpenPanel
 
