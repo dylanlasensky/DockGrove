@@ -1315,6 +1315,88 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         orphan.mouseDragged(with: event(.leftMouseDragged, 30, 30))
         XCTAssertEqual(orphan.sessions.count, 1)
     }
+
+    /// Real AppKit dispatch: events go through `NSWindow.sendEvent`, hit-testing and
+    /// `rightMouseDown`, not the menu builder; only the final pop-up is faked.
+    func testSecondaryClicksAndHoldOpenMenusThroughAppKit() throws {
+        let model = dockModel(widgets: [])
+        var launched = 0
+        model.openApplication = { _ in launched += 1 }
+        final class Shown { var menus: [[String]] = []; var views: [NSView] = [] }
+        let shown = Shown()
+        let savedPresent = DockContextMenu.present
+        defer { DockContextMenu.present = savedPresent }
+        DockContextMenu.present = { menu, event, view in
+            shown.menus.append(menu.items.map(\.title).filter { !$0.isEmpty }); shown.views.append(view)
+            // As AppKit does around its menu loop.
+            view.willOpenMenu(menu, with: event); view.didCloseMenu(menu, with: event)
+        }
+        // The live Dock's window: a non-activating panel in an inactive app.
+        let panel = DockPanel(contentRect: NSRect(x: -20000, y: -20000, width: 600, height: 160), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel.isFloatingPanel = true; panel.level = .floating; panel.isOpaque = false; panel.backgroundColor = .clear
+        let host = NSHostingView(rootView: DockView(model: model))
+        panel.contentView = host
+        panel.setContentSize(host.fittingSize)
+        panel.orderFrontRegardless()
+        defer { panel.orderOut(nil); panel.contentView = nil; panel.close() }
+        func spin(_ seconds: TimeInterval) { RunLoop.main.run(until: Date().addingTimeInterval(seconds)) }
+        func send(_ type: NSEvent.EventType, _ point: CGPoint, _ flags: NSEvent.ModifierFlags = []) {
+            panel.sendEvent(NSEvent.mouseEvent(with: type, location: point, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: panel.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!)
+            spin(0.1)
+        }
+        spin(0.4)
+        let frame = try XCTUnwrap(model.tileFrames.filter { $0.key.hasPrefix("app:") }.min { $0.value.minX < $1.value.minX }?.value)
+        let tile = host.convert(CGPoint(x: frame.midX, y: frame.midY), to: nil)
+        func expectAppMenu(_ message: String, line: UInt = #line) {
+            XCTAssertEqual(shown.menus.count, 1, message, line: line)
+            XCTAssertTrue(shown.menus.last?.contains("Options") == true && shown.menus.last?.contains("Replace app…") == true, "\(message): \(shown.menus)", line: line)
+            XCTAssertTrue(shown.views.last === host, message, line: line)
+            shown.menus = []
+        }
+
+        // A first right-click, before any left click.
+        send(.rightMouseDown, tile); send(.rightMouseUp, tile)
+        expectAppMenu("right-click opens the tile's menu")
+        // After a primary click SwiftUI used to take the secondary press as a Button press.
+        send(.leftMouseDown, tile); send(.leftMouseUp, tile)
+        XCTAssertEqual(launched, 1)
+        XCTAssertTrue(shown.menus.isEmpty, "a plain click opens no menu")
+        send(.rightMouseDown, tile); send(.rightMouseUp, tile)
+        expectAppMenu("right-click after a click opens the menu")
+        XCTAssertEqual(launched, 1, "right-click never launches the app")
+        send(.leftMouseDown, tile, .control); send(.leftMouseUp, tile, .control)
+        expectAppMenu("control-click opens the menu")
+        XCTAssertEqual(launched, 1, "control-click never launches the app")
+
+        // Press and hold, like the Mac Dock; the release afterwards launches nothing.
+        send(.leftMouseDown, tile)
+        spin(DockContextMenu.holdDelay + 0.3)
+        expectAppMenu("holding the button opens the menu")
+        send(.leftMouseUp, tile)
+        XCTAssertEqual(launched, 1, "the held press does not also launch")
+        send(.leftMouseDown, tile); send(.leftMouseUp, tile)
+        XCTAssertEqual(launched, 2, "a later click still launches")
+        XCTAssertTrue(shown.menus.isEmpty, "a quick click does not count as a hold")
+        send(.rightMouseDown, tile); send(.rightMouseUp, tile)
+        expectAppMenu("right-click still works after a hold")
+        // Dragging away cancels the hold.
+        send(.leftMouseDown, tile)
+        send(.leftMouseDragged, CGPoint(x: tile.x + 12, y: tile.y))
+        spin(DockContextMenu.holdDelay + 0.3)
+        send(.leftMouseUp, CGPoint(x: tile.x + 12, y: tile.y))
+        XCTAssertTrue(shown.menus.isEmpty, "a drag is not a hold")
+
+        // The bar's own menu, from the plate's padding as well as between controls.
+        let bar = ["Position on Screen", "Dock Settings…"]
+        for point in [CGPoint(x: 20, y: host.bounds.midY), CGPoint(x: host.bounds.midX, y: host.bounds.maxY - 8), CGPoint(x: host.bounds.maxX - 100, y: host.bounds.midY)] {
+            shown.menus = []
+            let location = host.convert(point, to: nil)
+            send(.rightMouseDown, location); send(.rightMouseUp, location)
+            XCTAssertEqual(shown.menus.count, 1, "bar menu at \(point)")
+            XCTAssertTrue(bar.allSatisfy { shown.menus.last?.contains($0) == true }, "bar menu at \(point): \(shown.menus)")
+        }
+        XCTAssertEqual(launched, 2)
+    }
 }
 
 /// The whole file tray in one row, so tray items can be tested without paging.

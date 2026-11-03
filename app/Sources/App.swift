@@ -7,9 +7,90 @@ private func orEmpty<Element>(_ values: [Element]?) -> [Element] { if let values
 /// Top edge of the primary display, the origin for top-left (CG/Accessibility) coordinates.
 func primaryScreenTop(_ screens: [NSScreen] = NSScreen.screens) -> CGFloat { guard let first = screens.first else { return 0 }; return first.frame.maxY }
 
+/// Shows context menus; tests swap it so no modal menu loop runs.
+enum DockContextMenu {
+    static var present: @MainActor (NSMenu, NSEvent, NSView) -> Void = { menu, event, view in NSMenu.popUpContextMenu(menu, with: event, for: view) }
+    /// How long a press on an app tile is held before its menu opens, as in the Mac Dock.
+    static var holdDelay: TimeInterval = 0.5
+}
+
+/// The Dock's window. SwiftUI reads mouse input through the window's gesture recognizers,
+/// which run inside `sendEvent` before any view sees the event. Left to them, a secondary click
+/// on a tile that had been clicked before was taken by the tile's Button, launching the app
+/// instead of showing its menu, and the bar's rim (the glass background) offered no menu at all.
+/// A Dock window therefore opens its menus here, from right-click, control-click or a held
+/// press on an app tile, and keeps the rest of that press away from SwiftUI.
 final class DockPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+    private var holdTimer: Timer?
+    private var holdStart: NSEvent?
+    /// The button whose press opened a menu; its drags and release never reach SwiftUI.
+    private var swallowing: NSEvent.EventType?
+
+    private var dock: NSHostingView<DockView>? { contentView as? NSHostingView<DockView> }
+
+    override func sendEvent(_ event: NSEvent) {
+        guard let dock else { return super.sendEvent(event) }
+        switch event.type {
+        case .rightMouseDown, .leftMouseDown:
+            cancelHold(); swallowing = nil
+            let secondary = event.type == .rightMouseDown || event.modifierFlags.contains(.control)
+            if secondary, openMenu(at: event.locationInWindow, in: dock) {
+                swallowing = event.type == .rightMouseDown ? .rightMouseUp : .leftMouseUp
+                return
+            }
+            super.sendEvent(event)
+            if event.type == .leftMouseDown, event.clickCount == 1, onAppTile(event.locationInWindow, in: dock) { startHold(event) }
+        case .leftMouseDragged, .rightMouseDragged:
+            if swallowing == (event.type == .leftMouseDragged ? .leftMouseUp : .rightMouseUp) { return }
+            if let start = holdStart, hypot(event.locationInWindow.x - start.locationInWindow.x, event.locationInWindow.y - start.locationInWindow.y) > 4 { cancelHold() }
+            super.sendEvent(event)
+        case .leftMouseUp, .rightMouseUp:
+            if event.type == .leftMouseUp { cancelHold() }
+            if swallowing == event.type { swallowing = nil; return }
+            super.sendEvent(event)
+        default:
+            super.sendEvent(event)
+        }
+    }
+
+    /// Asks SwiftUI for the menu at `point` and shows it; false where there is none, or where an
+    /// AppKit control (a text field in a widget, say) owns its own menu.
+    private func openMenu(at point: CGPoint, in dock: NSHostingView<DockView>) -> Bool {
+        if let frame = dock.superview, var view = frame.hitTest(frame.convert(point, from: nil)) {
+            while view !== dock {
+                if view is NSText || view is NSControl { return false }
+                guard let parent = view.superview else { break }
+                view = parent
+            }
+        }
+        guard let secondary = NSEvent.mouseEvent(with: .rightMouseDown, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1),
+              let menu = dock.menu(for: secondary) else { return false }
+        DockContextMenu.present(menu, secondary, dock)
+        return true
+    }
+    private func onAppTile(_ point: CGPoint, in dock: NSHostingView<DockView>) -> Bool {
+        // SwiftUI's global space is the hosting view's flipped coordinate space.
+        let local = dock.convert(point, from: nil)
+        return dock.rootView.model.tileFrames.contains { $0.key.hasPrefix("app:") && $0.value.contains(local) }
+    }
+    private func startHold(_ event: NSEvent) {
+        holdStart = event
+        let timer = Timer(timeInterval: DockContextMenu.holdDelay, repeats: false) { [weak self] _ in MainActor.assumeIsolated { self?.holdElapsed() } }
+        RunLoop.main.add(timer, forMode: .common)
+        holdTimer = timer
+    }
+    private func cancelHold() { holdTimer?.invalidate(); holdTimer = nil; holdStart = nil }
+    private func holdElapsed() {
+        guard let start = holdStart, let dock else { return }
+        cancelHold()
+        // End SwiftUI's pending press away from every control, so the tile's Button never fires.
+        if let release = NSEvent.mouseEvent(with: .leftMouseUp, location: CGPoint(x: -10_000, y: -10_000), modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 0) {
+            super.sendEvent(release)
+        }
+        if openMenu(at: start.locationInWindow, in: dock) { swallowing = .leftMouseUp }
+    }
 }
 
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate {

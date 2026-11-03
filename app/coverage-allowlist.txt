@@ -6,6 +6,7 @@ NativeTests.swift # Test code that must ship in the app: the --native-test launc
 ReleaseVisualTests.swift # Test code rendered only by the --native-test launch mode run by DockGroveUITests
 
 # Live system side effects behind test seams (tests inject fakes)
+App.swift: closure #1 in variable initialization expression of static DockContextMenu.present # production default runs a real modal NSMenu; tests inject a fake presenter
 AppWindows.swift: static DockSystemEffect.perform(_:) # presents/activates windows, opens files/Finder, hides/quits apps — real system effects
 NativeStudioDragSource.swift: NativeStudioDragSource.SourceView.startSession(_:event:) # starts a real system drag session
 Notch.swift: static NotchController.runOpenPanel(message:) # modal NSOpenPanel

@@ -65,7 +65,6 @@ struct DockView: View {
                 .help("DockGrove settings").accessibilityLabel("DockGrove settings")
         }
         .contentShape(Rectangle())
-        .contextMenu { DockBarMenu(model: model, kit: model.toolkit) }
         .dropDestination(for: DockStudioItem.self) { items, _ in
             guard items.count == 1 else { return false }
             return model.placeStudioItem(items[0])
@@ -128,6 +127,9 @@ struct DockView: View {
         }
         .overlay(RoundedRectangle(cornerRadius: 27).stroke(studioBarTarget ? model.color : Color(nsColor: .separatorColor), lineWidth: studioBarTarget ? 2 : 0.7))
         .clipShape(RoundedRectangle(cornerRadius: 27))
+        // The whole plate, padding included, offers the bar's menu; tiles keep their own.
+        .contentShape(RoundedRectangle(cornerRadius: 27))
+        .contextMenu { DockBarMenu(model: model, kit: model.toolkit) }
         .padding(.horizontal, 12).padding(.top, 16).padding(.bottom, 4)
         .overlay(alignment:.top) {
             if let source = entries.first(where: { $0.id == draggedID }) {
