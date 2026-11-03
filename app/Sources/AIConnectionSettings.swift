@@ -163,7 +163,7 @@ private struct CompactAPITokenSetup: View {
                     Text("Stored in macOS Keychain.").font(.caption).foregroundStyle(.secondary)
                 }.padding(.top, 10)
             }
-        }.onDisappear { token = "" }
+        }.onAppear { widget.start() }.onDisappear { token = "" }
     }
     private func save() {
         guard !widget.busy, !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
