@@ -66,10 +66,44 @@ import SwiftUI
         XCTAssertNotNil(AppsLauncher.shared.panel, "pressing the tile opens the launcher")
         harness.press("Applications")
         XCTAssertNil(AppsLauncher.shared.panel, "pressing it again closes the launcher")
-        XCTAssertEqual(harness.menuTitles(at: point), ["Open Applications Folder", "Refresh Applications", "Show in Finder", "", "Remove from Dock"])
-        harness.choose("Show in Finder", inMenuAt: point)
+        let open = "Open \u{201C}Applications\u{201D}"
+        XCTAssertEqual(harness.menuTitles(at: point), ["Sort by", "Display as", "View content as", "", "Options", "", open, "", "Refresh Applications"])
+        func submenu(_ title: String) -> [String] {
+            let menu = harness.menuItem([title], at: point)?.submenu
+            menu?.update()
+            return menu?.items.map(\.title) ?? []
+        }
+        XCTAssertEqual(submenu("Sort by"), ["Name", "Date Added", "Date Modified", "Date Created", "Kind"])
+        XCTAssertEqual(submenu("Display as"), ["Folder", "Stack"])
+        XCTAssertEqual(submenu("View content as"), ["Fan", "Grid", "List", "Automatic"])
+        XCTAssertEqual(submenu("Options"), ["Remove from Dock", "Show in Finder"])
+
+        // Each choice is a checkmark, persisted as stackSort / stackDisplay / stackView.
+        XCTAssertEqual(harness.menuItem(["Sort by", "Name"], at: point)?.state, .on)
+        harness.choose(["Sort by", "Date Modified"], inMenuAt: point)
+        XCTAssertEqual(model.stackSort, .dateModified)
+        XCTAssertEqual(model.defaults.string(forKey: "stackSort"), "Date Modified")
+        XCTAssertEqual(harness.menuItem(["Sort by", "Date Modified"], at: point)?.state, .on)
+        XCTAssertEqual(harness.menuItem(["Sort by", "Name"], at: point)?.state, .off)
+        harness.choose(["View content as", "Grid"], inMenuAt: point)
+        XCTAssertEqual(model.stackView, .grid)
+        XCTAssertEqual(model.defaults.string(forKey: "stackView"), "Grid")
+        XCTAssertEqual(harness.menuItem(["Display as", "Folder"], at: point)?.state, .on)
+        harness.choose(["Display as", "Stack"], inMenuAt: point)
+        XCTAssertEqual(model.stackDisplay, .stack)
+        XCTAssertEqual(model.defaults.string(forKey: "stackDisplay"), "Stack")
+        harness.spin(0.1)
+        XCTAssertEqual(model.stackPreview(count: 3).count, 3, "Stack piles up the first apps")
+        XCTAssertEqual(model.stackPreview(count: 3), model.stackPreview(count: 3), "cached")
+        let reloaded = DockModel(defaults: model.defaults)
+        XCTAssertEqual(reloaded.stackSort, .dateModified); XCTAssertEqual(reloaded.stackView, .grid); XCTAssertEqual(reloaded.stackDisplay, .stack)
+        harness.choose(["Display as", "Folder"], inMenuAt: point)
+        harness.choose(["Sort by", "Name"], inMenuAt: point)
+        harness.choose(["View content as", "Automatic"], inMenuAt: point)
+
+        harness.choose(["Options", "Show in Finder"], inMenuAt: point)
         if case .reveal(let urls)? = effects.last { XCTAssertEqual(urls.map(\.path), ["/Applications"]) } else { XCTFail("Finder reveal should go through effects") }
-        harness.choose("Open Applications Folder", inMenuAt: point)
+        harness.choose(open, inMenuAt: point)
         if case .open(let url)? = effects.last { XCTAssertEqual(url.path, "/Applications") } else { XCTFail("folder should open through effects") }
         let before = model.toolkit.appIndex.count
         let extra = URL(fileURLWithPath: model.toolkit.applicationRoots[0]).appendingPathComponent("Added Later.app/Contents")
@@ -78,8 +112,40 @@ import SwiftUI
         let deadline = Date().addingTimeInterval(10)
         while model.toolkit.appIndex.count == before, Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
         XCTAssertEqual(model.toolkit.appIndex.count, before + 1, "refresh rescans and finds the new app")
-        harness.choose("Remove from Dock", inMenuAt: point)
+        harness.choose(["Options", "Remove from Dock"], inMenuAt: point)
         XCTAssertFalse(model.showApplicationsStack)
+    }
+
+    func testStackSortOrders() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("StackSort-" + UUID().uuidString)
+        folders.append(folder)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        func make(_ name: String, modified: TimeInterval, created: TimeInterval) throws -> URL {
+            let url = folder.appendingPathComponent(name)
+            try Data().write(to: url)
+            try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: modified), .creationDate: Date(timeIntervalSince1970: created)], ofItemAtPath: url.path)
+            return url
+        }
+        // Creation dates stay at or before modification dates, as the file system requires.
+        let b = try make("b.txt", modified: 300, created: 10), a = try make("a.png", modified: 100, created: 50), c = try make("c.txt", modified: 200, created: 150)
+        let d = try make("d.txt", modified: 200, created: 150)
+        let urls = [c, a, d, b].map { URL(fileURLWithPath: $0.path) }
+        func names(_ order: StackSortOrder) -> [String] { order.sorted(urls).map(\.lastPathComponent) }
+        XCTAssertEqual(names(.name), ["a.png", "b.txt", "c.txt", "d.txt"])
+        XCTAssertEqual(names(.dateModified), ["b.txt", "c.txt", "d.txt", "a.png"], "newest first, names break ties")
+        XCTAssertEqual(names(.dateCreated), ["c.txt", "d.txt", "a.png", "b.txt"])
+        XCTAssertEqual(names(.dateAdded).count, 4)
+        let kinds = names(.kind)
+        XCTAssertTrue(kinds.first == "a.png" || kinds.last == "a.png", "kinds group together: \(kinds)")
+        XCTAssertEqual(kinds.filter { $0.hasSuffix(".txt") }, ["b.txt", "c.txt", "d.txt"], "names break ties within a kind")
+        XCTAssertEqual(StackSortOrder.allCases.map(\.id), StackSortOrder.allCases.map(\.title))
+        XCTAssertEqual(StackDisplayStyle.allCases.map(\.id), ["Folder", "Stack"])
+        XCTAssertEqual(StackContentStyle.allCases.map(\.id), ["Fan", "Grid", "List", "Automatic"])
+        let missing = folder.appendingPathComponent("missing")
+        for order in StackSortOrder.allCases {
+            XCTAssertEqual(Set(order.sorted([missing, a])), [missing, a], "unreadable items still sort: \(order)")
+        }
+        XCTAssertEqual(StackSortOrder.dateModified.sorted([missing, a]), [a, missing], "unreadable dates sort last")
     }
 
     func testLauncherWindowOpensClosesOnResignAndEscape() {

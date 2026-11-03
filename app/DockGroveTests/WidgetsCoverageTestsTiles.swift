@@ -107,8 +107,22 @@ struct WidgetsContentsHost: View {
         XCTAssertEqual(kit.enabled, ["focus", "tasks", "notes"])
         host.contextPick("Square", on: label)
         XCTAssertEqual(kit.widgetShapes["tasks"], "square")
+        // Widget Settings… opens Settings, or the Connections page for widgets that sign in.
+        var settings = 0
+        model.settingsAction = { settings += 1 }
+        host.contextPick("Widget Settings…", on: label)
+        XCTAssertEqual(settings, 1)
+        XCTAssertNil(model.connectionSettingsKind)
+        XCTAssertTrue(ToolKind.spotify.hasConnectionSettings); XCTAssertTrue(ToolKind.claudeCodeUsage.hasConnectionSettings); XCTAssertFalse(ToolKind.tasks.hasConnectionSettings)
         host.contextPick("Remove from Dock", on: label)
         XCTAssertFalse(kit.enabled.contains("tasks"))
+        kit.widgetShapes["spotify"] = "square"
+        let spotify = tile(.spotify)
+        if let spotifyLabel = spotify.label(prefix: ToolKind.spotify.title + ": ") {
+            spotify.contextPick("Widget Settings…", on: spotifyLabel)
+            XCTAssertEqual(model.connectionSettingsKind, .spotify)
+            XCTAssertEqual(settings, 2)
+        } else { XCTFail("No Spotify tile: \(spotify.labels())") }
     }
 
     // MARK: Popover contents per kind

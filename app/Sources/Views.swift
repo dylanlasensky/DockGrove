@@ -172,8 +172,8 @@ struct DockView: View {
         case .add: Button(action: model.addApps) { Image(systemName: "plus").frame(width: 28, height: model.iconSize) }.help("Pin an app")
         case .usage: UsageTile(model: model)
         case .tool(let kind):
-            if kind == .spacer { Color.clear }
-            else if kind == .separator { Divider().frame(height: 40) }
+            if kind == .spacer { Color.clear.contentShape(Rectangle()).contextMenu { DockSpacerMenu(kind: kind, kit: model.toolkit) } }
+            else if kind == .separator { Divider().frame(height: 40).contentShape(Rectangle()).contextMenu { DockSpacerMenu(kind: kind, kit: model.toolkit) } }
             else { ToolTile(kind: kind, model: model, kit: model.toolkit) }
         case .clock:
             TimelineView(.periodic(from: .now, by: 30)) { context in
@@ -182,7 +182,28 @@ struct DockView: View {
                     Text(context.date, format: .dateTime.weekday(.abbreviated).month(.abbreviated).day()).font(.system(size: 10)).foregroundStyle(.secondary)
                 }.padding(.horizontal, 14).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading).modifier(WidgetSurface()).lineLimit(1).minimumScaleFactor(0.75)
             }
+            .contextMenu {
+                Button("Date & Time Settings…") { DockSystemEffect.handler(.open(DockClockMenu.settingsURL)) }
+                Divider()
+                Button("Remove from Dock") { model.showClock = false }
+            }
         }
+    }
+}
+
+enum DockClockMenu {
+    static let settingsURL = URL(string: "x-apple.systempreferences:com.apple.Date-Time-Settings.extension")!
+}
+
+/// A Space or Separator tile's menu: removing it, then DockGrove's reordering extras.
+struct DockSpacerMenu: View {
+    let kind: ToolKind
+    @ObservedObject var kit: Toolkit
+    var body: some View {
+        Button("Remove from Dock") { kit.toggle(kind, false) }
+        Divider()
+        Button("Move earlier") { kit.moveWidget(kind, by: -1) }
+        Button("Move later") { kit.moveWidget(kind, by: 1) }
     }
 }
 
@@ -231,6 +252,7 @@ struct AppTile: View {
             interaction.hovered = hovering
             // Fresh window titles for the context menu, as the system Dock lists them.
             if hovering, app.isRunning, model.toolkit.windows.trusted { model.toolkit.windows.refresh() }
+            if hovering { model.refreshLoginItems() }
         }
         .animation(.spring(response: 0.23, dampingFraction: 0.65), value: interaction.hovered)
         .contextMenu { AppTileMenu(app: app, model: model, windows: model.toolkit.windows, forceQuit: DockSystemEffect.modifiers().contains(.option)) }
@@ -238,6 +260,8 @@ struct AppTile: View {
 }
 
 /// Mirrors the macOS Dock's app menu; DockGrove's own extras follow the last divider.
+/// Not mirrored: Options ▸ Assign To (desktop binding needs private Spaces API), recent documents
+/// (the Dock reads them from private shared-file-list stores) and an app's own Dock menu items (private).
 struct AppTileMenu: View {
     let app: DockApp
     @ObservedObject var model: DockModel
@@ -251,8 +275,9 @@ struct AppTileMenu: View {
             if !open.isEmpty { Divider() }
         }
         Menu("Options") {
-            if running != nil { Toggle("Keep in Dock", isOn: Binding(get: { pinned }, set: { $0 ? model.pin(app) : model.remove(app) })) }
+            if running != nil || !pinned { Toggle("Keep in Dock", isOn: Binding(get: { pinned }, set: { $0 ? model.pin(app) : model.remove(app) })) }
             else { Button("Remove from Dock") { model.remove(app) } }
+            Toggle("Open at Login", isOn: Binding(get: { model.opensAtLogin(app) }, set: { model.setOpensAtLogin(app, $0) }))
             Button("Show in Finder") { DockSystemEffect.handler(.reveal([app.url])) }
         }
         Divider()
@@ -266,7 +291,8 @@ struct AppTileMenu: View {
             Button("Open") { model.open(app) }
         }
         Divider()
-        Button("Replace app…") { model.showAppPicker(replacing: app) }
+        // Only a pinned tile can be swapped; a running-only tile has no slot to replace.
+        if pinned { Button("Replace app…") { model.showAppPicker(replacing: app) } }
         Button("Undo app change") { model.undoAppChange() }.disabled(model.appHistory.isEmpty)
         Button("Move left") { model.move(app, by: -1) }.disabled(!pinned || model.apps.first == app)
         Button("Move right") { model.move(app, by: 1) }.disabled(!pinned || model.apps.last == app)
