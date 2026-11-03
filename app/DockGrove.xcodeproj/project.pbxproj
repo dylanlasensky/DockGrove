@@ -98,6 +98,7 @@
 		D3A48D4D5F5BA1EDA7E0AEC1 /* CompanionMotionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D462CC48950CC6D4EC45A9BC /* CompanionMotionTests.swift */; };
 		D78815F4C5CF9767443BB2B4 /* AISignIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA255BDDFC87FDE0AF37F31B /* AISignIn.swift */; };
 		D887679071BECA521893915B /* NotchWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 545CBEDC6C333F8D40523374 /* NotchWorkspace.swift */; };
+		D9E44ECAB5358D03BDF89CB7 /* AppsStackPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB1AABAB3BDDABEDA0D1265D /* AppsStackPopover.swift */; };
 		DE54E2227B773EBFDA68BD15 /* StoreKitTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 19B1A427FF05FC43D37F76F8 /* StoreKitTest.framework */; };
 		E1477CFE538F23D24072211C /* AlbumArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64AE3EABB9961784F3DCEF6C /* AlbumArtwork.swift */; };
 		E24DDE86978BF2CEB8B2086D /* AppSearchIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 322F001E5E96998D3BD9E8BB /* AppSearchIndex.swift */; };
@@ -246,6 +247,7 @@
 		D462CC48950CC6D4EC45A9BC /* CompanionMotionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanionMotionTests.swift; sourceTree = "<group>"; };
 		DA255BDDFC87FDE0AF37F31B /* AISignIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AISignIn.swift; sourceTree = "<group>"; };
 		DA9D2A991E5A6936C808BAAA /* SettingsCoverageTestsPurchases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsCoverageTestsPurchases.swift; sourceTree = "<group>"; };
+		DB1AABAB3BDDABEDA0D1265D /* AppsStackPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppsStackPopover.swift; sourceTree = "<group>"; };
 		DF993BC2AC32330933B26246 /* ApplicationsStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationsStackTests.swift; sourceTree = "<group>"; };
 		E1E6DBDFC58B69C3A0E01A36 /* ApplicationsStack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplicationsStack.swift; sourceTree = "<group>"; };
 		E294424534B94B9727CA7D26 /* DockStudioModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockStudioModel.swift; sourceTree = "<group>"; };
@@ -439,6 +441,7 @@
 				E1E6DBDFC58B69C3A0E01A36 /* ApplicationsStack.swift */,
 				3A1F2BC63ABA6078ADFE63DF /* AppPicker.swift */,
 				322F001E5E96998D3BD9E8BB /* AppSearchIndex.swift */,
+				DB1AABAB3BDDABEDA0D1265D /* AppsStackPopover.swift */,
 				2F515CD3A73A66B5EBD5D3A8 /* AppWindows.swift */,
 				4C81618425D237E6DC8ABA66 /* BrandStorage.swift */,
 				F47E718FB244BF127255393D /* CalendarWidget.swift */,
@@ -734,6 +737,7 @@
 				E24DDE86978BF2CEB8B2086D /* AppSearchIndex.swift in Sources */,
 				7C3BBDD93BC21628CA64B304 /* AppWindows.swift in Sources */,
 				079E092303397E2FB0CE2C77 /* ApplicationsStack.swift in Sources */,
+				D9E44ECAB5358D03BDF89CB7 /* AppsStackPopover.swift in Sources */,
 				FFB1A39E9C8ECBB5ECAE81C0 /* BrandStorage.swift in Sources */,
 				B20989274C769B857ACF66BD /* CalendarWidget.swift in Sources */,
 				CC60A26FAC58F2260899B4DF /* Companion.swift in Sources */,

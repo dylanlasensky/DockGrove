@@ -13,11 +13,13 @@ extension DockModel {
 struct ApplicationsStackTile: View {
     @ObservedObject var model: DockModel
     @StateObject private var interaction = TileInteraction()
+    @StateObject private var anchor = StackAnchor()
     private static let folderIcon = NSWorkspace.shared.icon(forFile: "/Applications")
     var body: some View {
         VStack(spacing: 4) {
-            Button { AppsLauncher.shared.toggle(model: model) } label: {
+            Button { AppsStackPopover.shared.toggle(model: model, anchor: anchor.screenRect) } label: {
                 Image(nsImage: Self.folderIcon).resizable().interpolation(.high).frame(width: model.iconSize, height: model.iconSize)
+                    .background(StackAnchorView(anchor: anchor))
                     .scaleEffect(interaction.hovered ? 1.13 : 1).offset(y: interaction.hovered ? -4 : 0)
             }.buttonStyle(.plain).help("Applications").accessibilityLabel("Applications")
             Circle().fill(.clear).frame(width: 4, height: 4)
@@ -28,6 +30,12 @@ struct ApplicationsStackTile: View {
             Button("Open Applications Folder") { DockSystemEffect.handler(.open(URL(fileURLWithPath: "/Applications"))) }
             Button("Refresh Applications") { model.toolkit.scanApplications(force: true) }
             Button("Show in Finder") { DockSystemEffect.handler(.reveal([URL(fileURLWithPath: "/Applications")])) }
+            Divider()
+            Menu("View Content As") {
+                Picker("View Content As", selection: Binding(get: { model.applicationsStackStyle }, set: { model.applicationsStackStyle = $0 })) {
+                    ForEach(StackViewStyle.allCases) { Text($0.title).tag($0) }
+                }.pickerStyle(.inline).labelsHidden()
+            }
             Divider()
             Button("Remove from Dock") { model.showApplicationsStack = false }
         }
