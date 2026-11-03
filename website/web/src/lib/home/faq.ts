@@ -1,4 +1,4 @@
-/** FAQ entries for #questions, verbatim from the original index.html. */
+/** FAQ entries for #questions. Started from the original index.html; keep answers true to the current app. */
 
 export interface FaqItem {
   question: string;
@@ -24,7 +24,17 @@ export const FAQ: readonly FaqItem[] = [
   {
     question: "What do the AI widgets measure?",
     answer:
-      "Codex reports account allowances. Claude Code can supply supported allowance windows through its local status line. Gemini CLI reports session token activity from a JSON report, not remaining chat quota. OpenAI and Claude API widgets show organization tokens; Cursor reports team activity. Each connection identifies its data source and setup requirements.",
+      "Codex reports account allowances. Claude Code can supply supported allowance windows through its local status line. Gemini CLI reports session token activity from a JSON report, not remaining chat quota. OpenAI and Claude API widgets show organization tokens; Cursor reports team activity. Each connection identifies its data source and setup requirements. API spend is separate from a ChatGPT subscription allowance.",
+  },
+  {
+    question: "Which Macs get the notch shelf?",
+    answer:
+      "The notch shelf appears on Macs whose built-in display has a camera housing. DockGrove detects it from the display itself, and you can turn the shelf off in Appearance settings. Everything else works on any Mac running macOS 14 or later.",
+  },
+  {
+    question: "Where does my data go?",
+    answer:
+      "Notes and voice memos stay on your Mac. API keys stay in Keychain. Connect only the widgets you want, and grant permissions when a feature needs them.",
   },
   {
     question: "Is this ready for everyone?",
