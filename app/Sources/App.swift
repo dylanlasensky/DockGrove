@@ -216,6 +216,7 @@ final class DockPanel: NSPanel {
             for dock in self.workspace.docks { dock.model.appPickerWindow?.close() }
         }.store(in: &subscriptions)
         self.workspace.restore()
+        model.toolkit.startEnabledUsage()
         snapper = WindowSnapper(model: model)
         if !arguments.contains("--native-test") { snapper?.start() }
         notch = NotchController(model: model)

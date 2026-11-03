@@ -13,7 +13,7 @@ struct DockProfile: Codable, Identifiable {
     @Published var note: String { didSet { store.set(note, forKey: "quickNote") } }
     @Published var tasks: [TaskItem] { didSet { save(tasks, "tasks") } }
     @Published var files: [String] { didSet { store.set(files, forKey: "shelfFiles") } }
-    @Published var enabled: [String] { didSet { store.set(enabled, forKey: "widgets"); if !enabled.contains("system") { monitor.stop() }; if !enabled.contains("claudeCodeUsage") { claudeCodeUsage.stop() }; if !enabled.contains("geminiUsage") { geminiUsage.stop() } } }
+    @Published var enabled: [String] { didSet { store.set(enabled, forKey: "widgets"); if !enabled.contains("system") { monitor.stop() }; startEnabledUsage(); if !enabled.contains("claudeCodeUsage") { claudeCodeUsage.stop() }; if !enabled.contains("geminiUsage") { geminiUsage.stop() } } }
     @Published var profiles: [DockProfile] { didSet { save(profiles, "profiles") } }
     @Published var widgetShapes: [String: String] { didSet { store.set(widgetShapes, forKey: "widgetShapes") } }
     @Published var richWidgets: Bool { didSet { store.set(richWidgets, forKey: "richWidgets") } }
@@ -79,6 +79,8 @@ struct DockProfile: Codable, Identifiable {
     let appleMusic = MusicPlayer(name: "Apple Music", bundleID: "com.apple.Music")
     let windows = WindowManager()
     let claudeCodeUsage = LocalAIWidget(.claude)
+    /// Usage limits refresh while the widget is on any Dock page, not only while its card is on screen.
+    func startEnabledUsage() { if enabled.contains(ToolKind.claudeCodeUsage.rawValue) { claudeCodeUsage.start() } }
     let geminiUsage = LocalAIWidget(.gemini)
     let openaiUsage = AIUsageWidget(.openai)
     let anthropicUsage = AIUsageWidget(.anthropic)
