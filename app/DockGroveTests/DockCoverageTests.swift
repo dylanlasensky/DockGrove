@@ -772,6 +772,13 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         harness.press("Compact"); XCTAssertEqual(model.notchWidth, 640)
         harness.press("Wide"); XCTAssertEqual(model.notchWidth, 1000)
         harness.press("Balanced"); XCTAssertEqual(model.notchWidth, 760)
+        XCTAssertTrue(model.notchOpensOnHover && model.notchClosesOnExit)
+        let switches = IntegrationsUI.toggles(in: IntegrationsUI.body(NotchSettingsView(model: model, displayLookup: { "Built-in Display" })))
+        XCTAssertEqual(switches.count, 3, "Enable, open on hover, close on exit")
+        switches[1].isOn = false; XCTAssertFalse(model.notchOpensOnHover)
+        switches[2].isOn = false; XCTAssertFalse(model.notchClosesOnExit)
+        switches[1].isOn = true; switches[2].isOn = true
+        XCTAssertTrue(model.notchOpensOnHover && model.notchClosesOnExit)
         name = "Built-in Display"
         changes.send(Notification(name: NSApplication.didChangeScreenParametersNotification))
         harness.spin(0.1)

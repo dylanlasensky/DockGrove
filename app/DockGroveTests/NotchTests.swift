@@ -49,6 +49,11 @@ import SwiftUI
     precondition(!model.notchEnabled)
     model.notchEnabled = true
     precondition(DockModel(defaults: defaults).notchEnabled)
+    precondition(model.notchOpensOnHover && model.notchClosesOnExit)
+    model.notchOpensOnHover = false; model.notchClosesOnExit = false
+    let reloaded = DockModel(defaults: defaults)
+    precondition(!reloaded.notchOpensOnHover && !reloaded.notchClosesOnExit)
+    model.notchOpensOnHover = true; model.notchClosesOnExit = true
     precondition(model.notchWidgets.contains(.search) && model.notchWidgets.contains(.focus))
     precondition(!model.notchWidgets.contains(.spacer) && !model.notchWidgets.contains(.separator))
     precondition(model.notchWidgets.allSatisfy { model.canAccess($0) })
@@ -67,6 +72,16 @@ import SwiftUI
     _ = hover.update(now: 13, trigger: false, inside: false, expanded: false, interacting: false)
     _ = hover.update(now: 14, trigger: true, inside: true, expanded: false, interacting: false)
     precondition(hover.update(now: 14.2, trigger: true, inside: true, expanded: false, interacting: false) == true)
+    var clickOnly = NotchHoverState()
+    precondition(clickOnly.update(now: 0, trigger: true, inside: true, expanded: false, interacting: false, opensOnEnter: false) == nil)
+    precondition(clickOnly.update(now: 1, trigger: true, inside: true, expanded: false, interacting: false, opensOnEnter: false) == nil, "Hover must not open the notch when opening on hover is off")
+    precondition(clickOnly.update(now: 1.1, trigger: true, inside: true, expanded: false, interacting: false) == nil, "Turning hover back on restarts the dwell")
+    precondition(clickOnly.update(now: 1.3, trigger: true, inside: true, expanded: false, interacting: false) == true)
+    var staysOpen = NotchHoverState()
+    _ = staysOpen.update(now: 0, trigger: true, inside: true, expanded: false, interacting: false)
+    precondition(staysOpen.update(now: 0.2, trigger: true, inside: true, expanded: false, interacting: false) == true)
+    precondition(staysOpen.update(now: 5, trigger: false, inside: false, expanded: true, interacting: false, closesOnExit: false) == nil, "Leaving must not close the notch when closing on exit is off")
+    precondition(staysOpen.update(now: 5.1, trigger: false, inside: false, expanded: true, interacting: false) == false, "Turning close-on-exit back on closes a hover-opened notch")
     var dragHover = NotchHoverState()
     dragHover.beginDrag(now: 0, alreadyExpanded: false)
     precondition(dragHover.update(now: 1, trigger: false, inside: false, expanded: true, interacting: false) == false)
@@ -166,5 +181,5 @@ import SwiftUI
         }
     }
     controller.hide()
-    print("PASS: notch compatibility, invalid/missing geometry, negative display origins, camera-safe frames, preference persistence, disabled/suppressed cleanup, hover dwell/leave/click behavior, complete access-gated widget catalog, fixed-height horizontal layout, saved width and automatic Files tab selection, distinct tray/AirDrop native drop routing, custom review queue/dedup/removal/explicit handoff, file intake/deduplication/persistence/original preservation and workspace renders")
+    print("PASS: notch compatibility, invalid/missing geometry, negative display origins, camera-safe frames, preference persistence, disabled/suppressed cleanup, hover dwell/leave/click behavior, hover-open and close-on-exit options, complete access-gated widget catalog, fixed-height horizontal layout, saved width and automatic Files tab selection, distinct tray/AirDrop native drop routing, custom review queue/dedup/removal/explicit handoff, file intake/deduplication/persistence/original preservation and workspace renders")
 }

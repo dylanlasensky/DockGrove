@@ -39,14 +39,14 @@ struct NotchHoverState {
     mutating func manualChange(expanded: Bool) {
         started = nil; openedByHover = false; armed = expanded
     }
-    mutating func update(now: TimeInterval, trigger: Bool, inside: Bool, expanded: Bool, interacting: Bool) -> Bool? {
+    mutating func update(now: TimeInterval, trigger: Bool, inside: Bool, expanded: Bool, interacting: Bool, opensOnEnter: Bool = true, closesOnExit: Bool = true) -> Bool? {
         if !trigger { armed = true; started = nil }
         if expanded {
             if inside || interacting { lastInside = now }
-            else if openedByHover && now - lastInside >= 0.7 {
+            else if closesOnExit && openedByHover && now - lastInside >= 0.7 {
                 openedByHover = false; started = nil; return false
             }
-        } else if trigger && armed {
+        } else if opensOnEnter && trigger && armed {
             let begin = started ?? now
             started = begin
             if now - begin >= 0.18 {
@@ -209,7 +209,8 @@ extension DockModel {
         if let expand = hover.update(now: clock(),
                                      trigger: geometry.panelFrame(expanded: false).contains(mouse),
                                      inside: panel.frame.contains(mouse), expanded: expanded,
-                                     interacting: selectedWidget != nil || fileDragActive || choosingFiles || airDropService != nil) {
+                                     interacting: selectedWidget != nil || fileDragActive || choosingFiles || airDropService != nil,
+                                     opensOnEnter: model.notchOpensOnHover, closesOnExit: model.notchClosesOnExit) {
             setExpanded(expand, fromHover: true)
         }
         let frame = geometry.panelFrame(expanded: expanded, preferredWidth: model.notchWidth)
@@ -435,12 +436,16 @@ struct NotchSettingsView: View {
                         .background(.black, in: UnevenRoundedRectangle(bottomLeadingRadius: 14, bottomTrailingRadius: 14))
                 }.frame(width: 190, height: 85, alignment: .top).background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
                 VStack(alignment: .leading, spacing: 8) {
-                    Toggle("Enable notch access", isOn: $model.notchEnabled).disabled(displayName == nil && !model.notchEnabled)
+                    Toggle("Enable notch access", isOn: $model.notchEnabled).toggleStyle(.switch).disabled(displayName == nil && !model.notchEnabled)
                     Text(displayName.map { "Open your Dock widgets from the notch on " + $0 + "." } ?? "Connect a display with a built-in camera notch to use this feature.")
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     if model.notchEnabled && displayName != nil { Button("Open notch") { model.openNotchAction?() } }
                 }
             }
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle("Open when the pointer reaches the notch", isOn: $model.notchOpensOnHover)
+                Toggle("Close when the pointer leaves", isOn: $model.notchClosesOnExit)
+            }.toggleStyle(.switch).disabled(!model.notchEnabled)
             StudioNumberControl(title: "Notch width", value: $model.notchWidth, range: 600...1600, step: 20, unit: "pt")
             HStack(spacing: 12) {
                 Button("Compact") { model.notchWidth = 640 }

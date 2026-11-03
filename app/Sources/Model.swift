@@ -38,6 +38,8 @@ struct DockApp: Identifiable, Equatable {
             defaults.set(notchWidth, forKey: "notchWidth")
         }
     }
+    @Published var notchOpensOnHover: Bool { didSet { defaults.set(notchOpensOnHover, forKey: "notchOpensOnHover") } }
+    @Published var notchClosesOnExit: Bool { didSet { defaults.set(notchClosesOnExit, forKey: "notchClosesOnExit") } }
     var openNotchAction: (() -> Void)?
     @Published var toolbarHeight: Double { didSet { defaults.set(toolbarHeight, forKey: "toolbarHeight") } }
     @Published var fitToolbarToContent: Bool { didSet { defaults.set(fitToolbarToContent, forKey: "fitToolbarToContent") } }
@@ -119,6 +121,8 @@ struct DockApp: Identifiable, Equatable {
         widthFraction = min(1,max(0.35,defaults.object(forKey: "widthFraction") as? Double ?? 1))
         notchEnabled = defaults.bool(forKey: "notchEnabled")
         notchWidth = NotchGeometry.normalizedWidth(defaults.object(forKey: "notchWidth") as? Double ?? 760)
+        notchOpensOnHover = defaults.object(forKey: "notchOpensOnHover") as? Bool ?? true
+        notchClosesOnExit = defaults.object(forKey: "notchClosesOnExit") as? Bool ?? true
         let storedHeight = defaults.object(forKey: "toolbarHeight") as? Double ?? 92
         toolbarHeight = storedHeight.isFinite ? min(180, max(88, storedHeight)) : 92
         fitToolbarToContent = defaults.object(forKey: "fitToolbarToContent") as? Bool ?? true
