@@ -597,7 +597,7 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         XCTAssertNil(controller.selectedWidget, "App search opens the launcher instead of inline controls")
         XCTAssertNotNil(AppsLauncher.shared.panel)
         if case .present(let window)? = effects.last { XCTAssertTrue(window === AppsLauncher.shared.panel) } else { XCTFail("the launcher should present through effects") }
-        XCTAssertFalse(AppsLauncher.shared.pager.searchIsEmpty, "the widget's query pre-fills the search")
+        XCTAssertEqual(AppsLauncher.shared.chooser.query, "Fin", "the widget's query pre-fills the search")
         AppsLauncher.shared.close()
         model.toolkit.query = ""
         harness.press("Files notch tab")

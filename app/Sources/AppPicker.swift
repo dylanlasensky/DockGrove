@@ -1,7 +1,7 @@
 import AppKit
 
 extension DockModel {
-    /// Opens the full-screen Applications launcher; adding or replacing tiles needs an active licence.
+    /// Opens the floating Applications chooser; adding or replacing tiles needs an active licence.
     func showAppLauncher(_ mode: AppsLauncher.Mode = .launch, query: String = "") {
         guard mode == .launch || canUseFeatures else { settingsAction?(); return }
         systemError = nil
