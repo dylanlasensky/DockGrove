@@ -25,6 +25,9 @@ final class NotchDropHostingView: NSHostingView<NotchShelfView> {
         registerForDraggedTypes([.fileURL])
     }
     @available(*, unavailable) required init?(coder: NSCoder) { fatalError() }
+    /// The notch panel is non-activating and rarely key, so the very first click must reach the
+    /// resting notch's button; otherwise click-to-open (the only way in with hover off) needs two clicks.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         guard controller?.canAcceptFiles == true, sender.draggingPasteboard.canReadObject(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) else { return [] }
         controller?.beginFileDrag()

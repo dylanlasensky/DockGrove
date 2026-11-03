@@ -17,6 +17,10 @@ DockBehavior.swift: CarbonHotKeyRegistrar.unregisterAll() # UnregisterEventHotKe
 AppWindows.swift: static DockSystemEffect.perform(_:) # presents/activates windows, opens files/Finder, hides/quits apps — real system effects
 NativeStudioDragSource.swift: NativeStudioDragSource.SourceView.startSession(_:event:) # starts a real system drag session
 Notch.swift: static NotchController.runOpenPanel(message:) # modal NSOpenPanel
+Notch.swift: closure #2 in static NotchController.installEventMonitors(panel:handler:) # global mouse-down monitor; only clicks in other apps reach it
+Notch.swift: closure #1 in closure #2 in static NotchController.installEventMonitors(panel:handler:) # main-actor hop inside the global mouse-down monitor
+Notch.swift: closure #4 in static NotchController.installEventMonitors(panel:handler:) # global Esc monitor; only keys typed in other apps reach it
+Notch.swift: closure #1 in closure #4 in static NotchController.installEventMonitors(panel:handler:) # main-actor hop inside the global Esc monitor
 NotchWorkspace.swift: closure #3 in NotchTrayView.trayItem(_:) # SwiftUI onDrag item provider only runs inside a real system drag session
 ToolViews.swift: static WidgetEffect.perform(_:) # live system side effects (NSWorkspace open/launch, pasteboard, panels, login item, profile import/export); tests use the WidgetEffects seam
 ToolViews.swift: implicit closure #1 in variable initialization expression of static WidgetEffectsKey.defaultValue # production default pointing at WidgetEffect.perform; tests always inject a fake

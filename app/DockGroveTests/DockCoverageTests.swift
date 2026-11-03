@@ -384,6 +384,7 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         controller.compatibleDisplay = { DockFakeNotchScreen() }
         controller.mouseLocation = { CGPoint(x: -1, y: -1) }
         controller.chooseFiles = { _ in nil }
+        controller.installDismissMonitors = { _, _ in [] }
         addTeardownBlock { controller.hide() }
         return controller
     }
@@ -402,6 +403,43 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         _ = controller.compatibleDisplay()
         XCTAssertGreaterThan(controller.clock(), 0)
         _ = controller.mouseLocation()
+        // The real Esc/click-outside monitors only observe events; install them, feed them synthetic
+        // in-process events, then remove them.
+        // Blank off-screen stand-ins play the notch panel and another DockGrove window, so the
+        // synthetic events dispatched below reach no real control.
+        final class Sink: NSView {
+            override func mouseDown(with event: NSEvent) {}
+            override func rightMouseDown(with event: NSEvent) {}
+        }
+        func standIn() -> NSWindow {
+            let window = NSWindow(contentRect: NSRect(x: DockFakeNotchScreen.origin.x, y: DockFakeNotchScreen.origin.y, width: 80, height: 32), styleMask: .borderless, backing: .buffered, defer: false)
+            window.contentView = Sink(); window.orderFrontRegardless()
+            addTeardownBlock { window.orderOut(nil) }
+            return window
+        }
+        let notch = standIn(), other = standIn()
+        var seen: [NotchDismissEvent] = []
+        let monitors = controller.installDismissMonitors(notch) { seen.append($0); return $0 == .escape }
+        XCTAssertGreaterThanOrEqual(monitors.count, 2)
+        func key(_ code: UInt16, in window: NSWindow) -> NSEvent {
+            let text = code == 53 ? "\u{1b}" : "a"
+            return NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, characters: text, charactersIgnoringModifiers: text, isARepeat: false, keyCode: code)!
+        }
+        func click(_ type: NSEvent.EventType = .leftMouseDown, in window: NSWindow) -> NSEvent {
+            NSEvent.mouseEvent(with: type, location: NSPoint(x: 4, y: 4), modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+        }
+        NSApp.sendEvent(key(0, in: notch))
+        NSApp.sendEvent(key(53, in: other))
+        XCTAssertEqual(seen, [], "Only Esc typed in the notch panel is handled locally")
+        NSApp.sendEvent(key(53, in: notch))
+        XCTAssertEqual(seen, [.escape])
+        NSApp.sendEvent(click(in: notch))
+        XCTAssertEqual(seen.last, .pointerDown(insidePanel: true))
+        NSApp.sendEvent(click(.rightMouseDown, in: other))
+        XCTAssertEqual(seen.last, .pointerDown(insidePanel: false))
+        monitors.forEach(controller.removeDismissMonitor)
+        NSApp.sendEvent(click(in: other))
+        XCTAssertEqual(seen.count, 3, "Removed monitors stop observing")
         let screen = NSScreen.screens[0]
         _ = NotchController.fullscreen(on: screen)
         XCTAssertNotNil(BrandIcon.loadArtwork("DockGrove-icon"))
@@ -587,6 +625,11 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         XCTAssertTrue(controller.expanded)
         harness.spin(0.2)
         XCTAssertTrue(harness.has("Collapse notch"), "\(harness.labels())")
+        harness.press("Close notch")
+        XCTAssertFalse(controller.expanded, "Clicking the notch housing again closes the strip")
+        harness.press("Expand DockGrove notch")
+        XCTAssertTrue(controller.expanded)
+        harness.spin(0.2)
         harness.press("Open Focus from notch")
         XCTAssertEqual(controller.selectedWidget, .focus)
         harness.spin(0.3)
@@ -777,8 +820,20 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         XCTAssertEqual(switches.count, 3, "Enable, open on hover, close on exit")
         switches[1].isOn = false; XCTAssertFalse(model.notchOpensOnHover)
         switches[2].isOn = false; XCTAssertFalse(model.notchClosesOnExit)
+        XCTAssertEqual(NotchSettingsView.openCaption(onHover: false), "Click the notch to open it.")
+        XCTAssertTrue(NotchSettingsView.closeCaption(onExit: false).hasPrefix("Click outside or press Esc to close."))
+        func strings(_ value: Any, _ depth: Int = 0) -> [String] {
+            if let text = value as? String { return [text] }
+            let mirror = Mirror(reflecting: value)
+            guard depth < 40, mirror.displayStyle != .class else { return [] }
+            return mirror.children.flatMap { strings($0.value, depth + 1) }
+        }
+        func captions() -> [String] { strings(IntegrationsUI.body(NotchSettingsView(model: model, displayLookup: { "Built-in Display" }))) }
+        XCTAssertTrue(captions().contains(NotchSettingsView.openCaption(onHover: false)), "Explains how to open with hover off")
+        XCTAssertTrue(captions().contains(NotchSettingsView.closeCaption(onExit: false)), "Explains how to close with close-on-exit off")
         switches[1].isOn = true; switches[2].isOn = true
         XCTAssertTrue(model.notchOpensOnHover && model.notchClosesOnExit)
+        XCTAssertTrue(captions().contains(NotchSettingsView.openCaption(onHover: true)) && captions().contains(NotchSettingsView.closeCaption(onExit: true)))
         name = "Built-in Display"
         changes.send(Notification(name: NSApplication.didChangeScreenParametersNotification))
         harness.spin(0.1)

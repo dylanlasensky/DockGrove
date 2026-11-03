@@ -81,7 +81,31 @@ import SwiftUI
     _ = staysOpen.update(now: 0, trigger: true, inside: true, expanded: false, interacting: false)
     precondition(staysOpen.update(now: 0.2, trigger: true, inside: true, expanded: false, interacting: false) == true)
     precondition(staysOpen.update(now: 5, trigger: false, inside: false, expanded: true, interacting: false, closesOnExit: false) == nil, "Leaving must not close the notch when closing on exit is off")
-    precondition(staysOpen.update(now: 5.1, trigger: false, inside: false, expanded: true, interacting: false) == false, "Turning close-on-exit back on closes a hover-opened notch")
+    precondition(staysOpen.hoverOwned, "A hover-opened notch stays owned by the pointer while close-on-exit is off")
+    precondition(staysOpen.update(now: 5.1, trigger: false, inside: false, expanded: true, interacting: false) == nil, "Turning close-on-exit back on starts a fresh grace period")
+    precondition(staysOpen.update(now: 5.9, trigger: false, inside: false, expanded: true, interacting: false) == false, "…then closes the hover-opened notch")
+    precondition(!staysOpen.hoverOwned)
+    var midDwell = NotchHoverState()
+    precondition(midDwell.update(now: 0, trigger: true, inside: true, expanded: false, interacting: false) == nil)
+    precondition(midDwell.update(now: 0.1, trigger: true, inside: true, expanded: false, interacting: false, opensOnEnter: false) == nil)
+    precondition(midDwell.update(now: 5, trigger: true, inside: true, expanded: false, interacting: false) == nil, "Re-enabling hover mid-dwell must restart the dwell, not open at once")
+    precondition(midDwell.update(now: 5.2, trigger: true, inside: true, expanded: false, interacting: false) == true)
+    var hoverOffWhileOpen = NotchHoverState()
+    _ = hoverOffWhileOpen.update(now: 0, trigger: true, inside: true, expanded: false, interacting: false)
+    precondition(hoverOffWhileOpen.update(now: 0.2, trigger: true, inside: true, expanded: false, interacting: false) == true)
+    precondition(hoverOffWhileOpen.update(now: 2, trigger: false, inside: false, expanded: true, interacting: false, opensOnEnter: false) == false, "Turning hover off does not pin an already hover-opened notch")
+    var clickedOpen = NotchHoverState()
+    clickedOpen.manualChange(expanded: true)
+    precondition(!clickedOpen.hoverOwned)
+    precondition(clickedOpen.update(now: 100, trigger: false, inside: false, expanded: true, interacting: false) == nil, "A clicked-open notch never closes by leaving")
+    clickedOpen.manualChange(expanded: false)
+    precondition(clickedOpen.update(now: 101, trigger: true, inside: true, expanded: false, interacting: false) == nil)
+    precondition(clickedOpen.update(now: 103, trigger: true, inside: true, expanded: false, interacting: false) == nil, "Closing with the pointer on the notch disarms hover until it leaves")
+    var dragStays = NotchHoverState()
+    dragStays.beginDrag(now: 0, alreadyExpanded: false)
+    precondition(dragStays.update(now: 0.5, trigger: false, inside: true, expanded: true, interacting: false, closesOnExit: false) == nil)
+    precondition(dragStays.update(now: 1, trigger: false, inside: false, expanded: true, interacting: false, closesOnExit: false) == nil)
+    precondition(dragStays.update(now: 1.3, trigger: false, inside: false, expanded: true, interacting: false, closesOnExit: false) == false, "A drag-opened tray closes after the pointer leaves even with close-on-exit off")
     var dragHover = NotchHoverState()
     dragHover.beginDrag(now: 0, alreadyExpanded: false)
     precondition(dragHover.update(now: 1, trigger: false, inside: false, expanded: true, interacting: false) == false)
@@ -90,6 +114,7 @@ import SwiftUI
     precondition(dragHover.update(now: 4, trigger: false, inside: false, expanded: true, interacting: false) == nil)
     var airDropCalls: [[URL]] = []
     let controller = NotchController(model: model, airDropAction: { airDropCalls.append($0); return true })
+    controller.installDismissMonitors = { _, _ in [] }
     precondition(!controller.showingFiles)
     controller.beginFileDrag()
     precondition(controller.showingFiles == model.canAccess(.files))
@@ -146,6 +171,7 @@ import SwiftUI
         model.toolkit.files.removeAll()
         precondition(FileManager.default.fileExists(atPath: fixture.path), "Removing a tray shortcut must leave the original untouched")
     } else { precondition(!controller.acceptFiles([fixture]) && model.toolkit.files.isEmpty) }
+    runNotchOpenCloseTests(model: model, fixture: fixture)
 
     controller.setExpanded(true); controller.selectedWidget = .focus
     controller.update(suppressed: true)
@@ -181,5 +207,138 @@ import SwiftUI
         }
     }
     controller.hide()
-    print("PASS: notch compatibility, invalid/missing geometry, negative display origins, camera-safe frames, preference persistence, disabled/suppressed cleanup, hover dwell/leave/click behavior, hover-open and close-on-exit options, complete access-gated widget catalog, fixed-height horizontal layout, saved width and automatic Files tab selection, distinct tray/AirDrop native drop routing, custom review queue/dedup/removal/explicit handoff, file intake/deduplication/persistence/original preservation and workspace renders")
+    print("PASS: notch compatibility, invalid/missing geometry, negative display origins, camera-safe frames, preference persistence, disabled/suppressed cleanup, hover dwell/leave/click behavior, hover-open and close-on-exit options, click-to-open/close, Esc and click-outside dismissal, drag-opened tray closing, option changes while open, complete access-gated widget catalog, fixed-height horizontal layout, saved width and automatic Files tab selection, distinct tray/AirDrop native drop routing, custom review queue/dedup/removal/explicit handoff, file intake/deduplication/persistence/original preservation and workspace renders")
+}
+
+/// Drives a controller through every way the notch opens and closes, with the pointer, clock,
+/// display and Esc/click-outside monitors injected so no real event monitor or screen is touched.
+@MainActor private func runNotchOpenCloseTests(model: DockModel, fixture: URL) {
+    model.notchEnabled = true
+    let controller = NotchController(model: model)
+    var installs = 0, removals = 0
+    var monitor: ((NotchDismissEvent) -> Bool)?
+    controller.installDismissMonitors = { window, handler in
+        precondition(window === controller.panel)
+        installs += 1; monitor = handler; return ["local", "global"]
+    }
+    controller.removeDismissMonitor = { _ in removals += 1 }
+    controller.compatibleDisplay = { DockFakeNotchScreen() }
+    controller.chooseFiles = { _ in nil }
+    var now: TimeInterval = 1000
+    controller.clock = { now }
+    let away = CGPoint(x: -1, y: -1)
+    var mouse = away
+    controller.mouseLocation = { mouse }
+    func tick(_ seconds: TimeInterval = 0) { now += seconds; controller.update(suppressed: false, windows: []) }
+    func send(_ event: NotchDismissEvent) -> Bool { monitor?(event) ?? false }
+    defer { controller.hide(); model.notchOpensOnHover = true; model.notchClosesOnExit = true; model.toolkit.files.removeAll() }
+
+    tick()
+    guard let geometry = controller.geometry else { preconditionFailure("The fake notch display must be compatible") }
+    let onNotch = CGPoint(x: geometry.housing.midX, y: geometry.housing.midY)
+    precondition(controller.panel.isVisible && !controller.expanded && installs == 0, "Monitors are installed only while the notch is open")
+    precondition(!controller.panel.ignoresMouseEvents && controller.panel.styleMask.contains(.nonactivatingPanel), "The resting notch must take clicks without activating DockGrove")
+    precondition((controller.panel.contentView as? NotchDropHostingView)?.acceptsFirstMouse(for: nil) == true, "The first click on the non-key notch panel must reach its button")
+
+    // Opening on hover off: dwelling never opens; clicking the resting notch does.
+    model.notchOpensOnHover = false
+    mouse = onNotch; tick(); tick(1); tick(1)
+    precondition(!controller.expanded, "Hover must not open the notch when opening on hover is off")
+    controller.toggleFromClick()
+    precondition(controller.expanded && installs == 1)
+    tick(); mouse = away; tick(5); tick(5)
+    precondition(controller.expanded, "A clicked-open notch stays open when the pointer leaves")
+    precondition(!send(.pointerDown(insidePanel: true)) && controller.expanded, "Clicks on the notch's own controls never dismiss it")
+    mouse = CGPoint(x: controller.panel.frame.midX, y: controller.panel.frame.midY)
+    precondition(!send(.pointerDown(insidePanel: false)) && controller.expanded, "A click over the open panel is not outside it")
+    mouse = away
+    precondition(send(.pointerDown(insidePanel: false)) && !controller.expanded && removals == 2, "Clicking outside closes the notch and removes its monitors")
+    precondition(!send(.escape) && !send(.pointerDown(insidePanel: false)), "A closed notch ignores dismiss events")
+    controller.toggleFromClick(); controller.toggleFromClick()
+    precondition(!controller.expanded && installs == 2 && removals == 4, "Clicking the notch again closes it")
+    controller.toggleFromClick()
+    precondition(send(.escape) && !controller.expanded, "Esc closes the notch")
+
+    // Re-enabling hover: a close made with the pointer on the notch must not reopen it at once.
+    model.notchOpensOnHover = true
+    mouse = onNotch; controller.toggleFromClick(); tick(); controller.toggleFromClick(); tick(1); tick(1)
+    precondition(!controller.expanded, "Closing by click with the pointer on the notch disarms hover until the pointer leaves")
+    mouse = away; tick(); mouse = onNotch; tick()
+    precondition(!controller.expanded, "Hover dwells before opening")
+    tick(0.2)
+    precondition(controller.expanded, "Leaving and returning re-arms hover")
+
+    // Closing on exit off: a hover-opened notch stays until a click outside or Esc.
+    model.notchClosesOnExit = false
+    mouse = away; tick(5); tick(5)
+    precondition(controller.expanded, "Leaving must not close the notch when closing on exit is off")
+    precondition(send(.pointerDown(insidePanel: false)) && !controller.expanded, "Clicking outside closes a hover-opened notch")
+    tick(); mouse = onNotch; tick(); tick(0.2)
+    precondition(controller.expanded)
+    precondition(send(.escape) && !controller.expanded, "Esc closes a hover-opened notch")
+    tick(1); tick(1)
+    precondition(!controller.expanded, "Esc with the pointer on the notch must not let hover reopen it")
+
+    // Switching close-on-exit back on while open gives a fresh grace period, then closes.
+    mouse = away; tick(); mouse = onNotch; tick(); tick(0.2)
+    precondition(controller.expanded)
+    mouse = away; tick(10)
+    model.notchClosesOnExit = true; tick(0.1)
+    precondition(controller.expanded, "Re-enabling close-on-exit must not snap the notch shut")
+    tick(0.7)
+    precondition(!controller.expanded)
+
+    // Switching hover off while hover-opened: the notch still closes on exit and stays closed.
+    mouse = onNotch; tick(); tick(0.2)
+    precondition(controller.expanded)
+    model.notchOpensOnHover = false
+    mouse = away; tick(0.1); tick(0.8)
+    precondition(!controller.expanded)
+    mouse = onNotch; tick(); tick(1)
+    precondition(!controller.expanded)
+
+    // Re-enabling hover mid-dwell restarts the dwell.
+    model.notchOpensOnHover = true
+    mouse = away; tick(); mouse = onNotch; tick(); tick(0.1)
+    model.notchOpensOnHover = false; tick(1)
+    model.notchOpensOnHover = true; tick(0.01)
+    precondition(!controller.expanded, "Re-enabling hover must restart the dwell")
+    tick(0.2)
+    precondition(controller.expanded)
+    controller.setExpanded(false); mouse = away; tick()
+
+    // A drag-opened tray closes after a drop once the pointer leaves, even with close-on-exit off.
+    model.notchClosesOnExit = false
+    if model.canAccess(.files) {
+        mouse = onNotch; controller.beginFileDrag()
+        precondition(controller.expanded && controller.showingFiles && controller.fileDragActive)
+        mouse = away
+        precondition(!send(.pointerDown(insidePanel: false)) && !send(.escape) && controller.expanded, "Nothing dismisses the notch mid-drag")
+        mouse = onNotch
+        precondition(controller.acceptFiles([fixture]) && controller.expanded && !controller.fileDragActive)
+        tick(); mouse = away; tick(0.1)
+        precondition(controller.expanded, "The tray stays briefly so the drop result is visible")
+        tick(0.8)
+        precondition(!controller.expanded, "A drag-opened tray must not stay stuck open after a drop")
+        mouse = onNotch; controller.beginFileDrag(); controller.fileDragActive = false
+        mouse = away; tick(); tick(0.8)
+        precondition(!controller.expanded, "A drag that leaves without dropping closes the tray")
+        controller.toggleFromClick(); controller.beginFileDrag()
+        precondition(controller.acceptFiles([fixture]))
+        tick(); tick(5)
+        precondition(controller.expanded, "Dropping onto a clicked-open notch keeps it open")
+        precondition(send(.escape) && !controller.expanded)
+    }
+
+    // A file picker sits outside the notch, so its clicks and Esc must not close it.
+    controller.toggleFromClick()
+    var pickerSawClose = false
+    controller.chooseFiles = { _ in pickerSawClose = send(.pointerDown(insidePanel: false)) || send(.escape); return nil }
+    controller.addFiles()
+    precondition(!pickerSawClose && controller.expanded, "Clicks in the file picker must not dismiss the notch")
+
+    // The display going away (screen change, full screen, lock) closes the notch and removes the monitors.
+    controller.compatibleDisplay = { nil }
+    tick()
+    precondition(!controller.expanded && !controller.panel.isVisible && removals == installs * 2, "Hiding must remove every monitor it installed")
 }
