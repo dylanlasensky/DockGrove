@@ -178,11 +178,14 @@ struct StackCalloutShape: Shape {
     private var resignObserver: NSObjectProtocol?
     private var dismissedAt: Date?
 
-    /// The stack's contents: every catalogued application, by name.
-    static func contents(of kit: Toolkit) -> [(app: DockApp, name: String)] {
+    /// The stack's contents: every catalogued application, in the stack's "Sort by" order.
+    static func contents(of kit: Toolkit, sort: StackSortOrder = .name) -> [(app: DockApp, name: String)] {
         let index = kit.appIndex
-        return zip(index.apps, index.records).map { ($0, $1.name.isEmpty ? $0.name : $1.name) }
+        let byName = zip(index.apps, index.records).map { ($0, $1.name.isEmpty ? $0.name : $1.name) }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        guard sort != .name else { return byName }
+        let rank = Dictionary(sort.sorted(byName.map(\.0.url)).enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
+        return byName.sorted { (rank[$0.0.url] ?? .max) < (rank[$1.0.url] ?? .max) }
     }
 
     func toggle(model: DockModel, anchor: CGRect?) {
@@ -201,7 +204,7 @@ struct StackCalloutShape: Shape {
         self.model = model
         self.anchor = anchor
         model.toolkit.scanApplications()
-        let contents = Self.contents(of: model.toolkit)
+        let contents = Self.contents(of: model.toolkit, sort: model.stackSort)
         apps = contents.map(\.app)
         let edge = model.effectiveEdge
         // Fan needs to know the direction first; directions only differ on a floating Dock.

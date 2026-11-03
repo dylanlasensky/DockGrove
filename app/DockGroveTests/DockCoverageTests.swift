@@ -3,6 +3,7 @@ import AppKit
 import SwiftUI
 import Combine
 import UniformTypeIdentifiers
+import ServiceManagement
 @testable import DockGrove
 
 // MARK: - Harness
@@ -1053,8 +1054,29 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         harness.choose("Force Quit", inMenuAt: point)
         if case .forceTerminate(let running)? = effects.last { XCTAssertEqual(running.processIdentifier, getpid()) } else { XCTFail("Force Quit should go through effects") }
         DockSystemEffect.modifiers = { [] }
+        let options = harness.menuItem(["Options"], at: point)?.submenu
+        options?.update()
+        XCTAssertEqual(options?.items.map(\.title), ["Keep in Dock", "Open at Login", "Show in Finder"])
         harness.choose(["Options", "Show in Finder"], inMenuAt: point)
         if case .reveal(let urls)? = effects.last { XCTAssertEqual(urls, [app.url]) } else { XCTFail("Reveal should go through effects") }
+
+        // DockGrove's own Open at Login goes through SMAppService (faked), never System Events.
+        let savedRead = AppLoginItems.read, savedWrite = AppLoginItems.write
+        defer { AppLoginItems.read = savedRead; AppLoginItems.write = savedWrite }
+        var scripted: [(String, Bool)] = []
+        AppLoginItems.write = { url, on, done in scripted.append((url.lastPathComponent, on)); done(true) }
+        var loginRequests: [Bool] = [], loginState = SMAppService.Status.notRegistered
+        model.toolkit.utilities.setLoginItem = { on in loginRequests.append(on); loginState = on ? .enabled : .notRegistered }
+        model.toolkit.utilities.loginStatus = { loginState }
+        model.toolkit.utilities.loginEnabled = false
+        XCTAssertTrue(model.isDockGrove(app))
+        XCTAssertEqual(harness.menuItem(["Options", "Open at Login"], at: point)?.state, .off)
+        harness.choose(["Options", "Open at Login"], inMenuAt: point)
+        XCTAssertEqual(loginRequests, [true])
+        XCTAssertEqual(harness.menuItem(["Options", "Open at Login"], at: point)?.state, .on)
+        harness.choose(["Options", "Open at Login"], inMenuAt: point)
+        XCTAssertEqual(loginRequests, [true, false])
+        XCTAssertTrue(scripted.isEmpty)
 
         // Keep in Dock is a checkmark that pins and unpins.
         XCTAssertEqual(harness.menuItem(["Options", "Keep in Dock"], at: point)?.state, .on)
@@ -1062,6 +1084,9 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         XCTAssertFalse(model.apps.contains(app))
         harness.spin(0.1)
         XCTAssertEqual(harness.menuItem(["Options", "Keep in Dock"], at: point)?.state, .off)
+        // A running app that is not pinned has no tile slot to replace.
+        XCTAssertEqual(harness.menuTitles(at: point).filter { !$0.isEmpty && !["Report", "Bare"].contains($0) }, ["Options", "Show All Windows", hide, "Quit", "Undo app change", "Move left", "Move right"])
+        XCTAssertEqual(harness.menuItem(["Move left"], at: point)?.isEnabled, false)
         harness.choose("Undo app change", inMenuAt: point)
         XCTAssertTrue(model.apps.contains(app))
         harness.spin(0.1)
@@ -1086,8 +1111,45 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         let idleTile = DockHarness(AppTile(app: idle, model: model), size: CGSize(width: 80, height: 80))
         defer { idleTile.close() }
         XCTAssertEqual(idleTile.menuTitles(at: point).filter { !$0.isEmpty }, ["Options", "Open", "Replace app…", "Undo app change", "Move left", "Move right"])
+        let idleOptions = idleTile.menuItem(["Options"], at: point)?.submenu
+        idleOptions?.update()
+        XCTAssertEqual(idleOptions?.items.map(\.title), ["Remove from Dock", "Open at Login", "Show in Finder"])
         idleTile.choose("Open", inMenuAt: point)
         XCTAssertEqual(launched.last, idle.url)
+
+        // Another app's Open at Login goes through the System Events seam (faked) and is remembered.
+        XCTAssertFalse(model.isDockGrove(idle))
+        XCTAssertEqual(idleTile.menuItem(["Options", "Open at Login"], at: point)?.state, .off)
+        idleTile.choose(["Options", "Open at Login"], inMenuAt: point)
+        XCTAssertEqual(scripted.map(\.0), ["Idle.app"]); XCTAssertEqual(scripted.map(\.1), [true])
+        XCTAssertTrue(model.appLoginItems.contains(idle.id))
+        XCTAssertEqual(model.defaults.stringArray(forKey: "appLoginItems"), [idle.id])
+        idleTile.spin(0.1)
+        XCTAssertEqual(idleTile.menuItem(["Options", "Open at Login"], at: point)?.state, .on)
+        idleTile.choose(["Options", "Open at Login"], inMenuAt: point)
+        XCTAssertFalse(model.appLoginItems.contains(idle.id))
+        AppLoginItems.write = { _, _, done in done(false) }
+        idleTile.choose(["Options", "Open at Login"], inMenuAt: point)
+        XCTAssertFalse(model.appLoginItems.contains(idle.id))
+        XCTAssertTrue(model.systemError?.contains("System Events") == true)
+
+        // Once used, hovering re-reads login items, at most every half minute.
+        var reads = 0
+        AppLoginItems.read = { done in reads += 1; done(["/Applications/Elsewhere.app/", idle.url.path]) }
+        AppLoginItems.lastRead = nil
+        idleTile.hover(point, entering: true)
+        idleTile.hover(CGPoint(x: 200, y: 200), entering: false)
+        XCTAssertEqual(reads, 1)
+        XCTAssertEqual(model.appLoginItems, ["/Applications/Elsewhere.app", idle.id])
+        model.refreshLoginItems()
+        XCTAssertEqual(reads, 1, "throttled")
+        AppLoginItems.read = { done in reads += 1; done(nil) }
+        model.refreshLoginItems(now: Date().addingTimeInterval(60))
+        XCTAssertEqual(reads, 2)
+        XCTAssertEqual(model.appLoginItems.count, 2, "a refused read keeps the cache")
+        model.defaults.removeObject(forKey: "appLoginItems")
+        model.refreshLoginItems(now: Date().addingTimeInterval(120))
+        XCTAssertEqual(reads, 2, "never read before Open at Login was used")
         idleTile.choose(["Options", "Remove from Dock"], inMenuAt: point)
         XCTAssertFalse(model.apps.contains(idle))
     }
@@ -1155,6 +1217,39 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         XCTAssertTrue(model.codexConnectionSelected)
         harness.choose("Remove from Dock", inMenuAt: point)
         XCTAssertFalse(model.showUsageCard)
+    }
+
+    func testSpacerSeparatorAndClockMenus() throws {
+        let model = dockModel(widgets: ["spacer", "separator"])
+        model.showUsageCard = false
+        model.widthFraction = 1 // one page, so the clock is on screen
+        let dock = DockHarness(DockView(model: model, screenLookup: { _ in nil }), size: CGSize(width: 1500, height: 160))
+        dock.resize(dock.host.fittingSize)
+        dock.spin(0.2)
+        func point(_ id: String) -> CGPoint? { model.tileFrames[id].map { dock.windowPoint(CGPoint(x: $0.midX, y: $0.midY)) } }
+        for id in ["spacer", "separator"] {
+            guard let at = point(id) else { XCTFail("No \(id) tile in \(model.tileFrames.keys)"); continue }
+            XCTAssertEqual(dock.menuTitles(at: at), ["Remove from Dock", "", "Move earlier", "Move later"], id)
+        }
+        if let clock = point("clock") {
+            XCTAssertEqual(dock.menuTitles(at: clock), ["Date & Time Settings…", "", "Remove from Dock"])
+            dock.choose("Date & Time Settings…", inMenuAt: clock)
+            if case .open(let url)? = effects.last { XCTAssertEqual(url, DockClockMenu.settingsURL) } else { XCTFail("Clock settings should open through effects") }
+            dock.choose("Remove from Dock", inMenuAt: clock)
+            XCTAssertFalse(model.showClock)
+        } else { XCTFail("No clock tile") }
+        dock.close()
+
+        let harness = DockHarness(Color.clear.frame(width: 120, height: 80).contentShape(Rectangle()).contextMenu { DockSpacerMenu(kind: .separator, kit: model.toolkit) }, size: CGSize(width: 120, height: 80))
+        defer { harness.close() }
+        let point = CGPoint(x: 60, y: 40)
+        XCTAssertEqual(harness.menuTitles(at: point), ["Remove from Dock", "", "Move earlier", "Move later"])
+        harness.choose("Move later", inMenuAt: point)
+        XCTAssertEqual(model.toolkit.enabled, ["spacer", "separator"])
+        harness.choose("Move earlier", inMenuAt: point)
+        XCTAssertEqual(model.toolkit.enabled, ["separator", "spacer"])
+        harness.choose("Remove from Dock", inMenuAt: point)
+        XCTAssertEqual(model.toolkit.enabled, ["spacer"])
     }
 
     func testAcceptFilesAndAppWindows() throws {

@@ -18,7 +18,7 @@ struct ApplicationsStackTile: View {
     var body: some View {
         VStack(spacing: 4) {
             Button { AppsStackPopover.shared.toggle(model: model, anchor: anchor.screenRect) } label: {
-                Image(nsImage: Self.folderIcon).resizable().interpolation(.high).frame(width: model.iconSize, height: model.iconSize)
+                face.frame(width: model.iconSize, height: model.iconSize)
                     .background(StackAnchorView(anchor: anchor))
                     .scaleEffect(interaction.hovered ? 1.13 : 1).offset(y: interaction.hovered ? -4 : 0)
             }.buttonStyle(.plain).help("Applications").accessibilityLabel("Applications")
@@ -26,19 +26,65 @@ struct ApplicationsStackTile: View {
         }
         .onHover { interaction.hovered = $0 }
         .animation(.spring(response: 0.23, dampingFraction: 0.65), value: interaction.hovered)
-        .contextMenu {
-            Button("Open Applications Folder") { DockSystemEffect.handler(.open(URL(fileURLWithPath: "/Applications"))) }
-            Button("Refresh Applications") { model.toolkit.scanApplications(force: true) }
-            Button("Show in Finder") { DockSystemEffect.handler(.reveal([URL(fileURLWithPath: "/Applications")])) }
-            Divider()
-            Menu("View Content As") {
-                Picker("View Content As", selection: Binding(get: { model.applicationsStackStyle }, set: { model.applicationsStackStyle = $0 })) {
-                    ForEach(StackViewStyle.allCases) { Text($0.title).tag($0) }
-                }.pickerStyle(.inline).labelsHidden()
+        .contextMenu { ApplicationsStackMenu(model: model) }
+    }
+    /// Display as Folder shows the folder icon; Stack piles up the first apps in the chosen sort order.
+    @ViewBuilder private var face: some View {
+        let top = model.stackDisplay == .stack ? model.stackPreview(count: 3) : []
+        if top.isEmpty {
+            Image(nsImage: Self.folderIcon).resizable().interpolation(.high)
+        } else {
+            ZStack {
+                ForEach(Array(top.enumerated().reversed()), id: \.element.id) { index, app in
+                    Image(nsImage: app.icon).resizable().interpolation(.high)
+                        .scaleEffect(1 - CGFloat(index) * 0.08).offset(y: CGFloat(index) * -3)
+                }
             }
-            Divider()
-            Button("Remove from Dock") { model.showApplicationsStack = false }
         }
+    }
+}
+
+extension DockModel {
+    /// The stack's first apps in `stackSort` order, cached until the order or the app index changes.
+    func stackPreview(count: Int) -> [DockApp] {
+        let apps = toolkit.appIndex.apps
+        let key = [stackSort.rawValue, String(count), String(apps.count), String(describing: apps.first?.id), String(describing: apps.last?.id)].joined(separator: "|")
+        if let cache = stackPreviewCache, cache.key == key { return cache.apps }
+        let top = stackSort.sorted(apps.map(\.url)).prefix(count).map(DockApp.init(url:))
+        stackPreviewCache = (key, top)
+        return top
+    }
+}
+
+/// The Mac Dock's folder menu for the Applications stack, then DockGrove's extras.
+struct ApplicationsStackMenu: View {
+    @ObservedObject var model: DockModel
+    private static let folder = URL(fileURLWithPath: "/Applications")
+    var body: some View {
+        Menu("Sort by") {
+            ForEach(StackSortOrder.allCases) { order in
+                Toggle(order.title, isOn: Binding(get: { model.stackSort == order }, set: { _ in model.stackSort = order }))
+            }
+        }
+        Menu("Display as") {
+            ForEach(StackDisplayStyle.allCases) { style in
+                Toggle(style.title, isOn: Binding(get: { model.stackDisplay == style }, set: { _ in model.stackDisplay = style }))
+            }
+        }
+        Menu("View content as") {
+            ForEach(StackViewStyle.allCases) { style in
+                Toggle(style.title, isOn: Binding(get: { model.applicationsStackStyle == style }, set: { _ in model.applicationsStackStyle = style }))
+            }
+        }
+        Divider()
+        Menu("Options") {
+            Button("Remove from Dock") { model.showApplicationsStack = false }
+            Button("Show in Finder") { DockSystemEffect.handler(.reveal([Self.folder])) }
+        }
+        Divider()
+        Button("Open \u{201C}Applications\u{201D}") { DockSystemEffect.handler(.open(Self.folder)) }
+        Divider()
+        Button("Refresh Applications") { model.toolkit.scanApplications(force: true) }
     }
 }
 

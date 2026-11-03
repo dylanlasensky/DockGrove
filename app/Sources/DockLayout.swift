@@ -41,3 +41,42 @@ enum DockEntry: Identifiable {
             default: return 174 } }
     }
 }
+
+/// A Dock stack's "Sort by" choice, as the Mac Dock offers it for folders. Persisted as `DockModel.stackSort`.
+enum StackSortOrder: String, CaseIterable, Identifiable {
+    case name = "Name", dateAdded = "Date Added", dateModified = "Date Modified", dateCreated = "Date Created", kind = "Kind"
+    var id: String { rawValue }
+    var title: String { rawValue }
+    /// Names sort A–Z; dates sort newest first; Kind groups by type description, then by name.
+    func sorted(_ urls: [URL]) -> [URL] {
+        // Each item's sort keys are read once, not on every comparison.
+        let keyed = urls.map { (url: $0, kind: kind(of: $0), date: date(of: $0)) }
+        return keyed.sorted { a, b in
+            if a.kind != b.kind { return a.kind.localizedStandardCompare(b.kind) == .orderedAscending }
+            if a.date != b.date { return a.date > b.date }
+            return a.url.lastPathComponent.localizedStandardCompare(b.url.lastPathComponent) == .orderedAscending
+        }.map(\.url)
+    }
+    private func kind(of url: URL) -> String {
+        guard self == .kind else { return "" }
+        return (try? url.resourceValues(forKeys: [.localizedTypeDescriptionKey]))?.localizedTypeDescription ?? ""
+    }
+    private func date(of url: URL) -> Date {
+        let values: URLResourceValues?
+        switch self {
+        case .name, .kind: return .distantPast
+        case .dateAdded: values = try? url.resourceValues(forKeys: [.addedToDirectoryDateKey])
+        case .dateCreated: values = try? url.resourceValues(forKeys: [.creationDateKey])
+        case .dateModified: values = try? url.resourceValues(forKeys: [.contentModificationDateKey])
+        }
+        return (self == .dateAdded ? values?.addedToDirectoryDate : self == .dateCreated ? values?.creationDate : values?.contentModificationDate) ?? .distantPast
+    }
+}
+
+/// A Dock stack's "Display as" choice: the folder's own icon, or its first items piled up. Persisted as `DockModel.stackDisplay`.
+enum StackDisplayStyle: String, CaseIterable, Identifiable {
+    case folder = "Folder", stack = "Stack"
+    var id: String { rawValue }
+    var title: String { rawValue }
+}
+

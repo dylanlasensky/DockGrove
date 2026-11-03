@@ -50,6 +50,12 @@ struct DockApp: Identifiable, Equatable {
     @Published var elevation: Double { didSet { defaults.set(elevation, forKey: "elevation") } }
     @Published var albumColors: Bool { didSet { defaults.set(albumColors, forKey: "albumColors") } }
     @Published var showUsageCard: Bool { didSet { defaults.set(showUsageCard, forKey: "showUsageCard") } }
+    /// The Applications stack's Mac Dock options: Sort by, Display as and View content as.
+    @Published var stackSort: StackSortOrder { didSet { defaults.set(stackSort.rawValue, forKey: "stackSort") } }
+    @Published var stackDisplay: StackDisplayStyle { didSet { defaults.set(stackDisplay.rawValue, forKey: "stackDisplay") } }
+    /// Paths of other apps that open at login, as last read from System Events; persisted so menus show it without a script.
+    @Published var appLoginItems: Set<String> { didSet { defaults.set(appLoginItems.sorted(), forKey: "appLoginItems") } }
+    var stackPreviewCache: (key: String, apps: [DockApp])?
     @Published var snappingEnabled: Bool { didSet { defaults.set(snappingEnabled, forKey: "snappingEnabled") } }
     @Published var snapRequiresOption: Bool { didSet { defaults.set(snapRequiresOption, forKey: "snapRequiresOption") } }
     @Published var studioHistory: [DockStudioSnapshot] = []
@@ -135,6 +141,9 @@ struct DockApp: Identifiable, Equatable {
         elevation = min(1,max(0,defaults.object(forKey: "elevation") as? Double ?? 0.5))
         albumColors = defaults.object(forKey: "albumColors") as? Bool ?? true
         showUsageCard = defaults.object(forKey: "showUsageCard") as? Bool ?? true
+        stackSort = StackSortOrder(rawValue: defaults.string(forKey: "stackSort") ?? "") ?? .name
+        stackDisplay = StackDisplayStyle(rawValue: defaults.string(forKey: "stackDisplay") ?? "") ?? .folder
+        appLoginItems = Set(defaults.stringArray(forKey: "appLoginItems") ?? [])
         snappingEnabled = defaults.bool(forKey: "snappingEnabled")
         snapRequiresOption = defaults.object(forKey: "snapRequiresOption") as? Bool ?? true
         visible = defaults.object(forKey: "dockVisible") as? Bool ?? true

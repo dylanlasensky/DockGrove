@@ -3,6 +3,11 @@ import AppKit
 import UniformTypeIdentifiers
 import EventKit
 
+extension ToolKind {
+    /// Widgets whose settings live on the Connections page rather than the general Settings window.
+    var hasConnectionSettings: Bool { [.appleMusic, .spotify, .calendar, .googleCalendar, .reminders].contains(self) || StudioAIProvider(kind: self) != nil }
+}
+
 /// Work a widget view hands to the system or to a model's system-facing method: Finder, browser,
 /// pasteboard, open and save panels, login items, app launches, and network or automation refreshes.
 /// Views send these through `\.widgetEffects` so tests can observe them without touching the Mac.
@@ -92,11 +97,14 @@ struct ToolTile: View {
                     Button(shape.title) { model.setWidgetShape(shape, for: kind) }
                 }
             }
+            Button("Widget Settings…") {
+                if kind.hasConnectionSettings { model.openConnectionSettings(kind) } else { model.settingsAction?() }
+            }
+            Divider()
+            Button("Remove from Dock") { kit.toggle(kind, false) }
             Divider()
             Button("Move earlier") { kit.moveWidget(kind, by: -1) }
             Button("Move later") { kit.moveWidget(kind, by: 1) }
-            Divider()
-            Button("Remove from Dock") { kit.toggle(kind, false) }
         }
         .popover(isPresented: $interaction.expanded, arrowEdge: kit.edge == "Top" ? .bottom : .top) {
             VStack(alignment: .leading, spacing: 15) {
