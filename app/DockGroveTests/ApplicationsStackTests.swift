@@ -273,9 +273,15 @@ import SwiftUI
         model.showAppPicker(replacing: sample) // reopening while open swaps in a fresh panel
         XCTAssertNotNil(launcher.panel)
         XCTAssertFalse(launcher.panel === first)
+        XCTAssertEqual(launcher.mode, .replace(sample))
+        launcher.closeEditing()
+        XCTAssertNil(launcher.panel, "losing the licence closes a replace launcher")
         model.showAppLauncher(query: "Sample")
         XCTAssertFalse(launcher.chooser.searchIsEmpty, "a widget query pre-fills the search")
+        launcher.closeEditing()
+        XCTAssertNotNil(launcher.panel, "a plain launch launcher stays open without a licence")
         launcher.close()
+        XCTAssertEqual(launcher.mode, .launch)
         XCTAssertEqual(AppsLauncher.Mode.launch.title, nil)
         XCTAssertEqual(AppsLauncher.Mode.replace(sample).title, "Replace " + sample.name)
     }

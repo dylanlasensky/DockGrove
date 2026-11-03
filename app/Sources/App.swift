@@ -131,7 +131,7 @@ final class DockPanel: NSPanel {
             guard let self, !self.featuresAllowed(self.model) else { return }
             if self.model.replacingDock { self.setReplacement(false) }
             self.snapper?.cancel()
-            self.model.appPickerWindow?.close(); self.workspaceWindow?.close()
+            self.model.appPickerWindow?.close(); self.workspaceWindow?.close(); AppsLauncher.shared.closeEditing()
             for dock in self.workspace.docks { dock.model.appPickerWindow?.close() }
         }.store(in: &subscriptions)
         self.workspace.restore()
