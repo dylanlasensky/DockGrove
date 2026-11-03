@@ -103,7 +103,7 @@ struct SettingsView<Store: PurchaseStore>: View {
                     Label(purchases.tier.title, systemImage: purchases.tier == .free ? "leaf" : "checkmark.seal.fill").font(.caption.weight(.medium)).foregroundStyle(.secondary)
                 }
                 if !model.isAdditionalDock { Button("Manage docks…") { model.manageDocksAction?() }.buttonStyle(.link) }
-                Button("Restore Apple Dock") { model.changeDockAction?(false) }.buttonStyle(.link)
+                Button("Restore Apple Dock…") { model.restoreAppleDockAction?() }.buttonStyle(.link)
                 Button("Quit DockGrove") { terminate(nil) }.buttonStyle(.link)
                 Text("Thoughtfully at hand.").font(.system(size: 10)).foregroundStyle(.tertiary).padding(.top, 10)
             }
@@ -377,7 +377,10 @@ struct StudioBehavior: View {
                 Toggle(access.canAccessAI(model) ? "Show Codex usage tile" : "Codex usage · Full Access", isOn: $model.showUsageCard).disabled(!access.canAccessAI(model))
                 if !model.isAdditionalDock {
                     Toggle("Use DockGrove as my Dock", isOn: Binding(get: { model.replacingDock }, set: { model.changeDockAction?($0) }))
-                    Text("Apple’s Dock returns when you turn this off or quit DockGrove.").font(.caption).foregroundStyle(.secondary)
+                    Text("Turning this off, quitting DockGrove or Restore Apple Dock… brings back Apple’s Dock with your original settings.").font(.caption).foregroundStyle(.secondary)
+                    Button("Restore Apple Dock…") { model.restoreAppleDockAction?() }
+                        .disabled(!model.canRestoreAppleDock)
+                        .help("Put back your original Dock settings and relaunch Apple’s Dock")
                 }
                 Toggle("Show DockGrove", isOn: Binding(get: { model.visible }, set: { model.visible = $0; model.visibilityAction?() }))
                 if let error = model.systemError { Text(error).font(.caption).foregroundStyle(.orange) }

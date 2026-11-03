@@ -26,6 +26,9 @@ struct DockApp: Identifiable, Equatable {
     @Published var fetching = false
     @Published var refreshed: Date?
     @Published var replacingDock = false
+    /// Saved Dock originals exist or Apple's Dock still looks hidden by DockGrove.
+    @Published var appleDockModified = false
+    var canRestoreAppleDock: Bool { replacingDock || appleDockModified }
     @Published var visible = true { didSet { defaults.set(visible, forKey: "dockVisible") } }
     @Published var dockName: String { didSet { defaults.set(String(dockName.prefix(40)), forKey: "dockName") } }
     @Published var theme: String { didSet { defaults.set(theme, forKey: "theme") } }
@@ -86,6 +89,8 @@ struct DockApp: Identifiable, Equatable {
     var settingsAction: (() -> Void)?
     var closeSettingsAction: (() -> Void)?
     var changeDockAction: ((Bool) -> Void)?
+    /// Asks for confirmation, then stops replacing the Dock and puts back the user's original settings.
+    var restoreAppleDockAction: (() -> Void)?
     var visibilityAction: (() -> Void)?
     /// System side effects, replaceable so tests never launch apps, show panels or run the Codex CLI.
     var openApplication: (URL) -> Void = DockModel.launch

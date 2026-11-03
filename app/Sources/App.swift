@@ -76,6 +76,7 @@ final class DockPanel: NSPanel {
         if purchasesEnabled { Task { await PurchaseManager.shared.load() } }
         model = DockModel(defaults: preferences)
         do { if !testing { try SystemDock.restore() } } catch { model.systemError = "Could not restore the original Dock setting. Use Restore Apple Dock to retry." }
+        refreshAppleDockState()
         workspace = DockWorkspace(defaults: model.defaults, testing: testing)
         workspace.configure = { [weak self] dock in self?.configureExtra(dock) }
         model.manageDocksAction = { [weak self] in self?.showDocks() }
@@ -83,6 +84,7 @@ final class DockPanel: NSPanel {
         model.settingsAction = { [weak self] in self?.showSettings() }
         model.closeSettingsAction = { [weak self] in self?.settings.orderOut(nil) }
         model.changeDockAction = { [weak self] enabled in self?.setReplacement(enabled) }
+        model.restoreAppleDockAction = { [weak self] in self?.confirmRestoreAppleDock() }
         model.visibilityAction = { [weak self] in self?.updateVisibility() }
         panel = DockPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isFloatingPanel = true; panel.level = .floating; panel.isOpaque = false
@@ -141,6 +143,8 @@ final class DockPanel: NSPanel {
     func configureExtra(_ dock: ExtraDock) {
         dock.model.manageDocksAction = { [weak self] in self?.showDocks() }
         dock.model.visibilityAction = { [weak self] in self?.checkAutoHide() }
+        // Every settings window's sidebar link reaches the one Apple Dock restore.
+        dock.model.restoreAppleDockAction = { [weak self] in self?.confirmRestoreAppleDock() }
         dock.model.toolkit.windows.usableFrameProvider = { [weak self] screen in self?.usableFrame(screen) ?? WindowManager.usableFrame(screen:screen,dockHeight:0) }
         dock.model.objectWillChange.debounce(for:.milliseconds(60),scheduler:RunLoop.main).sink { [weak self, weak dock] _ in guard let dock else { return }; self?.layout(dock.panel, model:dock.model); self?.checkAutoHide() }.store(in:&dock.subscriptions)
         for publisher in [dock.model.toolkit.objectWillChange,dock.model.toolkit.utilities.objectWillChange,dock.model.toolkit.github.objectWillChange] {
@@ -225,7 +229,22 @@ final class DockPanel: NSPanel {
     @objc func toggleVisibility() { model.visible.toggle(); updateVisibility() }
     func updateVisibility() { checkAutoHide() }
     @objc func refresh() { model.refreshUsage() }
-    @objc func restore() { setReplacement(false) }
+    /// Status-menu item: works whether or not DockGrove is replacing the Dock right now.
+    @objc func restore() {
+        setReplacement(false)
+        guard let error = model?.systemError, model.appleDockModified else { return }
+        let alert = NSAlert(); alert.messageText = "Apple Dock could not be restored"
+        alert.informativeText = error + " You can also run DockGrove with --restore-dock, or turn off auto-hide in System Settings > Desktop & Dock."
+        _ = runAlert(alert)
+    }
+    func confirmRestoreAppleDock() {
+        let alert = NSAlert(); alert.messageText = "Restore Apple’s Dock?"
+        alert.informativeText = "DockGrove stops replacing the Dock, puts back your original Dock settings and relaunches Apple’s Dock."
+        alert.addButton(withTitle: "Restore Apple Dock"); alert.addButton(withTitle: "Cancel")
+        if runAlert(alert) == .alertFirstButtonReturn { restore() }
+    }
+    /// Re-reads whether anything is left to restore; test modes never look at the Dock.
+    func refreshAppleDockState() { model?.appleDockModified = !testing && SystemDock.needsRestore() }
     @objc func quit() { terminate(nil) }
     func setReplacement(_ enabled: Bool) {
         guard !enabled || featuresAllowed(model) else { model.systemError = "Activate DockGrove before using Dock replacement."; return }
@@ -237,6 +256,7 @@ final class DockPanel: NSPanel {
             layoutDock(); checkAutoHide()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in self?.layoutDock() }
         } catch { model.systemError = "Could not change Apple's Dock setting. Your saved original setting is retained for recovery." }
+        refreshAppleDockState()
     }
     func applicationWillTerminate(_ notification: Notification) {
         model?.codexSignIn.cancel()
