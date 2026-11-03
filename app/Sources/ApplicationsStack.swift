@@ -54,6 +54,8 @@ struct ApplicationsStackTile: View {
         override func keyDown(with event: NSEvent) { if !AppsLauncher.shared.pager.handleKey(event) { super.keyDown(with: event) } }
     }
     private(set) var panel: NSPanel?
+    /// The open launcher's mode; add and replace edit the Dock, so they close when the licence lapses.
+    private(set) var mode: Mode = .launch
     /// Brings the launcher on screen through the system-effect seam, so tests never cover the real desktop.
     var present: (NSPanel) -> Void = { DockSystemEffect.handler(.present($0)) }
     private var previousApplication: NSRunningApplication?
@@ -67,6 +69,7 @@ struct ApplicationsStackTile: View {
         let previous = panel == nil ? NSWorkspace.shared.frontmostApplication : previousApplication
         close()
         previousApplication = previous
+        self.mode = mode
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main ?? NSScreen.screens[0]
         let panel = Panel(contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = .popUpMenu; panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = false
@@ -91,9 +94,12 @@ struct ApplicationsStackTile: View {
         model.toolkit.scanApplications(force: true)
     }
 
+    /// Closes an add or replace launcher, which needs an active licence; a plain launch launcher stays open.
+    func closeEditing() { if mode != .launch { close() } }
+
     func close(restorePrevious: Bool = false) {
         guard let panel else { return }
-        self.panel = nil
+        self.panel = nil; mode = .launch
         if restorePrevious, let previousApplication, previousApplication.processIdentifier != ProcessInfo.processInfo.processIdentifier { previousApplication.activate() }
         previousApplication = nil
         monitors.forEach(NSEvent.removeMonitor); monitors = []
