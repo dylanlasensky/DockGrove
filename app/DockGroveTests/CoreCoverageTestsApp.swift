@@ -89,6 +89,65 @@ private final class CoreOtherInstance: NSRunningApplication {
         delegate.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification))
     }
 
+    /// Records registrations instead of installing a real system-wide hot key.
+    private final class FakeHotKeys: HotKeyRegistrar {
+        var registered: [HotKey] = []
+        var handlers: [@MainActor () -> Void] = []
+        var unregistered = 0
+        func register(_ key: HotKey, handler: @escaping @MainActor () -> Void) -> Bool { registered.append(key); handlers.append(handler); return true }
+        func unregisterAll() { unregistered += 1; registered = []; handlers = [] }
+    }
+
+    func testHidingShortcutAndStatusMenu() throws {
+        let preferences = suite()
+        let delegate = delegate(preferences: preferences)
+        XCTAssertTrue(delegate.hotKeys is InertHotKeyRegistrar, "XCTest launches never register a real hot key")
+        let hotKeys = FakeHotKeys()
+        delegate.hotKeys = hotKeys
+        launch(delegate)
+        let model = try XCTUnwrap(delegate.model)
+        XCTAssertEqual(hotKeys.registered, [.toggleHiding], "launch registers ⌥⌘D")
+        XCTAssertEqual(HotKey.toggleHiding, HotKey(keyCode: 2, modifiers: UInt32(256 | 2048)), "D with Command and Option")
+
+        let items = try XCTUnwrap(delegate.status.menu?.items)
+        XCTAssertEqual(items.map(\.title), ["Settings…", "Turn Hiding On", "Hide DockGrove", "Refresh usage", "Restore Apple Dock", "Quit DockGrove"])
+        let hiding = items[1], visibility = items[2]
+        XCTAssertEqual(hiding.keyEquivalent, "d"); XCTAssertEqual(hiding.keyEquivalentModifierMask, [.option, .command], "⌥⌘D shown in the menu")
+        XCTAssertEqual(visibility.keyEquivalent, "d"); XCTAssertEqual(visibility.keyEquivalentModifierMask, [.command])
+
+        // The hot key handler toggles automatic hiding, which persists.
+        hotKeys.handlers[0]()
+        XCTAssertTrue(model.toolkit.autoHide, "⌥⌘D turns hiding on")
+        XCTAssertTrue(preferences.bool(forKey: "autoHide"), "hiding persists")
+        XCTAssertTrue(delegate.validateMenuItem(hiding))
+        XCTAssertEqual(hiding.title, "Turn Hiding Off")
+        hotKeys.handlers[0]()
+        XCTAssertFalse(model.toolkit.autoHide, "⌥⌘D turns hiding off")
+        XCTAssertFalse(preferences.bool(forKey: "autoHide"))
+
+        // The status menu items act through the same paths.
+        NSApp.sendAction(try XCTUnwrap(hiding.action), to: hiding.target, from: hiding)
+        XCTAssertTrue(model.toolkit.autoHide, "status menu turns hiding on")
+        NSApp.sendAction(try XCTUnwrap(visibility.action), to: visibility.target, from: visibility)
+        XCTAssertFalse(model.visible, "status menu hides DockGrove")
+        XCTAssertFalse(preferences.object(forKey: "dockVisible") as? Bool ?? true, "visibility persists")
+        XCTAssertTrue(delegate.validateMenuItem(visibility))
+        XCTAssertEqual(visibility.title, "Show DockGrove")
+        XCTAssertTrue(delegate.validateMenuItem(items[0]), "other items stay enabled")
+        XCTAssertEqual(items[0].title, "Settings…")
+
+        // ⌥⌘D always recovers a Dock that was switched off.
+        hotKeys.handlers[0]()
+        XCTAssertTrue(model.visible, "⌥⌘D shows a switched-off Dock")
+        XCTAssertFalse(model.toolkit.autoHide, "and leaves it shown")
+
+        delegate.applicationWillTerminate(Notification(name: NSApplication.willTerminateNotification))
+        XCTAssertEqual(hotKeys.unregistered, 1, "termination unregisters the hot key")
+        XCTAssertTrue(self.delegate(["DockGrove", "--ui-test"]).hotKeys is InertHotKeyRegistrar, "UI-test launches stay inert")
+        XCTAssertFalse(InertHotKeyRegistrar().register(.toggleHiding) {}, "inert registrar registers nothing")
+        InertHotKeyRegistrar().unregisterAll()
+    }
+
     func testUnlaunchedDelegateIsInert() {
         let delegate = AppDelegate()
         XCTAssertEqual(delegate.arguments, CommandLine.arguments, "default arguments")
@@ -141,7 +200,7 @@ private final class CoreOtherInstance: NSRunningApplication {
         XCTAssertTrue(model.replacingDock, "saved replacement preference is re-applied at launch")
         SystemDock.store.removeObject(forKey: DockRestoration.key)
         XCTAssertTrue(preferences.bool(forKey: "hasLaunched02"), "first launch records hasLaunched02")
-        XCTAssertEqual(delegate.status.menu?.items.count, 5, "status menu items")
+        XCTAssertEqual(delegate.status.menu?.items.count, 6, "status menu items")
         XCTAssertTrue(delegate.applicationShouldHandleReopen(NSApplication.shared, hasVisibleWindows: false), "reopen is handled")
         delegate.applicationDidBecomeActive(Notification(name: NSApplication.didBecomeActiveNotification))
         let loaded = await coreAppWait { PurchaseManager.shared.hasLoadedEntitlements }

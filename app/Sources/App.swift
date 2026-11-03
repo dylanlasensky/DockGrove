@@ -40,10 +40,13 @@ final class DockPanel: NSPanel {
     var purchasesEnabled = PurchaseConfiguration.enabled
     var frontmostPID: () -> pid_t? = { NSWorkspace.shared.frontmostApplication?.processIdentifier }
     var windowOwner: (pid_t) -> NSRunningApplication? = NSRunningApplication.init(processIdentifier:)
+    /// System-wide ⌥⌘D; inert in test launches, and tests inject a fake before launching.
+    var hotKeys: HotKeyRegistrar
     init(arguments: [String] = CommandLine.arguments, preferences: UserDefaults? = nil) {
         self.arguments = arguments
         testing = arguments.contains("--ui-test") || arguments.contains("--native-test")
         self.preferences = preferences ?? (testing ? UserDefaults(suiteName: "DockGroveUITests")! : .standard)
+        hotKeys = testing || TestEnvironment.isXCTest ? InertHotKeyRegistrar() : CarbonHotKeyRegistrar()
         super.init()
     }
 
@@ -97,10 +100,12 @@ final class DockPanel: NSPanel {
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         status.button?.image = BrandIcon.menuImage
         let menu = NSMenu()
-        for (title, action, key) in [("Settings…", #selector(showSettings), ","), ("Show / hide DockGrove", #selector(toggleVisibility), "d"), ("Refresh usage", #selector(refresh), "r"), ("Restore Apple Dock", #selector(restore), ""), ("Quit DockGrove", #selector(quit), "q")] {
+        for (title, action, key) in [("Settings…", #selector(showSettings), ","), (model.hidingMenuTitle, #selector(toggleHiding), "d"), (model.visibilityMenuTitle, #selector(toggleVisibility), "d"), ("Refresh usage", #selector(refresh), "r"), ("Restore Apple Dock", #selector(restore), ""), ("Quit DockGrove", #selector(quit), "q")] {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: key); item.target = self; menu.addItem(item)
+            if action == #selector(toggleHiding) { item.keyEquivalentModifierMask = [.option, .command] }
         }
         status.menu = menu
+        hotKeys.register(.toggleHiding) { [weak self] in self?.toggleHiding() }
         model.objectWillChange.debounce(for: .milliseconds(60), scheduler: RunLoop.main).sink { [weak self] _ in self?.layoutDock() }.store(in: &subscriptions)
         model.toolkit.objectWillChange.debounce(for: .milliseconds(60), scheduler: RunLoop.main).sink { [weak self] _ in
             self?.model.objectWillChange.send()
@@ -210,19 +215,22 @@ final class DockPanel: NSPanel {
             fullscreen = fullscreen || (pid == activePID && DockVisibility.coversScreen(rect, bounds))
             overlap = overlap || rect.intersects(dock)
         }
+        let top = DockVisibility.revealsAtTop(edge: model.toolkit.edge, elevation: model.elevation, replacing: model.replacingDock)
         let show = visibility.visible(now: Date(), enabled: model.visible,
             suppressed: fullscreen || !sessionActive || !screenAwake || Date() < settlingUntil,
-            autoHide: model.toolkit.autoHide && model.toolkit.edge != "Floating",
+            autoHide: model.toolkit.autoHide,
             overlapping: model.toolkit.hideOnOverlap && model.toolkit.edge != "Floating" && overlap,
-            pointerInside: panel.isVisible && panel.frame.contains(mouse),
-            pointerAtEdge: DockVisibility.atEdge(mouse, screen: screen.frame, dock: panel.frame, top: model.toolkit.edge == "Top"),
+            pointerInside: panel.isVisible && DockVisibility.hoverRegion(dock: panel.frame, screen: screen.frame, top: top).contains(mouse),
+            pointerAtEdge: DockVisibility.atEdge(mouse, screen: screen.frame, dock: panel.frame, top: top),
             interacting: !orEmpty(panel.childWindows).isEmpty)
         panel.ignoresMouseEvents = !show
         if show { if !panel.isVisible { panel.orderFrontRegardless() } }
         else if panel.isVisible { panel.orderOut(nil) }
     }
     @objc func showSettings() { settings.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
-    @objc func toggleVisibility() { model.visible.toggle(); updateVisibility() }
+    @objc func toggleVisibility() { model.setShown(!model.visible); updateVisibility() }
+    /// ⌥⌘D and the status menu's "Turn Hiding On/Off".
+    @objc func toggleHiding() { model.toggleHiding(); updateVisibility() }
     func updateVisibility() { checkAutoHide() }
     @objc func refresh() { model.refreshUsage() }
     @objc func restore() { setReplacement(false) }
@@ -239,6 +247,7 @@ final class DockPanel: NSPanel {
         } catch { model.systemError = "Could not change Apple's Dock setting. Your saved original setting is retained for recovery." }
     }
     func applicationWillTerminate(_ notification: Notification) {
+        hotKeys.unregisterAll()
         model?.codexSignIn.cancel()
         model?.toolkit.claudeCodeUsage.signIn.cancel()
         for dock in orEmpty(workspace?.docks) {
@@ -255,6 +264,15 @@ final class DockPanel: NSPanel {
             alert.addButton(withTitle: "Retry"); alert.addButton(withTitle: "Quit anyway")
             if runAlert(alert) == .alertFirstButtonReturn { do { try SystemDock.restore(); return .terminateNow } catch { return .terminateCancel } }; return .terminateNow
         }
+    }
+}
+
+extension AppDelegate: NSMenuItemValidation {
+    /// Keeps the status menu's hiding and visibility titles current each time it opens.
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if item.action == #selector(toggleHiding) { item.title = model.hidingMenuTitle }
+        if item.action == #selector(toggleVisibility) { item.title = model.visibilityMenuTitle }
+        return true
     }
 }
 

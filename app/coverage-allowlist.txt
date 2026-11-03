@@ -6,6 +6,14 @@ NativeTests.swift # Test code that must ship in the app: the --native-test launc
 ReleaseVisualTests.swift # Test code rendered only by the --native-test launch mode run by DockGroveUITests
 
 # Live system side effects behind test seams (tests inject fakes)
+DockBehavior.swift: variable initialization expression of CarbonHotKeyRegistrar.handlers # live Carbon hot key registrar; tests inject a fake HotKeyRegistrar so no real ⌥⌘D is registered
+DockBehavior.swift: variable initialization expression of CarbonHotKeyRegistrar.references # live Carbon hot key registrar; tests inject a fake
+DockBehavior.swift: variable initialization expression of CarbonHotKeyRegistrar.nextID # live Carbon hot key registrar; tests inject a fake
+DockBehavior.swift: CarbonHotKeyRegistrar.register(_:handler:) # RegisterEventHotKey/InstallEventHandler register a real system-wide shortcut
+DockBehavior.swift: closure #1 in CarbonHotKeyRegistrar.register(_:handler:) # Carbon event callback, only called for a real hot key press
+DockBehavior.swift: closure #1 in closure #1 in CarbonHotKeyRegistrar.register(_:handler:) # Carbon event callback, only called for a real hot key press
+DockBehavior.swift: CarbonHotKeyRegistrar.fire(_:) # dispatches a real hot key press from the Carbon callback
+DockBehavior.swift: CarbonHotKeyRegistrar.unregisterAll() # UnregisterEventHotKey/RemoveEventHandler for the real registration
 AppWindows.swift: static DockSystemEffect.perform(_:) # presents/activates windows, opens files/Finder, hides/quits apps — real system effects
 NativeStudioDragSource.swift: NativeStudioDragSource.SourceView.startSession(_:event:) # starts a real system drag session
 Notch.swift: static NotchController.runOpenPanel(message:) # modal NSOpenPanel

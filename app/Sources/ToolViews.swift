@@ -215,7 +215,7 @@ struct WorkspaceSettings: View {
         VStack(alignment: .leading, spacing: 18) {
             Label("Layout & profiles", systemImage: "rectangle.3.group").font(.headline)
             StudioChoiceControl(title: "Display", selection: Binding(get: { String(kit.screenIndex) }, set: { if let index = Int($0), NSScreen.screens.indices.contains(index) { kit.screenIndex = index; model.screenID = DockModel.displayID(NSScreen.screens[index]) } }), options: NSScreen.screens.enumerated().map { StudioChoice(value: String($0.offset), title: $0.element.localizedName, icon: "display") })
-            Toggle("Automatically hide DockGrove", isOn: $kit.autoHide)
+            Toggle("Automatically hide and show the Dock", isOn: $kit.autoHide)
             Toggle("Hide when windows overlap", isOn: $kit.hideOnOverlap)
             Toggle("Include unpinned running apps", isOn: $kit.showRunning)
             HStack { TextField("Name this layout…", text: $kit.profileName); Button("Save layout") { model.saveProfile() }.disabled(kit.profileName.trimmingCharacters(in: .whitespaces).isEmpty) }

@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 
 /// Pure visibility policy shared by the live window and regression tests.
 struct DockVisibility {
@@ -22,9 +23,98 @@ struct DockVisibility {
         point.x >= dock.minX && point.x <= dock.maxX &&
         (top ? point.y >= screen.maxY - 3 && point.y <= screen.maxY : point.y >= screen.minY && point.y <= screen.minY + 3)
     }
+    /// The physical screen edge that reveals an auto-hidden dock: the top for Top docks, the
+    /// bottom for Bottom docks (always, while replacing Apple's Dock), and the nearer one for
+    /// Floating docks.
+    static func revealsAtTop(edge: String, elevation: Double, replacing: Bool) -> Bool {
+        if replacing { return false }
+        if edge == "Floating" { return elevation > 0.5 }
+        return edge == "Top"
+    }
+    /// Where the pointer keeps a revealed dock open: the dock plus the strip between it and its
+    /// reveal edge, so travelling from the edge to a Floating (or inset) dock doesn't hide it.
+    static func hoverRegion(dock: NSRect, screen: NSRect, top: Bool) -> NSRect {
+        top ? NSRect(x: dock.minX, y: dock.minY, width: dock.width, height: screen.maxY - dock.minY + 1)
+            : NSRect(x: dock.minX, y: screen.minY, width: dock.width, height: dock.maxY - screen.minY)
+    }
     static func coversScreen(_ window: CGRect, _ screen: CGRect) -> Bool {
         window.minX <= screen.minX + 2 && window.maxX >= screen.maxX - 2 &&
         window.minY <= screen.minY + 2 && window.maxY >= screen.maxY - 2
+    }
+}
+
+extension DockModel {
+    /// "Turn Hiding On/Off" (⌥⌘D, the bar menu, the status menu and Settings), like the Mac Dock.
+    /// A dock that was switched off entirely comes back with hiding off, so the shortcut always
+    /// recovers it.
+    func toggleHiding() {
+        if visible { toolkit.autoHide.toggle() } else { visible = true; toolkit.autoHide = false }
+        visibilityAction?()
+    }
+    /// "Show DockGrove" (Settings, the status menu and Your Docks). While DockGrove replaces
+    /// Apple's Dock, switching it off would leave no Dock at all, so it auto-hides instead.
+    func setShown(_ shown: Bool) {
+        if !shown && replacingDock { toolkit.autoHide = true; visible = true } else { visible = shown }
+        visibilityAction?()
+    }
+    var hidingMenuTitle: String { toolkit.autoHide ? "Turn Hiding Off" : "Turn Hiding On" }
+    var visibilityMenuTitle: String { visible ? "Hide DockGrove" : "Show DockGrove" }
+}
+
+/// A system-wide shortcut in Carbon terms (virtual key code plus Carbon modifier flags).
+struct HotKey: Equatable {
+    var keyCode: UInt32
+    var modifiers: UInt32
+    /// ⌥⌘D, the Mac Dock's "Turn Dock Hiding On/Off".
+    static let toggleHiding = HotKey(keyCode: UInt32(kVK_ANSI_D), modifiers: UInt32(cmdKey | optionKey))
+}
+
+/// Registers system-wide shortcuts. The app uses Carbon hot keys, which need no Accessibility
+/// permission; tests inject a fake so no real shortcut is ever registered.
+@MainActor protocol HotKeyRegistrar: AnyObject {
+    @discardableResult func register(_ key: HotKey, handler: @escaping @MainActor () -> Void) -> Bool
+    func unregisterAll()
+}
+
+/// Registers nothing: UI-test, native-test and XCTest launches.
+@MainActor final class InertHotKeyRegistrar: HotKeyRegistrar {
+    func register(_ key: HotKey, handler: @escaping @MainActor () -> Void) -> Bool { false }
+    func unregisterAll() {}
+}
+
+/// Live Carbon `RegisterEventHotKey` registrar (no Accessibility permission needed).
+@MainActor final class CarbonHotKeyRegistrar: HotKeyRegistrar {
+    private var handlers: [UInt32: @MainActor () -> Void] = [:]
+    private var references: [EventHotKeyRef] = []
+    private var eventHandler: EventHandlerRef?
+    private var nextID: UInt32 = 1
+    func register(_ key: HotKey, handler: @escaping @MainActor () -> Void) -> Bool {
+        if eventHandler == nil {
+            var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+            let status = InstallEventHandler(GetApplicationEventTarget(), { _, event, context in
+                guard let event, let context else { return OSStatus(eventNotHandledErr) }
+                var id = EventHotKeyID()
+                let status = GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil, MemoryLayout<EventHotKeyID>.size, nil, &id)
+                guard status == noErr else { return status }
+                let registrar = Unmanaged<CarbonHotKeyRegistrar>.fromOpaque(context).takeUnretainedValue()
+                return MainActor.assumeIsolated { registrar.fire(id.id) } ? noErr : OSStatus(eventNotHandledErr)
+            }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), &eventHandler)
+            guard status == noErr else { return false }
+        }
+        var reference: EventHotKeyRef?
+        let id = EventHotKeyID(signature: OSType(0x4447_5256), id: nextID) // 'DGRV'
+        guard RegisterEventHotKey(key.keyCode, key.modifiers, id, GetApplicationEventTarget(), 0, &reference) == noErr, let reference else { return false }
+        references.append(reference); handlers[nextID] = handler; nextID += 1
+        return true
+    }
+    private func fire(_ id: UInt32) -> Bool {
+        guard let handler = handlers[id] else { return false }
+        handler(); return true
+    }
+    func unregisterAll() {
+        for reference in references { UnregisterEventHotKey(reference) }
+        references = []; handlers = [:]
+        if let eventHandler { RemoveEventHandler(eventHandler); self.eventHandler = nil }
     }
 }
 
