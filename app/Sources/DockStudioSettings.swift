@@ -260,6 +260,8 @@ struct StudioAppearance: View {
                     Text("Bottom").tag("Bottom"); Text("Top").tag("Top"); Text("Floating").tag("Floating")
                 }.pickerStyle(.segmented).disabled(model.replacingDock)
                 if model.toolkit.edge == "Floating" { StudioNumberControl(title: "Vertical position", value: $model.elevation, range: 0...1, step: 0.01, scale: 100, unit: "%") }
+                Toggle("Automatically hide and show the Dock", isOn: Binding(get: { model.toolkit.autoHide }, set: { model.objectWillChange.send(); model.toolkit.autoHide = $0; model.visibilityAction?() }))
+                Text("Press ⌥⌘D anywhere to turn hiding on or off. While hidden, move the pointer to the screen edge to show the Dock.").font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -382,7 +384,9 @@ struct StudioBehavior: View {
                         .disabled(!model.canRestoreAppleDock)
                         .help("Put back your original Dock settings and relaunch Apple’s Dock")
                 }
-                Toggle("Show DockGrove", isOn: Binding(get: { model.visible }, set: { model.visible = $0; model.visibilityAction?() }))
+                Toggle("Show DockGrove", isOn: Binding(get: { model.visible }, set: { model.setShown($0) }))
+                Text(model.replacingDock ? "While DockGrove is your Dock, turning this off hides it automatically instead, so a Dock is always one pointer move away."
+                     : "Turned off, DockGrove stays hidden until you turn this back on or press ⌥⌘D.").font(.caption).foregroundStyle(.secondary)
                 if let error = model.systemError { Text(error).font(.caption).foregroundStyle(.orange) }
             }
             WorkspaceSettings(model: model, kit: model.toolkit)

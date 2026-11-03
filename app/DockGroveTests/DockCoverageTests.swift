@@ -1236,7 +1236,12 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         XCTAssertEqual(customized, 1)
         harness.press("Customize", index: 1)
         harness.enter("Desk", intoField: 0)
-        harness.press("Visible")
+        // "Show" is a switch (NSSwitch), which SwiftUI exposes as a control rather than a pressable label.
+        func switches(_ view: NSView) -> [NSSwitch] { (view as? NSSwitch).map { [$0] } ?? view.subviews.flatMap(switches) }
+        let shown = workspace.docks[0].model.visible
+        let toggle = try XCTUnwrap(switches(harness.host).first, "each Dock row has a Show switch")
+        toggle.performClick(nil); harness.spin()
+        XCTAssertNotEqual(workspace.docks[0].model.visible, shown, "the Show switch toggles that Dock")
         harness.press("Remove")
         XCTAssertEqual(workspace.docks.count, 2)
         harness.press("Add a Dock")

@@ -191,7 +191,7 @@ struct DockBarMenu: View {
     @ObservedObject var model: DockModel
     @ObservedObject var kit: Toolkit
     var body: some View {
-        Button(kit.autoHide ? "Turn Hiding Off" : "Turn Hiding On") { kit.autoHide.toggle() }
+        Button(model.hidingMenuTitle) { model.toggleHiding() }.keyboardShortcut("d", modifiers: [.option, .command])
         Menu("Position on Screen") {
             ForEach(["Bottom", "Top", "Floating"], id: \.self) { edge in
                 Toggle(edge, isOn: Binding(get: { kit.edge == edge }, set: { _ in kit.edge = edge }))

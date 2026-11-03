@@ -90,7 +90,7 @@ struct DockWorkspaceRow: View {
     @ObservedObject var model: DockModel
     let remove: ()->Void
     init(dock:ExtraDock,remove:@escaping ()->Void) { self.dock=dock; self.model=dock.model; self.remove=remove }
-    var body: some View { HStack { TextField("Dock name",text:$model.dockName); Toggle("Visible",isOn:$model.visible); Button("Customize",action:dock.showSettings); Button("Remove",action:remove) }.padding(12).background(.quaternary,in:RoundedRectangle(cornerRadius:12)) }
+    var body: some View { HStack { TextField("Dock name",text:$model.dockName); Toggle("Show",isOn:Binding(get:{ model.visible },set:{ model.setShown($0) })).toggleStyle(.switch); Button("Customize",action:dock.showSettings); Button("Remove",action:remove) }.padding(12).background(.quaternary,in:RoundedRectangle(cornerRadius:12)) }
 }
 struct DockAppearanceSettings: View {
     @ObservedObject var model: DockModel
