@@ -34,7 +34,9 @@ struct ApplicationsStackTile: View {
     }
 }
 
-/// Full-screen app browser modelled on the macOS Apps app: blurred desktop, centred search, paged icon grid.
+/// App chooser modelled on the macOS 26 Apps view (Spotlight's Applications mode): a floating,
+/// rounded glass panel in the upper middle of the screen with a large search field, category
+/// tags, and a scrolling alphabetical icon grid or list. It never covers the whole desktop.
 @MainActor final class AppsLauncher {
     static let shared = AppsLauncher()
     /// What clicking an app does: open it, pin it to the Dock (the + tile), or swap it into a tile.
@@ -48,18 +50,26 @@ struct ApplicationsStackTile: View {
             }
         }
     }
+    static let panelSize = CGSize(width: 760, height: 560)
     private final class Panel: NSPanel {
         override var canBecomeKey: Bool { true }
         override func cancelOperation(_ sender: Any?) { AppsLauncher.shared.close(restorePrevious: true) }
-        override func keyDown(with event: NSEvent) { if !AppsLauncher.shared.pager.handleKey(event) { super.keyDown(with: event) } }
+        override func keyDown(with event: NSEvent) { if !AppsLauncher.shared.chooser.handleKey(event) { super.keyDown(with: event) } }
     }
     private(set) var panel: NSPanel?
-    /// Brings the launcher on screen through the system-effect seam, so tests never cover the real desktop.
+    /// Brings the chooser on screen through the system-effect seam, so tests never show a real window.
     var present: (NSPanel) -> Void = { DockSystemEffect.handler(.present($0)) }
     private var previousApplication: NSRunningApplication?
     private var monitors: [Any] = []
     private var resignObserver: NSObjectProtocol?
-    let pager = AppsPager()
+    let chooser = AppsChooserState()
+
+    /// Centred horizontally and sitting in the upper part of the visible frame, like Spotlight.
+    static func frame(in visible: NSRect) -> NSRect {
+        let width = min(panelSize.width, visible.width - 48), height = min(panelSize.height, visible.height - 48)
+        let top = visible.maxY - max(24, (visible.height - height) * 0.3)
+        return NSRect(x: (visible.midX - width / 2).rounded(), y: (top - height).rounded(), width: width, height: height)
+    }
 
     func toggle(model: DockModel) { panel == nil ? show(model: model) : close(restorePrevious: true) }
 
@@ -68,22 +78,28 @@ struct ApplicationsStackTile: View {
         close()
         previousApplication = previous
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main ?? NSScreen.screens[0]
-        let panel = Panel(contentRect: screen.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.level = .popUpMenu; panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = false
+        let frame = Self.frame(in: screen.visibleFrame)
+        let panel = Panel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel.level = .popUpMenu; panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = true
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         panel.isReleasedWhenClosed = false
-        pager.page = 0; pager.searchIsEmpty = query.isEmpty
-        let root = AppsLauncherView(model: model, kit: model.toolkit, pager: pager, mode: mode, query: query) { [weak self] in self?.close(restorePrevious: true) }
+        chooser.reset(query: query, defaults: model.defaults)
+        let root = AppsLauncherView(model: model, kit: model.toolkit, state: chooser, mode: mode) { [weak self] in self?.close(restorePrevious: true) }
             .preferredColorScheme(model.scheme)
         panel.contentView = NSHostingView(rootView: root)
-        panel.setFrame(screen.frame, display: false)
+        panel.setFrame(frame, display: false)
         panel.alphaValue = 0
         present(panel)
-        NSAnimationContext.runAnimationGroup { $0.duration = 0.18; panel.animator().alphaValue = 1 }
+        NSAnimationContext.runAnimationGroup { $0.duration = 0.16; panel.animator().alphaValue = 1 }
         self.panel = panel
-        monitors.append(NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
-            guard let self, event.window === self.panel else { return event }
-            self.pager.scroll(event); return nil
+        // Arrow keys move the selection even while the search field is editing.
+        monitors.append(NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, event.window === self.panel, self.chooser.handleKey(event) else { return event }
+            return nil
+        } as Any)
+        // A click in another app or on the desktop dismisses it, like Spotlight.
+        monitors.append(NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { _ in
+            MainActor.assumeIsolated { AppsLauncher.shared.close() }
         } as Any)
         resignObserver = NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification, object: panel, queue: .main) { _ in
             MainActor.assumeIsolated { AppsLauncher.shared.close() }
@@ -99,178 +115,229 @@ struct ApplicationsStackTile: View {
         monitors.forEach(NSEvent.removeMonitor); monitors = []
         if let resignObserver { NotificationCenter.default.removeObserver(resignObserver) }
         resignObserver = nil
-        NSAnimationContext.runAnimationGroup({ $0.duration = 0.14; panel.animator().alphaValue = 0 }) {
+        NSAnimationContext.runAnimationGroup({ $0.duration = 0.12; panel.animator().alphaValue = 0 }) {
             MainActor.assumeIsolated { panel.orderOut(nil); panel.contentView = nil }
         }
     }
 }
 
-/// Current page plus trackpad/wheel paging, shared by the launcher window and its view.
-@MainActor final class AppsPager: ObservableObject {
-    @Published var page = 0
-    var count = 1
-    /// Arrow keys page only while the search is empty; otherwise they belong to the text.
-    var searchIsEmpty = true
-    private var travel: CGFloat = 0
-    private var turnedThisGesture = false
+/// The categories the Apps view groups apps into, derived from each bundle's `LSApplicationCategoryType`.
+enum AppCategory: String, CaseIterable {
+    case productivity = "Productivity & Finance", creativity = "Creativity", developer = "Developer Tools",
+         utilities = "Utilities", social = "Social", entertainment = "Entertainment", reading = "Information & Reading",
+         education = "Education", games = "Games", health = "Health & Fitness", other = "Other"
 
-    func go(_ target: Int) { withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) { page = max(0, min(count - 1, target)) } }
-
-    func handleKey(_ event: NSEvent) -> Bool {
-        guard searchIsEmpty, event.keyCode == 123 || event.keyCode == 124 else { return false }
-        go(page + (event.keyCode == 124 ? 1 : -1))
-        return true
+    init(categoryType: String?, path: String) {
+        let kind = categoryType?.lowercased().replacingOccurrences(of: "public.app-category.", with: "") ?? ""
+        switch kind {
+        case "business", "productivity", "finance": self = .productivity
+        case "graphics-design", "photography", "video", "music": self = .creativity
+        case "developer-tools": self = .developer
+        case "utilities": self = .utilities
+        case "social-networking": self = .social
+        case "entertainment": self = .entertainment
+        case "news", "reference", "weather", "books", "magazines", "lifestyle": self = .reading
+        case "education", "kids": self = .education
+        case "healthcare-fitness", "medical", "sports": self = .health
+        case _ where kind == "games" || kind.hasSuffix("-games"): self = .games
+        default: self = path.contains("/Utilities/") ? .utilities : .other
+        }
     }
 
-    func scroll(_ event: NSEvent) {
-        if event.phase == .began || (event.phase.isEmpty && event.momentumPhase.isEmpty && !event.hasPreciseScrollingDeltas) {
-            travel = 0; turnedThisGesture = false
-        }
-        guard event.momentumPhase.isEmpty, !turnedThisGesture else { return }
-        let horizontal = abs(event.scrollingDeltaX) >= abs(event.scrollingDeltaY)
-        travel += horizontal ? event.scrollingDeltaX : event.scrollingDeltaY
-        let threshold: CGFloat = event.hasPreciseScrollingDeltas ? 60 : 1
-        guard abs(travel) >= threshold else { return }
-        go(page + (travel < 0 ? 1 : -1))
-        turnedThisGesture = event.hasPreciseScrollingDeltas
-        travel = 0
+    private static var cache: [String: AppCategory] = [:]
+    static func of(_ app: DockApp) -> AppCategory {
+        if let known = cache[app.id] { return known }
+        let category = AppCategory(categoryType: Bundle(url: app.url)?.object(forInfoDictionaryKey: "LSApplicationCategoryType") as? String, path: app.id)
+        cache[app.id] = category
+        return category
     }
 }
 
-private struct LauncherBackdrop: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = .fullScreenUI; view.blendingMode = .behindWindow; view.state = .active
-        return view
+/// Search text, category tag, keyboard selection and icon/list layout, shared by the panel and its view.
+@MainActor final class AppsChooserState: ObservableObject {
+    enum Layout: String { case icons, list }
+    @Published var query = ""
+    @Published var category: AppCategory?
+    @Published var selection = 0
+    @Published var layout = Layout.icons { didSet { defaults?.set(layout.rawValue, forKey: "appsChooserLayout") } }
+    /// Number of visible results, kept current by the view so arrow keys can clamp.
+    var count = 0
+    static let columns = 7
+    private var defaults: UserDefaults?
+    var searchIsEmpty: Bool { AppSearchIndex.fold(query).isEmpty }
+
+    func reset(query: String, defaults: UserDefaults) {
+        self.defaults = nil
+        layout = defaults.string(forKey: "appsChooserLayout").flatMap(Layout.init(rawValue:)) ?? .icons
+        self.defaults = defaults
+        self.query = query; category = nil; selection = 0
     }
-    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
+
+    /// Alphabetical while the search is empty, otherwise the index's ranking; then the category tag.
+    func results(in index: AppSearchIndex) -> [DockApp] {
+        let matches = searchIsEmpty
+            ? index.apps.sorted { index.name(of: $0).localizedStandardCompare(index.name(of: $1)) == .orderedAscending }
+            : index.search(query)
+        guard let category else { return matches }
+        return matches.filter { AppCategory.of($0) == category }
+    }
+
+    func move(_ delta: Int) { if count > 0 { selection = max(0, min(count - 1, selection + delta)) } }
+
+    /// Up/Down move by a row; Left/Right move by one icon in the grid and stay with the text in the list.
+    func handleKey(_ event: NSEvent) -> Bool {
+        let row = layout == .icons ? Self.columns : 1
+        switch event.keyCode {
+        case 125: move(row)
+        case 126: move(-row)
+        case 124 where layout == .icons: move(1)
+        case 123 where layout == .icons: move(-1)
+        default: return false
+        }
+        return true
+    }
 }
 
 struct AppsLauncherView: View {
     @ObservedObject var model: DockModel
     @ObservedObject var kit: Toolkit
-    @ObservedObject var pager: AppsPager
+    @ObservedObject var state: AppsChooserState
     var mode: AppsLauncher.Mode = .launch
     var close: () -> Void
-    @State private var query: String
     @State private var shown = false
-    @State private var drag: CGFloat = 0
     @FocusState private var searchFocused: Bool
-    static let columns = 7, rows = 5
-    init(model: DockModel, kit: Toolkit, pager: AppsPager, mode: AppsLauncher.Mode = .launch, query: String = "", close: @escaping () -> Void) {
-        self.model = model; self.kit = kit; self.pager = pager; self.mode = mode; self.close = close
-        _query = State(initialValue: query)
-    }
-    private var results: [DockApp] { kit.appIndex.search(query) }
-    private var pages: [[DockApp]] {
-        let perPage = Self.columns * Self.rows, all = results
-        return all.isEmpty ? [[]] : stride(from: 0, to: all.count, by: perPage).map { Array(all[$0..<min($0 + perPage, all.count)]) }
+    init(model: DockModel, kit: Toolkit, state: AppsChooserState, mode: AppsLauncher.Mode = .launch, close: @escaping () -> Void) {
+        self.model = model; self.kit = kit; self.state = state; self.mode = mode; self.close = close
     }
 
     var body: some View {
-        let pages = pages
-        ZStack {
-            LauncherBackdrop().ignoresSafeArea()
-            Color.black.opacity(0.12).ignoresSafeArea()
-                .contentShape(Rectangle())
-                .onTapGesture(perform: close)
-                .gesture(DragGesture(minimumDistance: 16).onChanged { drag = $0.translation.width }.onEnded(finishDrag))
-            VStack(spacing: 0) {
-                VStack(spacing: 10) {
-                    if let title = mode.title { Text(title).font(.title3.weight(.semibold)).accessibilityLabel(title).accessibilityAddTraits(.isHeader) }
-                    searchField
-                    if mode != .launch, let error = model.systemError { Text(error).font(.caption).foregroundStyle(.red) }
-                }.padding(.top, 54)
-                GeometryReader { geo in
-                    HStack(spacing: 0) {
-                        ForEach(pages.indices, id: \.self) { index in
-                            page(pages[index], first: index == 0, in: geo.size).frame(width: geo.size.width, height: geo.size.height)
-                        }
-                    }
-                    .offset(x: -CGFloat(pager.page) * geo.size.width + drag)
+        let results = state.results(in: kit.appIndex)
+        VStack(spacing: 0) {
+            searchField(results)
+            Divider().opacity(0.6)
+            header
+            tags
+            ScrollViewReader { proxy in
+                ScrollView {
+                    if state.layout == .icons { grid(results) } else { list(results) }
                 }
-                .clipped()
-                .overlay { emptyState }
-                dots(count: pages.count).padding(.bottom, 44)
+                .onChange(of: state.selection) { _, index in
+                    if results.indices.contains(index) { withAnimation(.easeOut(duration: 0.12)) { proxy.scrollTo(results[index].id) } }
+                }
             }
-            .scaleEffect(shown ? 1 : 1.06).opacity(shown ? 1 : 0)
+            .overlay { emptyState(results) }
         }
+        .background(DockPlate(theme: model.theme))
+        .clipShape(RoundedRectangle(cornerRadius: 27, style: .continuous))
+        .scaleEffect(shown ? 1 : 0.96).opacity(shown ? 1 : 0)
         .onAppear {
-            pager.count = pages.count
+            state.count = results.count
             searchFocused = true
-            withAnimation(.easeOut(duration: 0.22)) { shown = true }
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) { shown = true }
         }
-        .onChange(of: query) { pager.page = 0; pager.searchIsEmpty = query.isEmpty }
-        .onChange(of: pages.count) { _, count in pager.count = count; if pager.page >= count { pager.page = max(0, count - 1) } }
+        .onChange(of: state.query) { state.selection = 0 }
+        .onChange(of: state.category) { state.selection = 0 }
+        .onChange(of: results.count) { _, count in state.count = count; state.selection = min(state.selection, max(0, count - 1)) }
         .onExitCommand(perform: close)
     }
 
-    private var searchField: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-            TextField("Search", text: $query).textFieldStyle(.plain).focused($searchFocused)
-                .onSubmit { if let first = results.first { choose(first) } }
-            if !query.isEmpty {
-                Button { query = ""; searchFocused = true } label: { Image(systemName: "xmark.circle.fill") }
+    private func searchField(_ results: [DockApp]) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass").font(.system(size: 19, weight: .medium)).foregroundStyle(.secondary)
+            TextField("Search Apps", text: $state.query).textFieldStyle(.plain).font(.system(size: 21)).focused($searchFocused)
+                .onSubmit { if results.indices.contains(state.selection) { choose(results[state.selection]) } }
+            if !state.query.isEmpty {
+                Button { state.query = ""; searchFocused = true } label: { Image(systemName: "xmark.circle.fill") }
                     .buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Clear search").help("Clear search")
             }
         }
-        .font(.system(size: 13))
-        .padding(.horizontal, 10).frame(width: 260, height: 30)
-        .background(.regularMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.12)))
+        .padding(.horizontal, 20).frame(height: 56)
     }
 
-    private func page(_ apps: [DockApp], first: Bool, in size: CGSize) -> some View {
-        let cellWidth = min(170, (size.width - 160) / CGFloat(Self.columns))
-        let cellHeight = min(150, size.height / CGFloat(Self.rows))
-        let icon = min(96, cellWidth * 0.64, cellHeight * 0.66)
-        let grid = Array(repeating: GridItem(.fixed(cellWidth), spacing: 0), count: Self.columns)
-        return LazyVGrid(columns: grid, spacing: 0) {
-            ForEach(Array(apps.enumerated()), id: \.element.id) { offset, app in
-                AppsLauncherIcon(app: app, name: kit.appIndex.name(of: app), iconSize: icon,
-                                 highlighted: first && offset == 0 && !query.isEmpty,
-                                 pinned: model.apps.contains(app), badged: mode != .launch,
-                                 choose: { choose(app) }, launch: { launch(app) }, pin: { model.pin(app) })
-                    .frame(width: cellWidth, height: cellHeight)
+    private var header: some View {
+        HStack(spacing: 8) {
+            Text(mode.title ?? "Applications").font(.system(size: 13, weight: .semibold))
+                .accessibilityLabel(mode.title ?? "Applications").accessibilityAddTraits(.isHeader)
+            if mode != .launch, let error = model.systemError { Text(error).font(.caption).foregroundStyle(.red).lineLimit(1) }
+            Spacer()
+            HStack(spacing: 2) {
+                layoutButton(.icons, symbol: "square.grid.2x2", label: "View as Icons")
+                layoutButton(.list, symbol: "list.bullet", label: "View as List")
+            }
+            .padding(2).background(Color.primary.opacity(0.06), in: Capsule())
+        }
+        .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 8)
+    }
+
+    private func layoutButton(_ layout: AppsChooserState.Layout, symbol: String, label: String) -> some View {
+        Button { state.layout = layout } label: {
+            Image(systemName: symbol).font(.system(size: 11, weight: .semibold)).frame(width: 26, height: 20)
+                .background(Capsule().fill(Color.primary.opacity(state.layout == layout ? 0.14 : 0)))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain).help(label).accessibilityLabel(label).accessibilityAddTraits(state.layout == layout ? .isSelected : [])
+    }
+
+    /// "All" plus the categories that actually have apps, as tags along the top.
+    private var tags: some View {
+        let present = Set(kit.appIndex.apps.map(AppCategory.of))
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                tag("All", selected: state.category == nil) { state.category = nil }
+                ForEach(AppCategory.allCases.filter(present.contains), id: \.self) { category in
+                    tag(category.rawValue, selected: state.category == category) { state.category = category }
+                }
+            }
+            .padding(.horizontal, 20)
+        }
+        .padding(.bottom, 8)
+    }
+
+    private func tag(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title).font(.system(size: 12, weight: .medium)).padding(.horizontal, 11).padding(.vertical, 5)
+                .foregroundStyle(selected ? Color.white : Color.primary)
+                .background(Capsule().fill(selected ? Color.accentColor : Color.primary.opacity(0.07)))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain).accessibilityLabel(title).accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func grid(_ results: [DockApp]) -> some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: AppsChooserState.columns), spacing: 4) {
+            ForEach(Array(results.enumerated()), id: \.element.id) { offset, app in
+                item(app, offset: offset, list: false).id(app.id)
             }
         }
-        .frame(maxHeight: .infinity, alignment: .top)
-        .padding(.top, 28)
+        .padding(.horizontal, 14).padding(.vertical, 10)
     }
 
-    @ViewBuilder private func dots(count: Int) -> some View {
-        HStack(spacing: 10) {
-            ForEach(0..<count, id: \.self) { index in
-                Button { pager.go(index) } label: {
-                    Circle().fill(Color.primary.opacity(index == pager.page ? 0.85 : 0.28)).frame(width: 7, height: 7)
-                        .padding(4).contentShape(Circle())
-                }.buttonStyle(.plain).accessibilityLabel("Page \(index + 1) of \(count)")
+    private func list(_ results: [DockApp]) -> some View {
+        LazyVStack(spacing: 2) {
+            ForEach(Array(results.enumerated()), id: \.element.id) { offset, app in
+                item(app, offset: offset, list: true).id(app.id)
             }
         }
-        .frame(height: 16)
-        .opacity(count > 1 ? 1 : 0)
+        .padding(.horizontal, 12).padding(.vertical, 8)
     }
 
-    @ViewBuilder private var emptyState: some View {
+    private func item(_ app: DockApp, offset: Int, list: Bool) -> some View {
+        AppsLauncherIcon(app: app, name: kit.appIndex.name(of: app), category: AppCategory.of(app).rawValue, list: list,
+                         selected: offset == state.selection, pinned: model.apps.contains(app), badged: mode != .launch,
+                         choose: { choose(app) }, launch: { launch(app) }, pin: { model.pin(app) })
+    }
+
+    @ViewBuilder private func emptyState(_ results: [DockApp]) -> some View {
         if results.isEmpty {
             Group {
                 if kit.scanningApps && kit.appIndex.count == 0 { ProgressView("Finding installed applications…") }
-                else { Text(query.isEmpty ? "No applications found" : "No Results").font(.title2.weight(.medium)).foregroundStyle(.secondary) }
+                else { Text(state.searchIsEmpty && state.category == nil ? "No applications found" : "No Results").font(.title3.weight(.medium)).foregroundStyle(.secondary) }
             }.allowsHitTesting(false)
         }
     }
 
-    private func finishDrag(_ value: DragGesture.Value) { finishDrag(predicted: value.predictedEndTranslation.width) }
-    func finishDrag(predicted: CGFloat) {
-        let threshold: CGFloat = 120
-        if predicted < -threshold { pager.go(pager.page + 1) }
-        else if predicted > threshold { pager.go(pager.page - 1) }
-        withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) { drag = 0 }
-    }
-
-    private func launch(_ app: DockApp) { kit.recordLaunch(app, query: query); close(); model.open(app) }
-    /// Clicking an icon: launch it, or add/replace a Dock tile and close once the model accepts it.
+    private func launch(_ app: DockApp) { kit.recordLaunch(app, query: state.query); close(); model.open(app) }
+    /// Clicking an app: launch it, or add/replace a Dock tile and close once the model accepts it.
     private func choose(_ app: DockApp) {
         switch mode {
         case .launch: launch(app)
@@ -278,7 +345,7 @@ struct AppsLauncherView: View {
             guard !(mode == .add && model.apps.contains(app)) else { return }
             if case .replace(let old) = mode { guard model.chooseApp(app, replacing: old) else { return } }
             else { guard model.chooseApp(app, replacing: nil) else { return } }
-            kit.recordLaunch(app, query: query); close()
+            kit.recordLaunch(app, query: state.query); close()
         }
     }
 }
@@ -286,8 +353,9 @@ struct AppsLauncherView: View {
 private struct AppsLauncherIcon: View {
     let app: DockApp
     let name: String
-    let iconSize: CGFloat
-    let highlighted: Bool
+    let category: String
+    let list: Bool
+    let selected: Bool
     let pinned: Bool
     /// Add and replace modes mark apps already in the Dock.
     let badged: Bool
@@ -297,38 +365,54 @@ private struct AppsLauncherIcon: View {
     @State private var hovered = false
     var body: some View {
         Button(action: choose) {
-            VStack(spacing: 8) {
-                Image(nsImage: app.icon).resizable().interpolation(.high).frame(width: iconSize, height: iconSize)
-                    .shadow(color: .black.opacity(0.18), radius: 4, y: 2)
-                    .overlay(alignment: .topTrailing) {
-                        if badged && pinned {
-                            Image(systemName: "checkmark.circle.fill").font(.system(size: 18)).foregroundStyle(.white, .green)
-                                .accessibilityHidden(true).help("Already in the Dock")
-                        }
+            Group {
+                if list {
+                    HStack(spacing: 10) {
+                        icon(28)
+                        Text(name).font(.system(size: 13)).lineLimit(1)
+                        Spacer(minLength: 8)
+                        Text(category).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1).accessibilityHidden(true)
                     }
-                    .opacity(badged && pinned ? 0.55 : 1)
-                Text(name).font(.system(size: 12, weight: .medium)).lineLimit(1).truncationMode(.tail)
-                    .shadow(color: .black.opacity(0.25), radius: 1.5, y: 0.5)
+                    .padding(.horizontal, 10).frame(height: 38)
+                } else {
+                    VStack(spacing: 6) {
+                        icon(60)
+                        Text(name).font(.system(size: 11, weight: .medium)).lineLimit(1).truncationMode(.tail)
+                    }
+                    .padding(.horizontal, 4).padding(.vertical, 8).frame(maxWidth: .infinity)
+                }
             }
-            .padding(.horizontal, 6).padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(highlighted ? 0.14 : hovered ? 0.08 : 0)))
+            .background(RoundedRectangle(cornerRadius: list ? 8 : 14, style: .continuous).fill(Color.primary.opacity(selected ? 0.14 : hovered ? 0.07 : 0)))
             .contentShape(Rectangle())
         }
         .buttonStyle(PressScaleStyle())
+        .accessibilityLabel(name)
         .accessibilityValue(badged && pinned ? "Already in the Dock" : "")
+        .accessibilityAddTraits(selected ? .isSelected : [])
         .help(app.id)
         .onHover { hovered = $0 }
-        .animation(.easeOut(duration: 0.12), value: hovered)
+        .animation(.easeOut(duration: 0.1), value: hovered)
         .contextMenu {
             Button("Open", action: launch)
             Button("Keep in Dock", action: pin).disabled(pinned)
             Button("Show in Finder") { DockSystemEffect.handler(.reveal([app.url])) }
         }
     }
+
+    private func icon(_ size: CGFloat) -> some View {
+        Image(nsImage: app.icon).resizable().interpolation(.high).frame(width: size, height: size)
+            .overlay(alignment: .topTrailing) {
+                if badged && pinned {
+                    Image(systemName: "checkmark.circle.fill").font(.system(size: size * 0.28)).foregroundStyle(.white, .green)
+                        .accessibilityHidden(true).help("Already in the Dock")
+                }
+            }
+            .opacity(badged && pinned ? 0.55 : 1)
+    }
 }
 
 private struct PressScaleStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.scaleEffect(configuration.isPressed ? 0.92 : 1).animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+        configuration.label.scaleEffect(configuration.isPressed ? 0.94 : 1).animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }

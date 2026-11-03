@@ -64,18 +64,18 @@ WeatherClient.swift: static AppleWeatherClient.liveCurrent(_:) # WeatherKit netw
 WeatherClient.swift: implicit closure #1 in static AppleWeatherClient.liveCurrent(_:) # async let child task of the live call
 WeatherClient.swift: implicit closure #2 in static AppleWeatherClient.liveCurrent(_:) # async let child task of the live call
 
-# Applications launcher
+# Applications chooser panel
 ApplicationsStack.swift: implicit closure #1 in AppsLauncher.show(model:mode:query:) # fallback screen when the pointer is on no screen
 ApplicationsStack.swift: implicit closure #2 in implicit closure #1 in AppsLauncher.show(model:mode:query:) # last-resort fallback screen when there is no main screen
-ApplicationsStack.swift: closure #2 in AppsLauncher.show(model:mode:query:) # the hosted view's close callback; only real backdrop clicks or Esc in the on-screen panel call it
-ApplicationsStack.swift: closure #4 in AppsLauncher.show(model:mode:query:) # local scroll-wheel monitor only receives real hardware events; AppsPager.scroll is tested directly
-~ ApplicationsStack.swift: implicit closure #1 in closure #1 in AppsLauncherView.emptyState.getter # loading placeholder only during the very first scan of an empty catalog
+ApplicationsStack.swift: closure #2 in AppsLauncher.show(model:mode:query:) # the hosted view's close callback; only Esc or a pick in the on-screen panel calls it
+ApplicationsStack.swift: closure #4 in AppsLauncher.show(model:mode:query:) # local key-down monitor only receives real hardware events; AppsChooserState.handleKey is tested directly
+ApplicationsStack.swift: closure #5 in AppsLauncher.show(model:mode:query:) # global mouse-down monitor only fires for real clicks in other apps
+ApplicationsStack.swift: closure #1 in closure #5 in AppsLauncher.show(model:mode:query:) # body of that global click monitor
+~ ApplicationsStack.swift: implicit closure #1 in closure #1 in AppsLauncherView.emptyState(_:) # loading placeholder only during the very first scan of an empty catalog
 Utilities.swift: static SystemPicker.chooseFolder() # builds and runs a modal NSOpenPanel
 Utilities.swift: static SystemPicker.chooseFile(message:) # builds and runs a modal NSOpenPanel
 
 # Runner-dependent: fully covered on Xcode 27 / Apple silicon laptops, not on the GitHub macos-26 VM.
-~ ApplicationsStack.swift: closure #1 in closure #1 in AppsLauncherView.body.getter # backdrop DragGesture onChanged; the CI VM's window server does not deliver the synthesized drag to the borderless panel
-~ ApplicationsStack.swift: AppsLauncherView.finishDrag(_:) # ends that backdrop drag; AppsPager.go is tested directly
 ~ Design.swift: closure #1 in DockPlate.body.getter # the CI VM takes the material fallback, so the Liquid Glass line never runs there
 ~ Design.swift: NativeDockGlass.makeNSView(context:) # NSGlassEffectView is only created when the macOS 26 renderer draws the dock plate
 ~ Design.swift: NativeDockGlass.updateNSView(_:context:) # as above

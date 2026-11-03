@@ -2,9 +2,9 @@ import XCTest
 import SwiftUI
 @testable import DockGrove
 
-/// Covers the Applications stack tile and its full-screen launcher without touching the real
+/// Covers the Applications stack tile and its floating app chooser without touching the real
 /// desktop: apps come from a temporary folder, launching and Finder effects are recorded, and
-/// the launcher panel is never brought on screen.
+/// the chooser panel is never brought on screen.
 @MainActor final class ApplicationsStackTests: XCTestCase {
     private var suites: [String] = []
     private var folders: [URL] = []
@@ -29,13 +29,16 @@ import SwiftUI
     }
 
     /// A model whose catalog is `count` fake bundles plus Finder, scanned and ready.
+    /// Sample 00-09 declare the Utilities category and 10-19 Games; the rest declare none.
     private func model(apps count: Int) -> DockModel {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("AppsStack-" + UUID().uuidString)
         folders.append(folder)
         for index in 0..<count {
             let contents = folder.appendingPathComponent(String(format: "Sample %02d.app/Contents", index))
             try! FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
-            let plist: [String: Any] = ["CFBundleIdentifier": "test.sample.\(index)", "CFBundleName": String(format: "Sample %02d", index)]
+            var plist: [String: Any] = ["CFBundleIdentifier": "test.sample.\(index)", "CFBundleName": String(format: "Sample %02d", index)]
+            if index < 10 { plist["LSApplicationCategoryType"] = "public.app-category.utilities" }
+            else if index < 20 { plist["LSApplicationCategoryType"] = "public.app-category.games" }
             try! PropertyListSerialization.data(fromPropertyList: plist, format: .xml, options: 0).write(to: contents.appendingPathComponent("Info.plist"))
         }
         let suite = "ApplicationsStackTests." + UUID().uuidString
@@ -53,6 +56,10 @@ import SwiftUI
         }
         XCTAssertFalse(model.toolkit.scanningApps, "scan should finish")
         return model
+    }
+
+    private func key(_ code: UInt16) -> NSEvent {
+        NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, characters: "x", charactersIgnoringModifiers: "x", isARepeat: false, keyCode: code)!
     }
 
     func testTileTogglesLauncherAndOffersFolderActions() {
@@ -89,55 +96,89 @@ import SwiftUI
         launcher.show(model: model)
         let first = launcher.panel
         XCTAssertNotNil(first)
-        XCTAssertTrue(first?.canBecomeKey ?? false, "the borderless launcher must take keyboard input")
+        XCTAssertTrue(first?.canBecomeKey ?? false, "the borderless chooser must take keyboard input")
+        XCTAssertTrue(first?.hasShadow ?? false, "it floats with a window shadow")
         NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: first)
-        XCTAssertNil(launcher.panel, "losing key status dismisses the launcher")
+        XCTAssertNil(launcher.panel, "losing key status dismisses the chooser")
         launcher.toggle(model: model)
         let second = launcher.panel
         XCTAssertNotNil(second)
         second?.cancelOperation(nil)
-        XCTAssertNil(launcher.panel, "Esc dismisses the launcher")
+        XCTAssertNil(launcher.panel, "Esc dismisses the chooser")
         let deadline = Date().addingTimeInterval(5) // the fade-out completion orders the panel out
         while second?.contentView != nil, Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
         XCTAssertFalse(second?.isVisible ?? true)
         XCTAssertNil(second?.contentView)
     }
 
-    func testLauncherPagesSearchesAndLaunches() {
-        let model = model(apps: 40) // 41 with Finder: two 7x5 pages
-        let pager = AppsPager()
+    func testPanelFloatsInTheUpperMiddleAndRemembersLayout() {
+        let visible = NSRect(x: 0, y: 0, width: 1512, height: 944)
+        let frame = AppsLauncher.frame(in: visible)
+        XCTAssertEqual(frame.size, AppsLauncher.panelSize, "a fixed, sensible size rather than the whole screen")
+        XCTAssertEqual(frame.midX, visible.midX, accuracy: 1)
+        XCTAssertGreaterThan(frame.midY, visible.midY, "sits above centre, like Spotlight")
+        let small = AppsLauncher.frame(in: NSRect(x: 100, y: 50, width: 600, height: 400))
+        XCTAssertEqual(small.size, CGSize(width: 552, height: 352), "shrinks to fit small screens")
+        XCTAssertEqual(small.maxY, 426)
+
+        let model = model(apps: 1)
+        let launcher = AppsLauncher.shared
+        launcher.show(model: model)
+        XCTAssertLessThan(launcher.panel?.frame.width ?? .infinity, (launcher.panel?.screen ?? NSScreen.main)?.frame.width ?? 0)
+        launcher.chooser.layout = .list
+        launcher.close()
+        XCTAssertEqual(model.defaults.string(forKey: "appsChooserLayout"), "list")
+        launcher.chooser.category = .games
+        launcher.show(model: model, query: "Sam")
+        XCTAssertEqual(launcher.chooser.layout, .list, "the view choice persists between openings")
+        XCTAssertEqual(launcher.chooser.query, "Sam")
+        XCTAssertNil(launcher.chooser.category, "each opening starts on All")
+        launcher.chooser.layout = .icons
+    }
+
+    func testChooserSearchesFiltersAndLaunches() {
+        let model = model(apps: 40) // 41 with Finder
+        let state = AppsChooserState()
         var closed = 0
-        let view = AppsLauncherView(model: model, kit: model.toolkit, pager: pager) { closed += 1 }
-        let harness = DockHarness(view, size: CGSize(width: 1400, height: 900))
+        let view = AppsLauncherView(model: model, kit: model.toolkit, state: state) { closed += 1 }
+        let harness = DockHarness(view, size: AppsLauncher.panelSize)
         defer { harness.close() }
         harness.spin(0.4)
-        XCTAssertEqual(pager.count, 2)
-        XCTAssertTrue(harness.has("Page 2 of 2"), "\(harness.labels())")
-        harness.press("Page 2 of 2")
-        XCTAssertEqual(pager.page, 1)
-        pager.go(9); XCTAssertEqual(pager.page, 1, "paging clamps to the last page")
-        view.finishDrag(predicted: 300); XCTAssertEqual(pager.page, 0)
-        view.finishDrag(predicted: -300); XCTAssertEqual(pager.page, 1)
-        view.finishDrag(predicted: 20); XCTAssertEqual(pager.page, 1, "short drags stay on the page")
-        harness.drag(from: CGPoint(x: 700, y: 30), to: CGPoint(x: 200, y: 30))
-        harness.drag(from: CGPoint(x: 200, y: 30), to: CGPoint(x: 900, y: 30))
-        harness.spin(0.4)
+        XCTAssertEqual(state.count, 41)
+        XCTAssertTrue(harness.has("Applications"), "launch mode heads the panel with Applications")
+        let index = model.toolkit.appIndex
+        XCTAssertEqual(state.results(in: index).map { index.name(of: $0) }.prefix(2), ["Finder", "Sample 00"], "an empty search lists apps by name")
 
-        // Search filters, resets to the first page and launches the top match on Return.
-        harness.enter("Sample 07")
+        // Category tags narrow the list; only categories that have apps get a tag.
+        XCTAssertTrue(harness.has("All"))
+        XCTAssertFalse(harness.has("Social"), "\(harness.labels())")
+        harness.press("Games")
+        harness.spin(0.2)
+        XCTAssertEqual(state.category, .games)
+        XCTAssertEqual(state.count, 10)
+        harness.press("All")
+        harness.spin(0.2)
+        XCTAssertNil(state.category)
+        XCTAssertEqual(state.count, 41)
+
+        // Search filters at once; the arrow keys move the selection and Return picks it.
+        harness.enter("Sample 0")
         harness.spin(0.3)
-        XCTAssertEqual(pager.page, 0)
-        XCTAssertEqual(pager.count, 1)
+        XCTAssertEqual(state.count, 10)
         XCTAssertTrue(harness.has("Clear search"))
+        XCTAssertTrue(state.handleKey(key(124)))
+        XCTAssertEqual(state.selection, 1)
+        harness.spin(0.2)
         let field = harness.textFields()[0]
         if let action = field.action { NSApp.sendAction(action, to: field.target, from: field) }
         harness.spin()
-        XCTAssertEqual(launched.last?.lastPathComponent, "Sample 07.app")
+        XCTAssertEqual(launched.last?.lastPathComponent, "Sample 01.app")
         XCTAssertEqual(closed, 1)
         harness.press("Clear search")
         harness.enter("zzzz-no-such-app")
         harness.spin(0.3)
-        XCTAssertTrue(model.toolkit.appIndex.search("zzzz-no-such-app").isEmpty)
+        XCTAssertEqual(state.count, 0)
+        XCTAssertEqual(state.selection, 0)
         if let action = field.action { NSApp.sendAction(action, to: field.target, from: field) }
         XCTAssertEqual(closed, 1, "Return with no match does nothing")
         harness.enter("")
@@ -157,18 +198,67 @@ import SwiftUI
         harness.choose("Show in Finder", inMenuAt: icon)
         if case .reveal(let urls)? = effects.last { XCTAssertEqual(urls.first?.lastPathComponent, "Sample 01.app") } else { XCTFail("reveal should go through effects") }
 
-        // The search tracks whether arrow keys may page.
-        harness.enter("Sample")
+        // The list shows the same apps one per row and scrolls to keep the selection visible.
+        harness.press("View as List")
         harness.spin(0.2)
-        XCTAssertFalse(pager.searchIsEmpty)
-        harness.enter("")
-        harness.spin(0.2)
-        XCTAssertTrue(pager.searchIsEmpty)
+        XCTAssertEqual(state.layout, .list)
+        XCTAssertTrue(harness.has("Sample 02"), "\(harness.labels())")
+        state.selection = 35
+        harness.spin(0.3)
+        harness.press("View as Icons")
+        XCTAssertEqual(state.layout, .icons)
+    }
 
-        // Backdrop clicks and Esc call `close` directly (onTapGesture/onExitCommand); the window's
-        // Esc path is covered by testLauncherWindowOpensClosesOnResignAndEscape. Synthesized
-        // clicks on the backdrop are not delivered reliably on every runner, so only send them.
-        harness.click(CGPoint(x: 12, y: 12))
+    func testArrowKeysMoveTheSelectionByIconAndRow() {
+        let launcher = AppsLauncher.shared
+        launcher.show(model: model(apps: 2))
+        let state = launcher.chooser
+        state.count = 20
+        launcher.panel?.keyDown(with: key(124)) // right
+        XCTAssertEqual(state.selection, 1)
+        launcher.panel?.keyDown(with: key(125)) // down one row of seven
+        XCTAssertEqual(state.selection, 1 + AppsChooserState.columns)
+        launcher.panel?.keyDown(with: key(126)) // up
+        XCTAssertEqual(state.selection, 1)
+        launcher.panel?.keyDown(with: key(123)) // left
+        XCTAssertEqual(state.selection, 0)
+        launcher.panel?.keyDown(with: key(123))
+        XCTAssertEqual(state.selection, 0, "the selection stops at the first app")
+        state.selection = 18
+        state.move(7)
+        XCTAssertEqual(state.selection, 19, "and at the last")
+        launcher.panel?.keyDown(with: key(0)) // other keys pass through to AppKit
+        XCTAssertEqual(state.selection, 19)
+        state.layout = .list
+        XCTAssertFalse(state.handleKey(key(124)), "left and right stay with the search text in the list")
+        XCTAssertTrue(state.handleKey(key(126)))
+        XCTAssertEqual(state.selection, 18, "up moves one row in the list")
+        state.count = 0
+        state.move(1)
+        XCTAssertEqual(state.selection, 18, "an empty result list leaves the selection alone")
+        state.layout = .icons
+    }
+
+    func testCategoriesFollowTheBundleCategoryType() {
+        let app = "/Applications/A.app"
+        let cases: [(String?, String, AppCategory)] = [
+            ("public.app-category.productivity", app, .productivity),
+            ("public.app-category.finance", app, .productivity),
+            ("public.app-category.photography", app, .creativity),
+            ("public.app-category.developer-tools", app, .developer),
+            ("public.app-category.utilities", app, .utilities),
+            ("public.app-category.social-networking", app, .social),
+            ("public.app-category.entertainment", app, .entertainment),
+            ("public.app-category.news", app, .reading),
+            ("public.app-category.education", app, .education),
+            ("public.app-category.games", app, .games),
+            ("public.app-category.puzzle-games", app, .games),
+            ("public.app-category.healthcare-fitness", app, .health),
+            ("public.app-category.travel", app, .other),
+            (nil, "/System/Applications/Utilities/Terminal.app", .utilities),
+            (nil, app, .other),
+        ]
+        for (type, path, expected) in cases { XCTAssertEqual(AppCategory(categoryType: type, path: path), expected, type ?? path) }
     }
 
     func testPlusAndReplaceOpenTheLauncherInTheirModes() {
@@ -177,14 +267,14 @@ import SwiftUI
         model.systemError = "stale"
         model.addApps()
         let first = launcher.panel
-        XCTAssertNotNil(first, "+ opens the Applications launcher")
+        XCTAssertNotNil(first, "+ opens the Applications chooser")
         XCTAssertNil(model.systemError)
         let sample = model.toolkit.appIndex.search("Sample 00")[0]
         model.showAppPicker(replacing: sample) // reopening while open swaps in a fresh panel
         XCTAssertNotNil(launcher.panel)
         XCTAssertFalse(launcher.panel === first)
         model.showAppLauncher(query: "Sample")
-        XCTAssertFalse(launcher.pager.searchIsEmpty, "a widget query pre-fills the search")
+        XCTAssertFalse(launcher.chooser.searchIsEmpty, "a widget query pre-fills the search")
         launcher.close()
         XCTAssertEqual(AppsLauncher.Mode.launch.title, nil)
         XCTAssertEqual(AppsLauncher.Mode.replace(sample).title, "Replace " + sample.name)
@@ -192,9 +282,8 @@ import SwiftUI
 
     func testAddModePinsOnceAndCloses() {
         let model = model(apps: 3)
-        let pager = AppsPager()
         var closed = 0
-        let harness = DockHarness(AppsLauncherView(model: model, kit: model.toolkit, pager: pager, mode: .add) { closed += 1 }, size: CGSize(width: 1400, height: 900))
+        let harness = DockHarness(AppsLauncherView(model: model, kit: model.toolkit, state: AppsChooserState(), mode: .add) { closed += 1 }, size: AppsLauncher.panelSize)
         defer { harness.close() }
         harness.spin(0.4)
         XCTAssertTrue(harness.has("Add an app to the Dock"), "\(harness.labels())")
@@ -206,7 +295,7 @@ import SwiftUI
         harness.press("Sample 01")
         XCTAssertEqual(model.apps.count, 1, "an app already in the Dock is not added again")
         XCTAssertEqual(closed, 1)
-        // Return adds the top match; a vanished bundle reports the error inline and stays open.
+        // Return adds the selected (top) match; a vanished bundle reports the error inline and stays open.
         harness.enter("Sample 02")
         harness.spin(0.3)
         let field = harness.textFields()[0]
@@ -227,13 +316,13 @@ import SwiftUI
         let index = model.toolkit.appIndex
         let old = index.search("Sample 00")[0], new = index.search("Sample 01")[0]
         model.apps = [old]
-        model.systemError = "Problem" // renders the inline error under the search field
+        model.systemError = "Problem" // renders the inline error in the header
         var closed = 0
-        let harness = DockHarness(AppsLauncherView(model: model, kit: model.toolkit, pager: AppsPager(), mode: .replace(old)) { closed += 1 }, size: CGSize(width: 1400, height: 900))
+        let harness = DockHarness(AppsLauncherView(model: model, kit: model.toolkit, state: AppsChooserState(), mode: .replace(old)) { closed += 1 }, size: AppsLauncher.panelSize)
         defer { harness.close() }
         harness.spin(0.4)
         XCTAssertTrue(harness.has("Replace " + old.name), "\(harness.labels())")
-        harness.press("Sample 00") // already in the Dock: rejected, launcher stays open
+        harness.press("Sample 00") // already in the Dock: rejected, chooser stays open
         XCTAssertEqual(closed, 0)
         XCTAssertEqual(model.systemError, "That application is already in the Dock.")
         harness.press("Sample 01")
@@ -262,65 +351,12 @@ import SwiftUI
     func testEmptyCatalogShowsPlaceholder() {
         let model = model(apps: 0)
         model.toolkit.applicationRoots = []
-        let pager = AppsPager()
-        let harness = DockHarness(AppsLauncherView(model: model, kit: model.toolkit, pager: pager) {}, size: CGSize(width: 1000, height: 700))
+        let state = AppsChooserState()
+        let harness = DockHarness(AppsLauncherView(model: model, kit: model.toolkit, state: state) {}, size: AppsLauncher.panelSize)
         defer { harness.close() }
         harness.enter("nothing matches this")
         harness.spin(0.3)
-        XCTAssertEqual(pager.count, 1)
-    }
-
-    private func scroll(dx: Int32, dy: Int32, precise: Bool, phase: Int64 = 0, momentum: Int64 = 0) -> NSEvent {
-        let event = CGEvent(scrollWheelEvent2Source: nil, units: precise ? .pixel : .line, wheelCount: 2, wheel1: dy, wheel2: dx, wheel3: 0)!
-        event.setIntegerValueField(.scrollWheelEventIsContinuous, value: precise ? 1 : 0)
-        event.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
-        event.setIntegerValueField(.scrollWheelEventMomentumPhase, value: momentum)
-        return NSEvent(cgEvent: event)!
-    }
-
-    private func key(_ code: UInt16) -> NSEvent {
-        NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, characters: "x", charactersIgnoringModifiers: "x", isARepeat: false, keyCode: code)!
-    }
-
-    func testArrowKeysPageOnlyWhileSearchIsEmpty() {
-        let launcher = AppsLauncher.shared
-        launcher.show(model: model(apps: 40))
-        let pager = launcher.pager
-        pager.count = 2
-        launcher.panel?.keyDown(with: key(124))
-        XCTAssertEqual(pager.page, 1)
-        launcher.panel?.keyDown(with: key(123))
-        XCTAssertEqual(pager.page, 0)
-        launcher.panel?.keyDown(with: key(0)) // other keys pass through to AppKit
-        XCTAssertEqual(pager.page, 0)
-        pager.searchIsEmpty = false
-        XCTAssertFalse(pager.handleKey(key(124)), "arrows edit the search text while it has text")
-        pager.searchIsEmpty = true
-    }
-
-    func testPagerTurnsOncePerTrackpadGestureAndPerWheelNotch() {
-        let pager = AppsPager()
-        pager.count = 3
-        // Trackpad: one swipe left turns forward once, however far it travels.
-        pager.scroll(scroll(dx: 0, dy: 0, precise: true, phase: 1)) // began
-        pager.scroll(scroll(dx: -40, dy: 0, precise: true, phase: 2))
-        XCTAssertEqual(pager.page, 0, "below the threshold")
-        pager.scroll(scroll(dx: -40, dy: 0, precise: true, phase: 2))
-        XCTAssertEqual(pager.page, 1)
-        pager.scroll(scroll(dx: -200, dy: 0, precise: true, phase: 2))
-        XCTAssertEqual(pager.page, 1, "one turn per gesture")
-        pager.scroll(scroll(dx: -200, dy: 0, precise: true, momentum: 2))
-        XCTAssertEqual(pager.page, 1, "momentum never turns")
-        pager.scroll(scroll(dx: 0, dy: 0, precise: true, phase: 1))
-        pager.scroll(scroll(dx: 90, dy: 0, precise: true, phase: 2))
-        XCTAssertEqual(pager.page, 0, "swiping right goes back")
-        // Mouse wheel: each vertical notch turns a page.
-        pager.scroll(scroll(dx: 0, dy: -3, precise: false))
-        XCTAssertEqual(pager.page, 1)
-        pager.scroll(scroll(dx: 0, dy: -3, precise: false))
-        XCTAssertEqual(pager.page, 2)
-        pager.scroll(scroll(dx: 0, dy: 3, precise: false))
-        XCTAssertEqual(pager.page, 1)
+        XCTAssertEqual(state.count, 0)
     }
 
     func testIndexEdgeCasesAndYAMLParsing() {
