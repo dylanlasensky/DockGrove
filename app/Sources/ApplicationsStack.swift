@@ -170,6 +170,9 @@ struct ApplicationsStackMenu: View {
     func close(restorePrevious: Bool = false) {
         guard let panel else { return }
         self.panel = nil; mode = .launch
+        // End editing first: the search field's system completion list otherwise stays attached to
+        // this panel and asserts when the next window comes on screen.
+        panel.makeFirstResponder(nil)
         if restorePrevious, let previousApplication, previousApplication.processIdentifier != ProcessInfo.processInfo.processIdentifier { previousApplication.activate() }
         previousApplication = nil
         monitors.forEach(NSEvent.removeMonitor); monitors = []

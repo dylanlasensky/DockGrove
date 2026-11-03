@@ -181,11 +181,13 @@ struct StackCalloutShape: Shape {
     /// The stack's contents: every catalogued application, in the stack's "Sort by" order.
     static func contents(of kit: Toolkit, sort: StackSortOrder = .name) -> [(app: DockApp, name: String)] {
         let index = kit.appIndex
-        let byName = zip(index.apps, index.records).map { ($0, $1.name.isEmpty ? $0.name : $1.name) }
+        let apps: [DockApp] = index.apps
+        let byName: [(app: DockApp, name: String)] = zip(apps, index.records).map { ($0, $1.name.isEmpty ? $0.name : $1.name) }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         guard sort != .name else { return byName }
-        let rank = Dictionary(sort.sorted(byName.map(\.0.url)).enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
-        return byName.sorted { (rank[$0.0.url] ?? .max) < (rank[$1.0.url] ?? .max) }
+        let urls: [URL] = byName.map { $0.app.url }
+        let rank: [URL: Int] = Dictionary(sort.sorted(urls).enumerated().map { ($1, $0) }, uniquingKeysWith: { first, _ in first })
+        return byName.sorted { (rank[$0.app.url] ?? .max) < (rank[$1.app.url] ?? .max) }
     }
 
     func toggle(model: DockModel, anchor: CGRect?) {
