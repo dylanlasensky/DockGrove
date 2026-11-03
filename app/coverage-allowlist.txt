@@ -110,6 +110,9 @@ Utilities.swift: static SystemPicker.chooseFile(message:) # builds and runs a mo
 ~ SystemMonitor.swift: implicit closure #2 in CoreAudioHardware.volume(_:) # as above
 AIUsage.swift: implicit closure #1 in variable initialization expression of static AIUsageWidget.loadsSavedKey # short-circuited under XCTest; only a real app launch evaluates the UI-test flags
 AIUsage.swift: implicit closure #2 in variable initialization expression of static AIUsageWidget.loadsSavedKey # short-circuited under XCTest; only a real app launch evaluates the UI-test flags
+LocalAIUsage.swift: implicit closure #1 in variable initialization expression of static LocalAIWidget.runsUsageCommand # short-circuited under XCTest; only a real app launch evaluates the UI-test flags
+LocalAIUsage.swift: implicit closure #2 in variable initialization expression of static LocalAIWidget.runsUsageCommand # short-circuited under XCTest; only a real app launch evaluates the UI-test flags
+LocalAIUsage.swift: implicit closure #1 in variable initialization expression of LocalAIWidget.runUsage # production default launching the real `claude -p /usage`; test hosts get nil and inject fakes (ClaudeUsageCommand.run itself is tested with fixture scripts)
 AppsStackPopover.swift: implicit closure #1 in AppsStackPopover.toggle(model:anchor:) # no recorded tile anchor: falls back to the real pointer location
 AppsStackPopover.swift: implicit closure #3 in implicit closure #2 in AppsStackPopover.toggle(model:anchor:) # fallback screen when the anchor is on no screen
 AppsStackPopover.swift: implicit closure #4 in AppsStackPopover.toggle(model:anchor:) # last-resort frame when the Mac reports no screens

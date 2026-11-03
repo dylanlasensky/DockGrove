@@ -472,7 +472,7 @@ extension Binding: IntegrationsAnyBinding {
         XCTAssertEqual(LocalAIProvider.claude.documentation.host, "code.claude.com")
         XCTAssertEqual(LocalAIProvider.gemini.documentation.host, "geminicli.com")
         XCTAssertEqual(LocalAIModel(name: "m", total: 1, input: 1, output: 0, cached: 0, requests: 1).id, "m")
-        for error in [LocalAIError.invalid, .tooLarge, .existingStatusLine, .changedSettings, .missing] { XCTAssertFalse(error.errorDescription!.isEmpty) }
+        for error in [LocalAIError.invalid, .tooLarge, .existingStatusLine, .changedSettings, .missing, .cliMissing, .signedOut, .noLimits, .cliFailed] { XCTAssertFalse(error.errorDescription!.isEmpty) }
         XCTAssertEqual(LocalAIStore.folder.lastPathComponent, "AI Usage")
         XCTAssertTrue(ClaudeStatusLineSetup.command.hasSuffix(" --claude-statusline"))
         XCTAssertTrue(ClaudeStatusLineSetup.settingsURL.path.hasSuffix(".claude/settings.json"))
@@ -637,6 +637,228 @@ extension Binding: IntegrationsAnyBinding {
             IntegrationsUI.appear(IntegrationsUI.body(LocalAIUsageView(widget: widget, setupAllowedOverride: false)))
             XCTAssertNotNil(widget.timer)
         }
+    }
+
+    // MARK: Claude Code /usage
+
+    /// Real `claude -p /usage` text (America/New_York account, Nov 3 2026).
+    static let usageText = """
+    You are currently using your subscription to power your Claude Code usage
+
+    Current week (all models): 28% used · resets Nov 6 at 7:59pm (America/New_York)
+    Current week (Fable): 14% used · resets Nov 6 at 7:59pm (America/New_York)
+
+    What's contributing to your usage?
+    Approximate · sessions on this machine only · shares overlap
+
+    Last 24h · 1625 requests · 4 sessions
+      89%  Give "general-purpose" subagents a cheaper model
+      56%  Start fresh when you switch tasks · run /clear
+      10%  Turn off MCP servers you don't use · 26k tokens per request
+      Top subagents: general-purpose 63%
+      Top MCP servers: playwright 1%
+
+    Last 7d · 15268 requests · 10 sessions
+      96%  Stop sessions you no longer need · some ran 8 hours or more
+    """
+    static func usageJSON(_ result: String, error: Bool = false) -> Data {
+        try! JSONSerialization.data(withJSONObject: ["type": "result", "subtype": "success", "is_error": error, "local_command": "usage", "total_cost_usd": 0, "num_turns": 0, "result": result])
+    }
+    private static let newYork = TimeZone(identifier: "America/New_York")!
+    private static func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int, _ minute: Int, _ zone: TimeZone = newYork) -> Date {
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = zone
+        return calendar.date(from: DateComponents(year: year, month: month, day: day, hour: hour, minute: minute))!
+    }
+
+    func testUsageParserReadsTheRealUsageScreen() throws {
+        let now = Self.date(2026, 11, 3, 12, 0)
+        let report = try ClaudeUsageParser.report(Self.usageJSON(Self.usageText), now: now)
+        XCTAssertEqual(report.windows.map(\.name), ["Weekly · all models", "Weekly · Fable"])
+        XCTAssertEqual(report.windows.map(\.used), [28, 14])
+        XCTAssertEqual(report.windows[0].resets, Self.date(2026, 11, 6, 19, 59))
+        XCTAssertEqual(report.windows[1].resetText, "Nov 6 at 7:59pm (America/New_York)")
+        XCTAssertEqual(report.source, "usage"); XCTAssertEqual(report.observed, now); XCTAssertNil(report.sessionCost)
+        XCTAssertEqual(report.summary, "Last 24h · 1625 requests · 4 sessions")
+        XCTAssertEqual(report.drivers?.map(\.percent), [89, 56, 10])
+        XCTAssertEqual(report.drivers?.first?.text, "Give \"general-purpose\" subagents a cheaper model")
+        XCTAssertEqual(report.mostConstrained(at: now)?.name, "Weekly · all models")
+
+        // A 5-hour session, the reset rounding Claude Code uses ("8pm"), clamping and a cap of eight windows.
+        let session = ClaudeUsageParser.parse("Current session: 41.5% used · resets 7:59pm (America/New_York)\nCurrent week (all models): 120% used · resets Nov 6 at 8pm (America/New_York)\nCurrent day: 3% used\nCurrent week: 2% used · resets in 3 hours", now: now)
+        XCTAssertEqual(session.windows.map(\.name), ["5-hour window", "Weekly · all models", "Day", "Weekly · all models"])
+        XCTAssertEqual(session.windows.map(\.used), [41.5, 100, 3, 2])
+        XCTAssertEqual(session.windows[0].resets, Self.date(2026, 11, 3, 19, 59))
+        XCTAssertEqual(session.windows[1].resets, Self.date(2026, 11, 6, 20, 0))
+        XCTAssertNil(session.windows[2].resets); XCTAssertNil(session.windows[2].resetText); XCTAssertNil(session.windows[2].resetLabel)
+        XCTAssertNil(session.windows[3].resets); XCTAssertEqual(session.windows[3].resetLabel, "Resets in 3 hours")
+        XCTAssertTrue(session.windows[0].resetLabel!.hasPrefix("Resets "))
+        XCTAssertNil(session.summary); XCTAssertTrue(session.drivers.isEmpty)
+        XCTAssertEqual(ClaudeUsageParser.parse(Array(repeating: "Current session: 1% used", count: 12).joined(separator: "\n"), now: now).windows.count, 8)
+        XCTAssertTrue(ClaudeUsageParser.parse("garbage \u{0}\n%%% used\nCurrent : % used\n\u{1F643}", now: now).windows.isEmpty)
+    }
+
+    func testUsageResetTimes() {
+        let now = Self.date(2026, 11, 3, 12, 0)
+        let utc = TimeZone(identifier: "UTC")!
+        func reset(_ text: String) -> Date? { ClaudeUsageParser.resetDate(text, now: now) }
+        XCTAssertEqual(reset("7:59pm (America/New_York)"), Self.date(2026, 11, 3, 19, 59))
+        XCTAssertEqual(reset("6am (America/New_York)"), Self.date(2026, 11, 4, 6, 0), "A passed time is tomorrow's")
+        XCTAssertEqual(reset("12am (America/New_York)"), Self.date(2026, 11, 4, 0, 0))
+        XCTAssertEqual(reset("Jan 2 at 9:05am (UTC)"), Self.date(2027, 1, 2, 9, 5, utc), "A passed date is next year's")
+        XCTAssertEqual(reset("November 3, 2026 at 13:30 (GMT)"), Self.date(2026, 11, 3, 13, 30, utc))
+        XCTAssertEqual(reset("Nov. 2 at 8pm (America/New_York)"), Self.date(2026, 11, 2, 20, 0), "Within a day is still this year's")
+        XCTAssertNotNil(reset("Nov 6 at 8pm"), "Without a zone, the Mac's zone")
+        XCTAssertNotNil(reset("8pm (PDT)"), "A zone abbreviation")
+        for bad in ["Foo 6 at 8pm (UTC)", "Nov 31 at 8pm (UTC)", "8 (UTC)", "13pm (UTC)", "0am (UTC)", "25:00 (UTC)", "8:61pm (UTC)", "8pm (Not/AZone)", "in 3h", "Nov 6 at 1pm at 2pm", "", "(UTC)"] {
+            XCTAssertNil(reset(bad), bad)
+        }
+        XCTAssertEqual(ClaudeUsageParser.title("week (Opus)"), "Weekly · Opus")
+        XCTAssertEqual(ClaudeUsageParser.title("Session"), "5-hour window")
+    }
+
+    func testUsageResultErrorsAndSignInStates() {
+        let now = Date()
+        func failure(_ data: Data) -> LocalAIError? {
+            do { _ = try ClaudeUsageParser.report(data, now: now); return nil } catch { return error as? LocalAIError }
+        }
+        XCTAssertEqual(failure(Self.usageJSON("Not logged in · Please run /login", error: true)), .signedOut)
+        XCTAssertEqual(failure(Self.usageJSON("Something went wrong", error: true)), .cliFailed)
+        XCTAssertEqual(failure(Self.usageJSON("Invalid API key · Please run /login")), .signedOut)
+        XCTAssertEqual(failure(Self.usageJSON("You are currently using API usage billing")), .noLimits)
+        XCTAssertEqual(failure(Self.usageJSON("")), .noLimits)
+        XCTAssertEqual(failure(Data("not json".utf8)), .cliFailed)
+        XCTAssertEqual(failure(Data("[1]".utf8)), .cliFailed)
+        XCTAssertEqual(failure(try! JSONSerialization.data(withJSONObject: ["is_error": false])), .noLimits)
+    }
+
+    func testUsageCommandRunsTheCLIWithItsOwnPath() async throws {
+        let root = try IntegrationsUI.temporaryDirectory(self)
+        func script(_ name: String, _ body: String) throws -> String {
+            let url = root.appendingPathComponent(name)
+            try ("#!/bin/sh\n" + body + "\n").write(to: url, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: url.path)
+            return url.path
+        }
+        let output = root.appendingPathComponent("path.txt").path
+        let ok = try script("claude", "[ \"$*\" = '-p /usage --output-format json --no-session-persistence' ] || exit 9\nprintf '%s' \"$PATH\" > '\(output)'\nprintf '%s' '{\"is_error\":false,\"result\":\"Current session: 5% used\"}'")
+        let data = try await ClaudeUsageCommand.live(ok)
+        XCTAssertEqual(try ClaudeUsageParser.report(data, now: Date()).windows.first?.used, 5)
+        XCTAssertTrue(try String(contentsOfFile: output, encoding: .utf8).hasPrefix(root.path + ":"), "The CLI's own folder comes first on PATH")
+        XCTAssertEqual(ClaudeUsageCommand.arguments.last, "--no-session-persistence")
+
+        // A non-zero exit still returns its JSON (Claude Code reports sign-in errors that way).
+        let failing = try script("failing", "printf '%s' '{\"is_error\":true}'; exit 1")
+        let failed = try await ClaudeUsageCommand.run(failing)
+        XCTAssertEqual(failed, Data(#"{"is_error":true}"#.utf8))
+        // Oversized output, a hung CLI, a crash and a missing executable all fail without data.
+        let chatty = try script("chatty", "yes DockGrove | head -c 200000")
+        let hung = try script("hung", "exec /bin/sleep 5")
+        let crashed = try script("crashed", "kill -9 $$")
+        for (path, timeout, limit) in [(chatty, 30.0, 1000), (hung, 0.3, 1000), (crashed, 30.0, 1000), (root.appendingPathComponent("missing").path, 30.0, 1000)] {
+            do { _ = try await ClaudeUsageCommand.run(path, timeout: timeout, maxBytes: limit); XCTFail("\(path) succeeded") }
+            catch { XCTAssertEqual(error as? LocalAIError, .cliFailed) }
+        }
+        try await Task.sleep(nanoseconds: 1_300_000_000) // lets the hung CLI's SIGKILL check run
+    }
+
+    func testUsageStorageMergeAndValidation() throws {
+        let root = try IntegrationsUI.temporaryDirectory(self)
+        let now = Date()
+        // A report saved before /usage support (no optional fields) still loads.
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let old = #"{"provider":"claude","observed":\#(now.timeIntervalSinceReferenceDate - 60),"windows":[{"name":"Weekly window","used":12,"resets":\#(now.timeIntervalSinceReferenceDate + 600)}],"models":[],"sessionCost":0.5}"#
+        try Data(old.utf8).write(to: LocalAIStore.url(.claude, directory: root))
+        let line = try LocalAIStore.load(.claude, directory: root)
+        XCTAssertEqual(line.windows.first?.used, 12); XCTAssertNil(line.source); XCTAssertNil(line.drivers)
+        XCTAssertTrue(LocalAIStore.url(.claude, directory: root, usage: true).lastPathComponent == "claude-usage.json")
+
+        let usage = try ClaudeUsageParser.report(Self.usageJSON(Self.usageText + "\nCurrent session: 3% used · resets soon"), now: now)
+        try LocalAIStore.save(usage, provider: .claude, directory: root, usage: true)
+        let loaded = try LocalAIStore.load(.claude, directory: root, usage: true)
+        XCTAssertEqual(loaded.windows.count, 3); XCTAssertEqual(loaded.windows[2].resetText, "soon"); XCTAssertNil(loaded.windows[2].resets)
+        XCTAssertEqual(loaded.activeWindows(at: now).count, 3, "A window without a readable reset stays active")
+
+        // Fresh /usage wins and keeps the status line's cost; a stale one yields to a newer status line.
+        let merged = try XCTUnwrap(LocalAIReport.merged(statusLine: line, usage: loaded, now: now))
+        XCTAssertEqual(merged.windows.count, 3); XCTAssertEqual(merged.sessionCost, 0.5); XCTAssertEqual(merged.source, "usage")
+        let newerLine = LocalAIReport(provider: "claude", observed: now.addingTimeInterval(10), windows: line.windows, models: [], sessionCost: nil)
+        XCTAssertNil(LocalAIReport.merged(statusLine: newerLine, usage: loaded, now: now.addingTimeInterval(1900))?.source)
+        XCTAssertEqual(LocalAIReport.merged(statusLine: line, usage: loaded, now: now.addingTimeInterval(1900))?.source, "usage", "An older status line never replaces /usage")
+        let staleUsage = LocalAIReport(provider: "claude", observed: now.addingTimeInterval(-4000), windows: loaded.windows, models: [], sessionCost: nil, source: "usage")
+        XCTAssertEqual(LocalAIReport.merged(statusLine: nil, usage: staleUsage, now: now)?.source, "usage")
+        XCTAssertNil(LocalAIReport.merged(statusLine: nil, usage: nil, now: now))
+        XCTAssertNil(LocalAIReport(provider: "claude", observed: now, windows: [], models: [], sessionCost: nil).mostConstrained(at: now))
+
+        for invalid in [
+            LocalAIReport(provider: "claude", observed: now, windows: Array(repeating: LocalAIWindow(name: "w", used: 1, resets: nil), count: 9), models: [], sessionCost: nil),
+            LocalAIReport(provider: "claude", observed: now, windows: [], models: [], sessionCost: nil, drivers: [LocalAIDriver(percent: 101, text: "x")]),
+            LocalAIReport(provider: "claude", observed: now, windows: [], models: [], sessionCost: nil, summary: String(repeating: "x", count: 201)),
+            LocalAIReport(provider: "claude", observed: now, windows: [LocalAIWindow(name: "w", used: 1, resets: nil, resetText: String(repeating: "x", count: 201))], models: [], sessionCost: nil),
+        ] {
+            try LocalAIStore.save(invalid, provider: .claude, directory: root, usage: true)
+            XCTAssertThrowsError(try LocalAIStore.load(.claude, directory: root, usage: true))
+        }
+    }
+
+    func testWidgetRunsUsageOnStartTimerAndRefresh() async throws {
+        let (widget, _) = try widget(.claude)
+        XCTAssertNil(widget.runUsage, "Test hosts never run the real Claude Code")
+        XCTAssertFalse(LocalAIWidget.runsUsageCommand)
+        widget.refreshUsage(); XCTAssertEqual(widget.usageStatus, "")
+
+        var runs: [String] = []
+        var reply: () throws -> Data = { Self.usageJSON(Self.usageText) }
+        widget.runUsage = { path in runs.append(path); try await Task.sleep(nanoseconds: 20_000_000); return try reply() }
+        widget.refreshUsage()
+        XCTAssertEqual(widget.usageStatus, LocalAIError.cliMissing.localizedDescription); XCTAssertTrue(runs.isEmpty)
+
+        widget.signIn.resolve = { _, _ in "/fake/claude" }
+        widget.start() // not due: the missing-CLI check just ran
+        XCTAssertNotNil(widget.usageTimer); XCTAssertFalse(widget.usageBusy)
+        widget.refreshUsage(); XCTAssertTrue(widget.usageBusy)
+        widget.refreshUsage() // ignored while running
+        let loaded = await IntegrationsUI.settle { !widget.usageBusy }
+        XCTAssertTrue(loaded); XCTAssertEqual(runs, ["/fake/claude"])
+        XCTAssertEqual(widget.report?.source, "usage"); XCTAssertEqual(widget.report?.windows.count, 2)
+        XCTAssertTrue(widget.status.hasPrefix("Updated from /usage")); XCTAssertEqual(widget.usageStatus, "")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: LocalAIStore.url(.claude, directory: widget.directory, usage: true).path))
+
+        // Not due again for five minutes; the timer and Refresh button respect / override that.
+        widget.refreshUsageIfDue(); widget.usageTimer?.fire()
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(runs.count, 1)
+        reply = { Self.usageJSON("Not logged in · Please run /login", error: true) }
+        widget.refreshUsage()
+        _ = await IntegrationsUI.settle { !widget.usageBusy }
+        XCTAssertEqual(widget.usageStatus, LocalAIError.signedOut.localizedDescription)
+        XCTAssertEqual(widget.report?.source, "usage", "The last good /usage report stays")
+        reply = { throw CancellationError() }
+        widget.refreshUsage()
+        _ = await IntegrationsUI.settle { !widget.usageBusy }
+        XCTAssertEqual(widget.usageStatus, LocalAIError.cliFailed.localizedDescription)
+
+        widget.clear()
+        XCTAssertFalse(FileManager.default.fileExists(atPath: LocalAIStore.url(.claude, directory: widget.directory, usage: true).path))
+        widget.stop(); XCTAssertNil(widget.usageTimer)
+
+        let (gemini, _) = try self.widget(.gemini)
+        gemini.runUsage = { _ in XCTFail("Gemini never runs /usage"); return Data() }
+        gemini.start(); gemini.refreshUsage(); XCTAssertNil(gemini.usageTimer)
+    }
+
+    func testUsageViewShowsEveryWindowAndDrivers() throws {
+        let (widget, _) = try widget(.claude)
+        let now = Date()
+        widget.report = LocalAIReport.merged(statusLine: nil, usage: try ClaudeUsageParser.report(Self.usageJSON(Self.usageText + "\nCurrent session: 91% used · resets soon"), now: now), now: now)
+        widget.usageStatus = LocalAIError.signedOut.localizedDescription
+        for dark in [false, true] { IntegrationsUI.render(LocalAIUsageView(widget: widget, automaticallyRefresh: false), dark: dark) }
+        let strings = IntegrationsUI.strings(in: IntegrationsUI.body(LocalAIUsageView(widget: widget, setupAllowedOverride: false, automaticallyRefresh: false)))
+        XCTAssertFalse(strings.isEmpty)
+        var calls = 0
+        widget.signIn.resolve = { _, _ in calls += 1; return nil }
+        widget.runUsage = { _ in Data() }
+        IntegrationsUI.press(IntegrationsUI.body(LocalAIUsageView(widget: widget, setupAllowedOverride: false, automaticallyRefresh: false)), "Refresh")
+        XCTAssertEqual(calls, 1); XCTAssertEqual(widget.usageStatus, LocalAIError.cliMissing.localizedDescription)
     }
 }
 

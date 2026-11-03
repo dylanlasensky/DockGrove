@@ -96,13 +96,15 @@ struct RichWidgetCard: View {
             VStack(alignment: .leading, spacing: 4) { eyebrow("GITHUB", icon: kind.icon); Text(kit.github.snapshot?.run?.displayStatus ?? "Repository activity").font(.system(size: 12, weight: .medium)).lineLimit(1) }
         case .claudeCodeUsage, .geminiUsage:
             let widget = kind == .claudeCodeUsage ? kit.claudeCodeUsage : kit.geminiUsage
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 eyebrow(widget.provider.title.uppercased(), icon: kind.icon)
                 if let report = widget.report {
+                    let window = widget.provider == .claude ? report.mostConstrained(at: Date()) : nil
                     if widget.provider == .claude {
-                        Text(report.activeWindows(at: Date()).first.map { "\(Int(100 - $0.used))% left" } ?? "No active limit").font(.system(size: 19, weight: .medium)).lineLimit(1)
+                        Text(window.map { "\(Int($0.used.rounded()))% used" } ?? "No active limit").font(.system(size: 17, weight: .medium)).monospacedDigit().lineLimit(1)
+                        if let window { ProgressView(value: window.used, total: 100).tint(window.used >= 80 ? .orange : model.color).controlSize(.small) }
                     } else { Text(report.totalTokens.formatted() + " tokens").font(.system(size: 17, weight: .medium)).lineLimit(1) }
-                    Text(report.stale(at: Date()) ? "Older report" : widget.provider == .claude ? "Reported allowance" : "Latest imported session").font(.system(size: 9)).foregroundStyle(.secondary)
+                    Text(report.stale(at: Date()) ? "Older report" + (window.map { " · " + $0.name } ?? "") : widget.provider == .claude ? window?.name ?? "Reported allowance" : "Latest imported session").font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1)
                 } else { Text("Connect local usage").font(.system(size: 12, weight: .medium)).lineLimit(1) }
             }.onAppear { widget.start() }
         case .openaiUsage, .anthropicUsage, .cursorUsage:
