@@ -88,6 +88,46 @@ import AppKit
         XCTAssertEqual(model.widthFraction, 1)
     }
 
+    /// The slider sits between its "Short" and "Long" labels: the only wide, short control inset
+    /// from both edges (switch rows, pop-ups and fields reach the leading or trailing edge).
+    private func dockLengthSlider(_ harness: SettingsHarness) throws -> CGRect {
+        let controls = harness.controls()
+        let left = controls.map(\.minX).min() ?? 0, right = controls.map(\.maxX).max() ?? 0
+        let slider = controls.first { $0.width > 200 && $0.height < 30 && $0.minX > left + 20 && $0.maxX < right - 20 }
+        return try XCTUnwrap(slider, "\(controls)")
+    }
+
+    func testDockLengthSliderTurnsOffFitAndAppliesLive() throws {
+        let model = makeSettingsModel(self)
+        XCTAssertTrue(model.fitToolbarToContent)
+        model.widthFraction = 1
+        let widths: [CGFloat] = [68, 68, 68]
+        let fitted = model.toolbarWidth(screenWidth: 1440, widths: widths)
+        let harness = SettingsHarness(StudioToolbarSize(model: model).padding(), width: 760, height: 700)
+        defer { harness.close() }
+        let frame = try dockLengthSlider(harness)
+        harness.click(CGPoint(x: frame.minX + frame.width * 0.75, y: frame.midY))
+        XCTAssertFalse(model.fitToolbarToContent)
+        XCTAssertLessThan(model.widthFraction, 0.95)
+        XCTAssertGreaterThan(model.widthFraction, 0.6)
+        XCTAssertFalse(model.studioHistory.isEmpty)
+        XCTAssertGreaterThan(model.toolbarWidth(screenWidth: 1440, widths: widths), fitted)
+        model.undoStudioLayout()
+        XCTAssertTrue(model.fitToolbarToContent)
+        XCTAssertEqual(model.widthFraction, 1)
+    }
+
+    func testDockLengthSliderInWorkspaceAppearance() throws {
+        let model = makeSettingsModel(self)
+        model.isAdditionalDock = true
+        let harness = SettingsHarness(DockAppearanceSettings(model: model).padding(), width: 600, height: 520)
+        defer { harness.close() }
+        let frame = try dockLengthSlider(harness)
+        harness.click(CGPoint(x: frame.minX + 3, y: frame.midY))
+        XCTAssertFalse(model.fitToolbarToContent)
+        XCTAssertLessThan(model.widthFraction, 0.45)
+    }
+
     func testAppearanceEveryControl() {
         let model = makeSettingsModel(self)
         model.isAdditionalDock = true

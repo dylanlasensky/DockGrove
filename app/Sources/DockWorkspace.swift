@@ -99,7 +99,7 @@ struct DockAppearanceSettings: View {
         VStack(alignment:.leading,spacing:12) {
             TextField("Dock name",text:$model.dockName).textFieldStyle(.roundedBorder)
             Picker("Appearance",selection:$model.theme) { ForEach(["Automatic","Glass","Graphite","Pearl","System"],id:\.self) { Text($0) } }
-            HStack { Text("Maximum width"); Slider(value:$model.widthFraction,in:0.35...1); Text("\(Int(model.widthFraction*100))%").monospacedDigit() }
+            DockLengthSlider(model:model)
             HStack { Text("Horizontal position"); Slider(value:$model.alignment,in:0...1) }
             Picker("Position",selection:edge) { Text("Bottom").tag("Bottom"); Text("Top").tag("Top"); Text("Floating").tag("Floating") }.disabled(model.replacingDock)
             if model.toolkit.edge == "Floating" { HStack { Text("Floating height"); Slider(value:$model.elevation,in:0...1) }; Text("Floating docks stay visible on the desktop; edge auto-hide applies to top and bottom docks.").font(.caption).foregroundStyle(.secondary) }

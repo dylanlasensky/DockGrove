@@ -202,6 +202,25 @@ import SwiftUI
     let fitted = model.toolbarWidth(screenWidth: 1440, widths: [68])
     model.fitToolbarToContent = false
     precondition(model.toolbarWidth(screenWidth: 1440, widths: [68]) > fitted)
+    // Dock length: with fit-to-items on (the default) an explicit length used to be capped at the
+    // content width, so the control did nothing. Setting a length now turns fit off and applies.
+    model.fitToolbarToContent = true; model.widthFraction = 1
+    let hugging = model.toolbarWidth(screenWidth: 1440, widths: [68, 68])
+    model.widthFraction = 0.6
+    precondition(model.toolbarWidth(screenWidth: 1440, widths: [68, 68]) == hugging)
+    model.setDockLength(0.6)
+    precondition(!model.fitToolbarToContent && model.widthFraction == 0.6)
+    let length = model.toolbarWidth(screenWidth: 1440, widths: [68, 68])
+    precondition(abs(length - (1440 * 0.6 - 44)) < 0.001 && length > hugging)
+    let screen = CGRect(x: 0, y: 0, width: 1440, height: 900), visible = CGRect(x: 0, y: 70, width: 1440, height: 805)
+    for (edge, replacing) in [("Bottom", false), ("Top", false), ("Floating", false), ("Bottom", true)] {
+        let frame = DockGeometry.frame(size: CGSize(width: length + 76, height: model.dockHeight), screen: screen, visible: visible, edge: edge, alignment: 0.5, elevation: 0.5, replacing: replacing)
+        precondition(abs(frame.width - (length + 76)) < 0.001, edge)
+    }
+    model.setDockLength(5); precondition(model.widthFraction == 1)
+    model.setDockLength(0.1); precondition(model.widthFraction == 0.35)
+    model.setDockLength(.nan); precondition(model.widthFraction == 0.35)
+    model.setDockLength(0.6789); precondition(model.widthFraction == 0.68)
     var legacy = profile; legacy.toolbarHeight = nil; legacy.fitToolbarToContent = nil
     model.applyProfile(legacy)
     precondition(model.barHeight == 92 && model.fitToolbarToContent)
