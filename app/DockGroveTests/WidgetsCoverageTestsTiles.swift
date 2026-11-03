@@ -213,6 +213,20 @@ struct WidgetsContentsHost: View {
         event.title = title; event.startDate = Date().addingTimeInterval(3600); event.endDate = Date().addingTimeInterval(7200); event.isAllDay = allDay
         return event
     }
+    func testClaudeCardsShowEveryLimitWindow() {
+        let soon = Date().addingTimeInterval(600)
+        XCTAssertEqual(["5-hour window", "Weekly · all models", "Weekly · Fable", "Other"].map { LocalAIWindow(name: $0, used: 1, resets: nil).shortName }, ["5h", "Week", "Fable", "Other"])
+        kit.anthropicUsage.snapshot = nil
+        kit.claudeCodeUsage.report = LocalAIReport(provider: "claude", observed: Date(), windows: [LocalAIWindow(name: "5-hour window", used: 90, resets: soon), LocalAIWindow(name: "Weekly · all models", used: 30, resets: soon), LocalAIWindow(name: "Weekly · Fable", used: 14, resets: soon)], models: [], sessionCost: nil)
+        for kind: ToolKind in [.claudeCodeUsage, .anthropicUsage] { _ = card(kind) }
+        // Without an Admin API key the Claude API detail is the plan's limits too.
+        let detail = SettingsHarness(ToolTileContents(kind: .anthropicUsage, model: model, kit: kit, interaction: TileInteraction()), width: 400, height: 500)
+        detail.close()
+        // No session window reported, and an older report.
+        kit.claudeCodeUsage.report = LocalAIReport(provider: "claude", observed: Date().addingTimeInterval(-4000), windows: [LocalAIWindow(name: "Weekly · all models", used: 30, resets: soon)], models: [], sessionCost: nil)
+        _ = card(.anthropicUsage)
+        kit.claudeCodeUsage.stop()
+    }
     func testRichCardsEveryKindEmpty() {
         kit.clipboardEnabled = false
         for kind in ToolKind.allCases { _ = card(kind) }

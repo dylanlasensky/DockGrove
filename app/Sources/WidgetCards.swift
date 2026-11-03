@@ -99,14 +99,18 @@ struct RichWidgetCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 eyebrow(widget.provider.title.uppercased(), icon: kind.icon)
                 if let report = widget.report {
-                    let window = widget.provider == .claude ? report.mostConstrained(at: Date()) : nil
-                    if widget.provider == .claude {
-                        Text(window.map { "\(Int($0.used.rounded()))% used" } ?? "No active limit").font(.system(size: 17, weight: .medium)).monospacedDigit().lineLimit(1)
-                        if let window { ProgressView(value: window.used, total: 100).tint(window.used >= 80 ? .orange : model.color).controlSize(.small) }
-                    } else { Text(report.totalTokens.formatted() + " tokens").font(.system(size: 17, weight: .medium)).lineLimit(1) }
-                    Text(report.stale(at: Date()) ? "Older report" + (window.map { " · " + $0.name } ?? "") : widget.provider == .claude ? window?.name ?? "Reported allowance" : "Latest imported session").font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1)
+                    if widget.provider == .claude { claudeLimits(report) } else {
+                        Text(report.totalTokens.formatted() + " tokens").font(.system(size: 17, weight: .medium)).lineLimit(1)
+                        Text(report.stale(at: Date()) ? "Older report" : "Latest imported session").font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1)
+                    }
                 } else { Text("Connect local usage").font(.system(size: 12, weight: .medium)).lineLimit(1) }
             }.onAppear { widget.start() }
+        case .anthropicUsage where kit.anthropicUsage.snapshot == nil && kit.claudeCodeUsage.report != nil:
+            // Without an Admin API key, the Claude card shows the plan's live limits instead of a setup prompt.
+            VStack(alignment: .leading, spacing: 3) {
+                eyebrow("CLAUDE", icon: kind.icon)
+                if let report = kit.claudeCodeUsage.report { claudeLimits(report) }
+            }.onAppear { kit.claudeCodeUsage.start(); kit.anthropicUsage.start() }
         case .openaiUsage, .anthropicUsage, .cursorUsage:
             let widget = kind == .openaiUsage ? kit.openaiUsage : kind == .anthropicUsage ? kit.anthropicUsage : kit.cursorUsage
             VStack(alignment: .leading, spacing: 4) { eyebrow(kind == .openaiUsage ? "OPENAI API" : kind == .anthropicUsage ? "CLAUDE API" : "CURSOR TEAM", icon: "chart.bar.xaxis")
@@ -133,6 +137,24 @@ struct RichWidgetCard: View {
     }
     private var subtitle: String {
         switch kind { case .files: return "\(kit.files.count) saved shortcuts"; case .folders: return "Files at your fingertips"; case .search: return "Find an application"; case .webSearch: return "Find something new"; case .windows: return "Window layouts"; case .converter: return "Length, weight & more"; case .calculator: return "Everyday arithmetic"; case .audio: return "Volume & output"; case .bookmarks: return "\(kit.utilities.bookmarks.count) saved links"; case .clipboard: return kit.clipboardEnabled ? "\(kit.clipboard.count) recent copies" : "Private, until enabled"; case .clocks: return "Across time zones"; default: return "Open " + kind.title.lowercased() }
+    }
+    /// One row per limit window — 5-hour, weekly and each model — each with its own bar.
+    /// The 5-hour row stays as "—" while Claude Code reports no session window, so the layout is stable.
+    @ViewBuilder private func claudeLimits(_ report: LocalAIReport) -> some View {
+        let windows = report.activeWindows(at: Date())
+        let session = windows.first { $0.shortName == "5h" }, rest = windows.filter { $0.shortName != "5h" }
+        VStack(alignment: .leading, spacing: 2) {
+            limitRow("5h", session?.used)
+            ForEach(Array(rest.prefix(2).enumerated()), id: \.offset) { _, window in limitRow(window.shortName, window.used) }
+            if report.stale(at: Date()) { Text("Older report").font(.system(size: 8)).foregroundStyle(.secondary).lineLimit(1) }
+        }
+    }
+    private func limitRow(_ name: String, _ used: Double?) -> some View {
+        HStack(spacing: 5) {
+            Text(name).font(.system(size: 9, weight: .medium)).foregroundStyle(.secondary).lineLimit(1).frame(width: 34, alignment: .leading)
+            ProgressView(value: used ?? 0, total: 100).tint((used ?? 0) >= 80 ? .orange : model.color).controlSize(.mini).opacity(used == nil ? 0.35 : 1)
+            Text(used.map { "\(Int($0.rounded()))%" } ?? "—").font(.system(size: 9, weight: .semibold)).monospacedDigit().lineLimit(1).frame(width: 28, alignment: .trailing)
+        }
     }
     private func eyebrow(_ title: String, icon: String) -> some View { Label(title, systemImage: icon).font(.system(size: 9, weight: .semibold)).tracking(0.5).foregroundStyle(.secondary).lineLimit(1) }
     private func glyph(_ name: String) -> some View { Image(systemName: name).font(.system(size: 22, weight: .regular)).foregroundStyle(model.color).frame(width: 28) }

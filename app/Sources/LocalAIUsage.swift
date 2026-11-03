@@ -10,6 +10,12 @@ enum LocalAIProvider: String { case claude, gemini
 /// read; `resetText` then keeps its words. Both new fields are optional so older files still load.
 struct LocalAIWindow: Codable {
     let name: String; let used: Double; let resets: Date?; var resetText: String? = nil
+    /// The card's short label: "5h", "Week" or the model's name.
+    var shortName: String {
+        if name.hasPrefix("5-hour") { return "5h" }
+        if name == "Weekly · all models" { return "Week" }
+        return name.hasPrefix("Weekly · ") ? String(name.dropFirst("Weekly · ".count)) : name
+    }
     var resetLabel: String? { resets.map { "Resets " + $0.formatted(date: .abbreviated, time: .shortened) } ?? resetText.map { "Resets " + $0 } }
 }
 /// A "What's contributing to your usage?" line from `/usage`, such as "89% Start fresh…".

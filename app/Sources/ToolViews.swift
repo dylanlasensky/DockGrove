@@ -144,6 +144,7 @@ struct ToolTileContents: View {
         case .spotify: MusicPlayerView(player: kit.spotify).environment(\.connectionSettingsAction, { model.openConnectionSettings(.spotify) })
         case .appleMusic: MusicPlayerView(player: kit.appleMusic).environment(\.connectionSettingsAction, { model.openConnectionSettings(.appleMusic) })
         case .openaiUsage: AIUsageView(widget: kit.openaiUsage)
+        case .anthropicUsage where kit.anthropicUsage.snapshot == nil && kit.claudeCodeUsage.report != nil: LocalAIUsageView(widget: kit.claudeCodeUsage)
         case .anthropicUsage: AIUsageView(widget: kit.anthropicUsage)
         case .cursorUsage: AIUsageView(widget: kit.cursorUsage)
         case .github: GitHubView(github: kit.github)
