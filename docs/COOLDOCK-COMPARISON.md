@@ -47,3 +47,11 @@ These are **not** implemented, and the UI does not pretend otherwise:
 - Provider permissions and data behavior across all supported macOS versions, physical multi-monitor testing, signed/notarized distribution, automatic updates and the polish expected of a mature commercial app.
 
 The user selected **AI usage and GitHub** as the next integration priority. GitHub and three additional API/team usage widgets are implemented; consumer-plan coverage and other providers remain explicit follow-up work. This release materially improves replacement behavior and local capabilities but does not claim CoolDock's entire catalog or production maturity.
+
+## Research-backed follow-up, 2026-11-04
+
+The source ledger at `docs/research/sources-2026-11-04.json` records 222 unique reviewed sources after URL deduplication: primary Apple material, official product documentation, direct user issue reports, public Refero previews, and accessibility/performance guidance. The ledger distinguishes textual from visual review and excludes failed fetches and localized duplicates. Competitor performance claims are attributed rather than independently benchmarked; historical issues identify failure modes rather than current prevalence.
+
+The resulting changes are concrete: a permanent searchable window shelf with minimized state and restoration; verified native text-control menu ownership; no window-server inspection during lock/sleep; an illustrative website cube; and Home/Files plus an explicit AirDrop review/device-choice step on the website. The website keeps a single-row phone Dock and the established branding. The notch documentation now follows the current source's paged row, rather than describing a continuous-scroll prototype.
+
+Native Handoff, arbitrary third-party notification badges, browser-internal tabs, and universal Space/window-reservation behavior are not claimed as reproduced. Production purchases remain separate from the tested development build: test tokens are not live purchase entitlements. Signing, provider credentials and the full provider sandbox flow must be verified before sales are enabled.

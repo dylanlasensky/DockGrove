@@ -284,3 +284,28 @@
 
 .barMenu{left:34px!important;translate:0 0}.submenu{min-width:160px}
 @media(max-width:760px){.menuStage>.menu{left:14px}.barMenu{left:14px!important}.submenu{left:50px;min-width:160px}}
+
+/* The native shelf keeps the camera row clear and adds a compact content strip. */
+.nativeShelf.nativeShelf{height:164px;border-radius:0 0 20px 20px;width:calc(100% - 28px);max-width:600px;overflow:hidden}
+.nativeHeader{height:36px;display:grid;grid-template-columns:1fr 112px 1fr;gap:5px;align-items:center;padding:0 10px;color:#c4c9d1;font-size:10px}
+.nativeHeader>input{min-width:0;width:100%;border:0;background:transparent;color:white;font:inherit;padding:7px 2px}
+.nativeHeader>div{display:flex;gap:2px;justify-content:flex-end}
+.nativeHeader button{border:0;background:transparent;color:#aeb9c7;border-radius:6px;padding:7px 6px;font:inherit;min-height:32px}
+.nativeHeader button[aria-pressed="true"]{background:#ffffff17;color:white}
+.cameraSpace{display:block;align-self:stretch;background:#000;pointer-events:none}
+.nativeContent{padding:8px 12px;color:#fff;font-size:11px}
+.nativeContent button{font:inherit;border:0;border-radius:5px;background:transparent;color:#b1d0ff;cursor:pointer;min-height:28px}
+.nativeHome{display:grid;grid-template-columns:1.6fr 1fr;gap:10px}
+.nativeMusic,.nativeFocus,.nativeWidgets>div{border-radius:13px;background:#ffffff0e;padding:12px;min-width:0;height:74px;display:flex;align-items:center;gap:12px}
+.nativeMusic>span{display:grid;place-items:center;width:44px;height:44px;border-radius:8px;background:linear-gradient(135deg,#6e7fb8,#263951);font-size:24px;flex-shrink:0}
+.nativeMusic>div{min-width:0;flex:1}.nativeContent b{display:block;font-size:12px;font-weight:550}.nativeContent small{display:block;color:#9ba9bb;font-size:9px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nativeFocus{flex-direction:column;align-items:flex-start;justify-content:center;gap:2px}.nativeFocus b{font-size:23px;font-weight:400}
+.shelfPage{display:block;margin:0 0 0 auto;font-size:9px!important;min-height:26px!important}
+.nativeWidgets{display:flex;gap:8px}.nativeWidgets>div{flex:1;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px}
+.nativeFiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.trayPreview,.airDropPreview{height:92px;border:1px dashed #ffffff40;border-radius:13px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:10px;min-width:0}
+.airDropPreview>button{width:100%;text-align:left}.airDropPreview>button:first-child{color:#dbe9ff}
+.desktopHint{position:absolute;inset:205px 30px 65px;display:flex;gap:10px;opacity:.24;pointer-events:none}.desktopHint span{height:100%;flex:1;border-radius:10px;background:#ffffff20;border:1px solid #ffffff20}.desktopHint span:nth-child(2){flex:1.6}
+.notchCopy p.compatibility{font-size:12px;color:#8592a4;margin-top:22px}
+.previewNotice{font-size:12px;color:#9aa8bd;margin-top:14px!important;min-height:36px;line-height:1.5}
+@media(max-width:760px){.nativeHeader{grid-template-columns:1fr 80px 1fr;padding:0 6px;font-size:9px}.nativeHeader button{padding:5px;min-height:32px}.nativeMusic{gap:6px;padding:8px}.nativeMusic>span{width:30px;height:36px}.nativeHome{gap:6px;grid-template-columns:1.5fr 1fr}.nativeContent{padding:8px}.nativeContent b{font-size:10px}.nativeFocus b{font-size:20px}.nativeFiles{gap:6px}.nativeContent small{font-size:8px}.trayPreview,.airDropPreview{padding:8px}}

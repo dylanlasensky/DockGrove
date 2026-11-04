@@ -17,6 +17,7 @@ private final class WinFakeAX: @unchecked Sendable {
     var defaultSet: AXError = .success
     var performResult: AXError = .success
     var storeFrames = true
+    var storeMinimized = true
     var sizeClamp: CGSize?
     var apps: [NSRunningApplication] = []
     var hit: AXUIElement?
@@ -24,6 +25,7 @@ private final class WinFakeAX: @unchecked Sendable {
     var runningApp: NSRunningApplication?
     var activations = 0
     var pauses = 0
+    var timeouts: [Float] = []
 
     func key(_ element: AXUIElement, _ attribute: String) -> String { "\(CFHash(element)):\(attribute)" }
     func put(_ element: AXUIElement, _ attribute: String, _ value: CFTypeRef?) {
@@ -52,6 +54,7 @@ private final class WinFakeAX: @unchecked Sendable {
     func set(_ element: AXUIElement, _ attribute: String, _ value: CFTypeRef) -> AXError {
         let result = nextSet(attribute)
         guard result == .success else { return result }
+        if attribute == kAXMinimizedAttribute && !storeMinimized { return result }
         if attribute == kAXSizeAttribute || attribute == kAXPositionAttribute {
             guard storeFrames else { return result }
             if attribute == kAXSizeAttribute, let clamp = sizeClamp { put(element, attribute, winSize(clamp)); return result }
@@ -70,7 +73,7 @@ private final class WinFakeAX: @unchecked Sendable {
         c.promptForTrust = { [unowned self] in self.prompts += 1 }
         c.application = { winElement($0) }
         c.systemWide = { winElement(1) }
-        c.setTimeout = { _, _ in }
+        c.setTimeout = { [unowned self] _, value in self.timeouts.append(value) }
         c.copy = { [unowned self] in self.get($0, $1) }
         c.set = { [unowned self] in self.set($0, $1, $2) }
         c.perform = { [unowned self] _, _ in self.performResult }
@@ -344,6 +347,7 @@ private func winWakeAccessibility() async {
         manager.windows = [window]; manager.selectedID = window.id
         manager.focus()
         XCTAssertEqual(manager.status, "Window brought forward.")
+        XCTAssertEqual(fake.timeouts.last, 0.5, "busy windows have bounded Accessibility calls")
         fake.queue(kAXMinimizedAttribute, [.attributeUnsupported])
         manager.focus()
         XCTAssertEqual(manager.status, "Window brought forward.")
@@ -356,6 +360,7 @@ private func winWakeAccessibility() async {
         manager.status = ""
         manager.minimize()
         XCTAssertEqual(manager.status, "")
+        XCTAssertEqual(fake.timeouts.last, 0.5)
         fake.queue(kAXMinimizedAttribute, [.failure])
         manager.minimize()
         XCTAssertEqual(manager.status, "This window cannot be minimized.")
@@ -378,6 +383,30 @@ private func winWakeAccessibility() async {
         XCTAssertNil(fake.get(window.element, kAXMinimizedAttribute))
         XCTAssertEqual(fake.activations, 0)
         XCTAssertTrue(manager.status.contains("Allow Accessibility"))
+    }
+
+    func testRestoreConfirmsStateWhenRaiseFails() throws {
+        let manager = WindowManager()
+        var window = try managed(72903, frame: nil)
+        window.isMinimized = true
+        manager.windows = [window]; manager.selectedID = window.id
+        fake.performResult = .cannotComplete
+        fake.put(window.element, kAXMinimizedAttribute, kCFBooleanTrue)
+        manager.focus()
+        XCTAssertEqual(fake.get(window.element, kAXMinimizedAttribute) as? Bool, false)
+        XCTAssertEqual(manager.status, "Window restored.")
+
+        // An app can acknowledge a write without changing its state. Do not claim success.
+        fake.storeMinimized = false
+        fake.put(window.element, kAXMinimizedAttribute, kCFBooleanTrue)
+        manager.focus()
+        XCTAssertTrue(manager.status.hasPrefix("This app could not restore"))
+        fake.put(window.element, kAXMinimizedAttribute, nil)
+        manager.focus()
+        XCTAssertTrue(manager.status.hasPrefix("This app could not restore"))
+        fake.queue(kAXMinimizedAttribute, [.cannotComplete])
+        manager.focus()
+        XCTAssertTrue(manager.status.hasPrefix("This app could not restore"))
     }
 
     func testWindowShelfPermissionAndEmptyStates() async throws {
@@ -409,6 +438,7 @@ private func winWakeAccessibility() async {
         fake.put(element, kAXSubroleAttribute, kAXStandardWindowSubrole as CFString)
         fake.put(element, kAXTitleAttribute, "Shelf restore fixture" as CFString)
         fake.put(element, kAXMinimizedAttribute, kCFBooleanTrue)
+        fake.performResult = .cannotComplete
         let manager = WindowManager()
         var dismissed = 0
         let view = host(WindowShelfView(manager: manager) { dismissed += 1 })
@@ -418,8 +448,10 @@ private func winWakeAccessibility() async {
         let label = manager.windows[0].title + ", minimized. Restore window"
         XCTAssertGreaterThan(winPress(view, label), 0)
         XCTAssertEqual(dismissed, 1)
+        XCTAssertEqual(manager.status, "Window restored.")
         XCTAssertEqual(fake.get(element, kAXMinimizedAttribute) as? Bool, false)
         XCTAssertGreaterThan(fake.activations, 0)
+        fake.performResult = .success
         manager.refresh()
         await winWait { !manager.loading }
         await winSettle(0.3)

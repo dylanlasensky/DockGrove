@@ -1,6 +1,6 @@
 # DockGrove website commerce candidate
 
-For the native Xcode app’s $4.99 Plus and $9.99 Full Access StoreKit products, see [IN-APP-PURCHASES.md](IN-APP-PURCHASES.md). This document covers only the separate website license candidate.
+The selected release route is direct purchase and license-token activation. The earlier $4.99 Plus/$9.99 Full Access StoreKit experiment is retained in [IN-APP-PURCHASES.md](IN-APP-PURCHASES.md) for reference; App Store publication is not part of this release.
 
 This implementation is **test-mode only**. No Stripe account, webhook endpoint, database, bucket, email sender, live sale, or production deployment was created. Fixture tests are not provider acceptance.
 
@@ -58,3 +58,11 @@ The license verifier tests run in the Xcode **DockGrove Tests** scheme (`xcodebu
 Remaining external evidence: actual Stripe sandbox API calls, email delivery, D1/R2 deployment behavior, native end-to-end activation against staging, and the subsequent owner-approved live release. These cannot be claimed from fixtures.
 
 Official references checked: https://docs.stripe.com/webhooks and https://docs.stripe.com/checkout/fulfillment .
+
+## Direct-release verification, 2026-11-04
+
+The requested distribution path remains direct purchase followed by a license token, not App Store publication and not a free-product conversion. The existing candidate remains test-only: the Worker rejects live credentials/events, and the native entitlement verifier expects the test environment. Passing fixture tests is not evidence of a live Stripe purchase. The 11 backend checks exercise fulfillment, signed entitlements, activation limits, deactivation, recovery, revocation, provider configuration, and price integrity without charges.
+
+The published site is currently a static Worker. No production API, Stripe secrets, recovery sender credentials, or entitlement signing configuration were present in the inspected checkout/environment. Only an Apple Development signing identity was available; no Developer ID Application identity was available and no notarization profile was configured in the inspected environment. These are release blockers, not reasons to expose a development binary as a purchased commercial download. The current license and third-party notices are retained.
+
+Before enabling sales, configure an isolated production service and live Stripe product/webhook, supply the production signing/public-key configuration, and verify the complete sandbox checkout-to-download-to-native-activation/recovery path with the provider. Then verify the exact Developer ID signed/notarized artifact, production terms and recovery delivery. Creating accounts, accepting provider terms, or entering financial/identity information still requires the owner where the service demands it. No account upgrade or paid resource was created during this work.

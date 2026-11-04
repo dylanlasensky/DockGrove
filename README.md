@@ -11,11 +11,11 @@ DockGrove is a native Mac app. It gives you a customizable glass Dock with app l
 
 Built with Swift, SwiftUI, and AppKit. The 1.0 commercial candidate adds purchase and activation services while keeping notes, tasks, recordings and companion progress local.
 
-> **Native in-app purchases:** the Xcode app now offers **Plus at US $4.99 once** for everyday widgets and **Full Access at US $9.99 once** for all widgets, companions, GitHub, and AI usage. Basic Dock functions remain free. See [native purchases](docs/IN-APP-PURCHASES.md) for the exact split, StoreKit testing, and remaining App Store setup. These products are not live yet. The separate website Stripe candidate remains test-only; see [commerce setup](docs/COMMERCE.md). The legacy 0.8 edition retains its MIT permissions. DockGrove is independent and not affiliated with Apple, CoolDock or OpenAI.
+> **Planned direct purchase:** US **$9.99 once**, covering major version 1 and its maintenance updates on three personal Macs, with a license token for activation. Checkout remains unavailable while production payments, customer terms, signing and notarization are unfinished. See [commerce setup and release blockers](docs/COMMERCE.md). The earlier [StoreKit experiment](docs/IN-APP-PURCHASES.md) is retained for reference; it is not the selected release route. Development builds are for source testing and must not be sold as the commercial artifact. The repository retains its MIT license and existing notices. DockGrove is independent and not affiliated with Apple, CoolDock or OpenAI.
 
-[DockGrove website](https://dockgrove.com/) · Website source and the test-commerce implementation are under `website/`. Checkout remains unavailable until the test services are configured.
+[DockGrove website](https://dockgrove.com/) · Website source and the test-commerce implementation are under `website/`. Fixture tests do not establish a production purchase or activation flow.
 
-Compatible Macs can enable **Notch quick access** in Settings → Appearance. The resting notch matches the system camera housing. Hover or click to open a short horizontal strip. Home contains controls and searchable widgets; the second Files tab holds the file tray. Scroll sideways within either tab to explore. Appearance settings control the notch width, and Files has separate Tray and AirDrop drop zones. See [notch behavior and validation](docs/NOTCH.md).
+Compatible Macs can enable **Notch quick access** in Settings → Appearance. The resting notch matches the system camera housing. Hover or click to open a short horizontal strip. Home contains controls and searchable widgets; the second Files tab holds the file tray. Use the page controls to explore without growing the shelf. Appearance settings control the notch width, and Files has separate Tray and AirDrop drop zones. See [notch behavior and validation](docs/NOTCH.md).
 
 Toolbar dimensions are available in Settings → Appearance → Toolbar size. Drag a number badge left or right, or use its −/+ buttons, to adjust width, height, and icon size. Compact, Balanced, and Spacious previews apply presets; Fit width to content chooses between a content-sized bar and your chosen width. Changes save automatically and support Undo layout. Widget and display choices expand into searchable inline panels, and on/off settings use switches.
 
@@ -33,7 +33,7 @@ To set up a local environment or the CI/CD pipeline, start with [SETUP.md](SETUP
 - [`website/`](website/) contains the website, commerce backend, and web tests.
 - [`docs/`](docs/) contains shared product and release documentation.
 
-Open `app/DockGrove.xcodeproj` in Xcode and select **DockGrove StoreKit Testing** to build and try local test purchases without charges. The **DockGrove** scheme uses the real StoreKit environment; products require App Store Connect setup. The checked-in project can be regenerated from `app/project.yml` with `cd app && xcodegen generate`.
+Open `app/DockGrove.xcodeproj` in Xcode. Use the **DockGrove** scheme with the **Development** configuration for local source testing, and **DockGrove Tests** for regression tests. The **Commercial** configuration enforces the direct-license gate and needs the public license configuration described in [commerce setup](docs/COMMERCE.md). Debug/Release and the StoreKit testing scheme retain the earlier purchase experiment; they are not the direct-release build. The checked-in project can be regenerated from `app/project.yml` with `cd app && xcodegen generate`.
 
 ## Companion and personalization
 
@@ -129,7 +129,7 @@ The website candidate lives in [`website/`](website/), with a separate test-comm
 - Claude Code allowance windows through its supported local status-line interface.
 - Gemini CLI session tokens and requests by model, imported locally without retaining prompts or responses.
 - A new static website with original DockGrove branding, scroll storytelling, interactive product demos, and reduced-motion support.
-- Separate free Cloudflare preview hosting with a direct universal-app download.
+- Separate free Cloudflare preview hosting and the historical development download. This is not the commercial purchase artifact.
 
 See [AI connection instructions](docs/AI-CONNECTIONS.md) for setup, privacy, and provider limitations.
 

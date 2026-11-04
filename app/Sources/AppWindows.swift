@@ -160,7 +160,7 @@ struct WindowShelfView: View {
                                 Button {
                                     manager.selectedID = window.id
                                     manager.focus()
-                                    if manager.status == "Window brought forward." { dismiss() }
+                                    if manager.status == "Window brought forward." || manager.status == "Window restored." { dismiss() }
                                 } label: {
                                     HStack(spacing: 10) {
                                         Image(nsImage: window.owner.icon ?? NSImage()).resizable().frame(width: 30, height: 30)
