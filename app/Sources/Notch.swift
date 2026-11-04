@@ -316,16 +316,36 @@ enum NotchPaging {
     }
 }
 
-/// Shows content at its natural height, shrinking it to fit its box rather than scrolling.
-struct NotchFit<Content: View>: View {
-    let size: CGSize
-    @ViewBuilder var content: Content
-    @State private var natural: CGFloat = 0
+/// Full widget controls keep their natural text and hit-target sizes. The compact
+/// notch stays a launcher; longer controls scroll in a regular, resizable window.
+struct NotchWidgetControls: View {
+    let kind: ToolKind
+    @ObservedObject var model: DockModel
+    @StateObject private var interaction = TileInteraction()
     var body: some View {
-        content.fixedSize(horizontal: false, vertical: true)
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { natural = $0 }
-            .scaleEffect(natural > size.height ? size.height / natural : 1, anchor: .top)
-            .frame(width: size.width, height: size.height, alignment: .top).clipped()
+        ScrollView {
+            ToolTileContents(kind: kind, model: model, kit: model.toolkit, interaction: interaction)
+                .environment(\.connectionSettingsAction, { model.openConnectionSettings(kind) })
+                .frame(maxWidth: .infinity, alignment: .leading).padding(20)
+        }.frame(minWidth: 360, minHeight: 240).preferredColorScheme(model.scheme)
+    }
+}
+
+extension DockModel {
+    func showNotchWidgetControls(_ kind: ToolKind) {
+        guard canAccess(kind) else { settingsAction?(); return }
+        appPickerWindow?.close()
+        let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 420, height: 560), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.title = kind.title
+        let content = NSHostingView(rootView: NotchWidgetControls(kind: kind, model: self))
+        // Preserve readable minimum bounds without imposing a maximum on scrolling content.
+        content.sizingOptions = [.minSize]
+        window.contentView = content
+        window.contentMinSize = CGSize(width: 360, height: 240)
+        appPickerWindow = window
+        window.center()
+        DockSystemEffect.handler(.present(window))
     }
 }
 
@@ -458,16 +478,18 @@ struct NotchShelfView: View {
                     Image(systemName: kind.icon)
                     Button { controller.selectedWidget = nil } label: { Image(systemName: "xmark.circle.fill") }.accessibilityLabel("Close " + kind.title + " controls")
                 }.frame(width: 24)
-                NotchFit(size: CGSize(width: 460, height: 68)) {
-                    ToolTile(kind: kind, model: model, kit: model.toolkit).contents
-                        .frame(maxWidth: .infinity, alignment: .leading).padding(4)
-                }
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(kind.title).font(.headline)
+                    Button("Open controls") { model.showNotchWidgetControls(kind) }
+                        .accessibilityLabel("Open full " + kind.title + " controls")
+                }.frame(width: 460, height: 68, alignment: .leading)
             }.padding(8).background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 12))
         } else {
             Button {
                 guard model.canAccess(kind) else { return }
                 if kind == .search { model.showAppLauncher(query: model.toolkit.query); return }
                 controller.selectedWidget = kind
+                model.showNotchWidgetControls(kind)
             } label: {
                 VStack(spacing: 7) {
                     Image(systemName: kind.icon).font(.title3)
