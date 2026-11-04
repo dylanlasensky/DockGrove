@@ -1,6 +1,6 @@
 "use client";
 
-import type {CSSProperties, RefObject} from "react";
+import type {RefObject} from "react";
 import {ACCENT_PACKS, type Accent, type AccentPack} from "@/lib/home/palette";
 import type {AutoCycle} from "@/hooks/useAutoCycle";
 import s from "./Showcase.module.css";
@@ -24,7 +24,6 @@ export function signature(pack: AccentPack): Accent {
   return pack.colors.reduce((best, c) => chroma(c.dark) > chroma(best.dark) ? c : best, pack.colors[0]);
 }
 
-const MOOD_PREVIEW: Record<Mood, string> = {Automatic: s.moodAuto, Glass: s.moodGlass, Graphite: s.moodGraphite, Pearl: s.moodPearl};
 
 export default function AppearanceStudio({mood, onPickMood, show, showRef, light}: {
   mood: Mood; onPickMood: (m: Mood) => void; show: AutoCycle; showRef: RefObject<HTMLDivElement | null>; light: boolean;
@@ -32,32 +31,22 @@ export default function AppearanceStudio({mood, onPickMood, show, showRef, light
   const pack = ACCENT_PACKS[show.index];
   const accent = signature(pack);
 
-  return <div ref={showRef} {...show.bind} className={s.studio} role="group" aria-roledescription="slideshow" aria-label="Preview Dock appearance">
+  return <div ref={showRef} className={s.studio} role="group" aria-label="Preview Dock appearance">
     <p className={s.studioLabel}>Pick a mood</p>
     <div className={s.moods}>
-      {MOODS.map(m => <button key={m} type="button" aria-pressed={mood === m} className={mood === m ? s.moodActive : ""} onClick={() => onPickMood(m)}>
-        <span className={`${s.moodChip} ${MOOD_PREVIEW[m]}`} aria-hidden="true">{["#3b82f6", "#a855f7", "#f97316", "#22c55e"].map(c => <i key={c} style={{background: `linear-gradient(${c}, ${c}cc)`}}/>)}</span>
-        {m}
-      </button>)}
+      {MOODS.map(m => <button key={m} type="button" aria-pressed={mood === m} className={mood === m ? s.moodActive : ""} onClick={() => onPickMood(m)}>{m}</button>)}
     </div>
-
-    <p className={s.studioLabel}>Color</p>
-    <div className={s.packStage}>
-      <div className={s.packTrack} style={{"--at": show.index} as CSSProperties}>
-        {ACCENT_PACKS.map((p, i) => <button key={p.name} type="button" tabIndex={i === show.index ? 0 : -1} aria-label={`${p.name} accents: ${p.mood}`} aria-current={i === show.index} className={`${s.packCard} ${i === show.index ? s.packCardActive : ""}`} onClick={() => show.setIndex(i)}>
-          <span className={s.packDots} aria-hidden="true">{p.colors.map(c => <i key={c.name} style={{background: accentHex(c, light)}}/>)}</span>
-          <b>{p.name}</b>
-          <small>{p.group} · {p.mood}</small>
-        </button>)}
-      </div>
-    </div>
-    <div className={s.packMeta} aria-live={show.running ? "off" : "polite"}>
-      <span key={pack.name} className={s.swatchRow}>
-        {pack.colors.map((c, i) => <i key={c.name} title={c.name} className={c.name === accent.name ? s.swatchActive : ""} style={{background: accentHex(c, light), "--step": i} as CSSProperties}/>)}
+    <label className={s.colorLabel}>Accent collection
+      <select value={show.index} onChange={e => show.setIndex(Number(e.target.value))}>
+        {ACCENT_PACKS.map((p, i) => <option key={p.name} value={i}>{p.name} · {p.mood}</option>)}
+      </select>
+    </label>
+    <div className={s.packMeta} aria-live="polite">
+      <span className={s.swatchRow}>
+        {pack.colors.map(c => <i key={c.name} title={c.name} className={c.name === accent.name ? s.swatchActive : ""} style={{background: accentHex(c, light)}}/>)}
       </span>
-      <span className={s.packCount}>{accent.name} · {show.index + 1} of {ACCENT_PACKS.length}</span>
+      <span className={s.packCount}>{accent.name}</span>
     </div>
-    <div className={s.progress} aria-hidden="true"><em key={show.index} className={s.progressRun} style={{animationDuration: `${show.duration}ms`, animationPlayState: show.running ? "running" : "paused"}}/></div>
-    <p className={s.studioNote}>Color packs adapt to light and dark appearance. Hover to pause.</p>
+    <p className={s.studioNote}>Colors adapt to light and dark appearance.</p>
   </div>;
 }

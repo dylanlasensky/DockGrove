@@ -38,7 +38,7 @@ export default function NotchShowcase({playing}: {playing: boolean}) {
       <Reveal className={s.notchCopy}>
         <p className={s.eyebrow}>THE NOTCH, PUT TO WORK.</p>
         <h2>A shelf that lives<br/>above your work.</h2>
-        <p>On Macs with a notch, hover the camera housing and DockGrove opens a small shelf with your music, a focus timer, widgets and a file tray. Pages slide past like this, and dragging a file up opens it.</p>
+        <p>Hover your Mac’s notch to bring music, timers and files into reach. A useful little shelf, right above what you’re working on.</p>
         <ul className={s.points}>
           {["Slides, not scrolling.|Each page fits the shelf. Pills show where you are.", "A tray for files in transit.|Park files and see the count at a glance.", "AirDrop from the top.|Drop files on the AirDrop zone to share them.", "Search widgets by name|right from the shelf."].map((line, i) => {
             const [bold, rest] = line.split("|");
@@ -82,7 +82,7 @@ export default function NotchShowcase({playing}: {playing: boolean}) {
             </div>
           </div>}
         </div>
-        <p className={s.screenNote}>{show.running ? "Hover to pause. Drop a file here to add it to the tray — it stays on this page." : "Paused. Drop a file here to add it to the tray — it stays on this page."}</p>
+        <p className={s.screenNote}>{show.running ? "Hover to pause. Drop a file here to add it to the tray — it stays on this page." : "Choose a view below the shelf. Files dropped into the tray stay on this page."}</p>
       </div>
     </div>
   </section>;
