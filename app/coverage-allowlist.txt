@@ -127,4 +127,3 @@ AppWindows.swift: variable initialization expression of WindowShelfView.clock # 
 AppWindows.swift: implicit closure #1 in closure #1 in closure #2 in closure #1 in closure #1 in closure #3 in closure #1 in WindowShelfView.body.getter # real NSRunningApplication with a missing icon; fixture Finder has an icon
 AppWindows.swift: closure #1 in closure #3 in closure #1 in closure #1 in closure #3 in closure #1 in WindowShelfView.body.getter # native context-menu Bring Forward callback; underlying focus is covered and the primary row restore is interaction-tested
 AppWindows.swift: closure #2 in closure #3 in closure #1 in closure #1 in closure #3 in closure #1 in WindowShelfView.body.getter # native context-menu Minimize callback; permission guard and AX minimize writes are covered separately
-AppWindows.swift: closure #3 in WindowShelfView.body.getter # live popover polling timer; manual refresh and discovery are covered without waiting for a real run-loop timer
