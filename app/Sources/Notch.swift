@@ -327,7 +327,7 @@ struct NotchWidgetControls: View {
             ToolTileContents(kind: kind, model: model, kit: model.toolkit, interaction: interaction)
                 .environment(\.connectionSettingsAction, { model.openConnectionSettings(kind) })
                 .frame(maxWidth: .infinity, alignment: .leading).padding(20)
-        }.preferredColorScheme(model.scheme)
+        }.frame(minWidth: 360, minHeight: 240).preferredColorScheme(model.scheme)
     }
 }
 
@@ -339,8 +339,8 @@ extension DockModel {
         window.isReleasedWhenClosed = false
         window.title = kind.title
         let content = NSHostingView(rootView: NotchWidgetControls(kind: kind, model: self))
-        // AppKit owns the window limits; scrolling content must not replace them.
-        content.sizingOptions = []
+        // Preserve readable minimum bounds without imposing a maximum on scrolling content.
+        content.sizingOptions = [.minSize]
         window.contentView = content
         window.contentMinSize = CGSize(width: 360, height: 240)
         appPickerWindow = window
