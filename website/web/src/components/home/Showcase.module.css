@@ -12,9 +12,9 @@
 /* ---------- Scroll reveal ---------- */
 :global(.motion-ready) .rise {
   opacity: 0;
-  transform: translateY(28px) scale(.985);
-  filter: blur(10px);
-  transition: opacity .9s var(--ease-out), transform 1.1s var(--ease-out), filter .9s var(--ease-out);
+  transform: translateY(12px);
+  filter: none;
+  transition: opacity .5s ease-out, transform .5s ease-out;
   transition-delay: calc(var(--step, 0) * 90ms);
 }
 :global(.motion-ready) .rise:global(.is-visible) { opacity: 1; transform: none; filter: none; }
@@ -235,15 +235,6 @@
 @keyframes submenuIn { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
 
 /* Scroll-linked depth where the browser supports it: panels settle in as they cross the viewport. */
-@supports (animation-timeline: view()) {
-  .screen, .launcher, .menuStage {
-    animation: settle linear both;
-    animation-timeline: view();
-    animation-range: entry 0% cover 35%;
-  }
-  @keyframes settle { from { transform: perspective(1200px) rotateX(9deg) scale(.94); opacity: .4; } to { transform: none; opacity: 1; } }
-}
-
 @media (max-width: 1000px) {
   .notchInner, .launcherGrid { grid-template-columns: 1fr; }
   .appGrid { grid-template-columns: repeat(4, 1fr); }
@@ -273,3 +264,23 @@
   .statementPin { position: static; height: auto; padding: 80px 22px; }
   .statementText span, .statementText { transition: none; transform: none; }
 }
+
+/* Quiet controls: the visitor chooses the next view. */
+.notchSection,.launcherSection,.studio,.rise{--spring:cubic-bezier(.2,.8,.2,1);--spring-soft:cubic-bezier(.2,.8,.2,1)}
+.notchCopy>p,.sectionHeading>p:not(.eyebrow){font-size:16px;line-height:1.6}
+.points{font-size:14px;gap:14px}
+.studio .moods{gap:6px;grid-template-columns:repeat(4,1fr)}
+.studio .moods button{min-height:44px;padding:9px 6px;border-radius:10px;font-size:12px}
+.colorLabel{display:grid;gap:10px;margin-top:20px;font-size:12px;color:#c2cbd8}
+.colorLabel select{appearance:auto;max-width:100%;width:100%;border:1px solid #ffffff30;background:#29313d;color:white;border-radius:10px;padding:11px;font:inherit;min-height:44px}
+.studio .packMeta{margin-top:14px}.studio .swatchRow i{animation:none}
+.spin,.eq i,.ticking,.timerBar em,.airDropIcon,.airDropRings i,.sending,.caret{animation:none}
+.eq i{height:10px}.eq i:nth-child(even){height:17px}
+.screenNote{font-size:11px}
+
+.menuChoices{position:absolute;bottom:8px;right:10px;display:flex;gap:3px}
+.menuChoices button{min-height:44px;padding:6px 10px;border:0;border-radius:8px;background:#f6f8fbe6;color:#536175;font-size:11px}
+.menuChoices button[aria-pressed="true"]{background:#3478f6;color:#fff}
+
+.barMenu{left:34px!important;translate:0 0}.submenu{min-width:160px}
+@media(max-width:760px){.menuStage>.menu{left:14px}.barMenu{left:14px!important}.submenu{left:50px;min-width:160px}}

@@ -59,7 +59,7 @@ export default function LauncherShowcase({playing}: {playing: boolean}) {
     <Reveal className={s.sectionHeading}>
       <p className={s.eyebrow}>ONE PLACE FOR EVERY APP.</p>
       <h2>Search, add, or swap.<br/>Same view every time.</h2>
-      <p>The + button, Replace app… and App search open a floating app chooser. Search by name, browse categories, or switch between a grid and list. The Applications stack opens beside your Dock.</p>
+      <p>Find an app by name. Add it to your Dock or replace an old favorite. One familiar chooser keeps everything simple.</p>
     </Reveal>
 
     <div className={s.launcherGrid}>
@@ -73,7 +73,7 @@ export default function LauncherShowcase({playing}: {playing: boolean}) {
           </div>
           <form className={s.search} role="search" onSubmit={e => e.preventDefault()}>
             <span aria-hidden="true">⌕</span>
-            <input type="search" value={query} onChange={e => setTyped(e.target.value)} onBlur={() => setTyped(null)} placeholder="Search applications" aria-label="Search applications"/>
+            <input type="search" value={query} onChange={e => setTyped(e.target.value)} placeholder="Search applications" aria-label="Search applications"/>
             {typed === null && step.query && <span className={s.caret} aria-hidden="true"/>}
           </form>
           <ul className={s.appGrid}>
@@ -110,7 +110,7 @@ export default function LauncherShowcase({playing}: {playing: boolean}) {
             })())}
           </div>
           {menu.anchor ? <Image className={s.menuAnchor} src={`/assets/apps/${menu.anchor}.png`} alt="" width={56} height={56} unoptimized/> : <span className={s.miniDock} aria-hidden="true"/>}
-          <div className={s.dots} aria-hidden="true">{MENUS.map((_, i) => <i key={i} className={i === menus.index ? s.dotActive : ""}/>)}</div>
+          <div className={s.menuChoices} aria-label="Menu examples">{MENUS.map((_, i) => <button key={i} type="button" aria-pressed={i === menus.index} onClick={() => menus.setIndex(i)}>{["App", "Option key", "Dock"][i]}</button>)}</div>
         </div>
         <h3>Menus that feel like a Mac.</h3>
         <p key={menus.index} className={s.titleSwap}>{menu.caption}</p>

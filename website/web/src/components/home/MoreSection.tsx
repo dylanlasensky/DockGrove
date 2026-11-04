@@ -1,7 +1,6 @@
 "use client";
 
-import type {CSSProperties, ReactNode} from "react";
-import Image from "next/image";
+import type {ReactNode} from "react";
 import Reveal from "./Reveal";
 import {WIDGETS} from "@/lib/home/widgets";
 import s from "./Closing.module.css";
@@ -21,74 +20,28 @@ const FACES: {title: string; body: ReactNode}[] = [
   {title: "Clipboard", body: <><b>“Ship Friday”</b><small>Copied 2 min ago</small></>},
   {title: "Quick note", body: <><b>Ideas for Friday</b><small>3 lines</small></>},
 ];
-// Each looping copy must be wider than the window, so both rows carry every face, in different orders.
-const ROWS = [FACES, [...FACES.slice(6), ...FACES.slice(0, 6)].reverse()];
-const ICONS = ["finder", "safari", "notes", "calendar"];
 
-function MiniDock({icons, widgets = 0, className = ""}: {icons: string[]; widgets?: number; className?: string}) {
-  return <span className={`${s.miniDock} ${className}`}>
-    {icons.map((n, i) => <Image key={`${n}${i}`} src={n === "dockgrove" ? "/assets/DockGrove-icon.png" : `/assets/apps/${n}.png`} alt="" width={28} height={28} unoptimized/>)}
-    {Array.from({length: widgets}, (_, i) => <i key={i} className={s.miniTile}/>)}
-  </span>;
-}
+const DETAILS = [
+  ["A layout for every mood.", "Save your apps, widgets, colors and size. Switch from work to the weekend in a click."],
+  ["Find your favorite spot.", "Keep your Dock on an edge or let it float. Add another Dock when you need more room."],
+  ["Small shape. Full story.", "Choose cards, squares, circles or pills. See a summary, then click for the full widget."],
+  ["Personal by design.", "Notes and voice memos stay on your Mac. API keys stay in Keychain. You choose what to connect."],
+];
 
 export default function MoreSection() {
   return <section id="more" className={s.more}>
     <div className={s.moreHead}>
-      <Reveal><h2>More than a<br/>row of apps.</h2></Reveal>
-      <Reveal step={1}><p>{WIDGETS.length} widgets live alongside your apps — clocks, weather, habits, a stopwatch, your clipboard and more. Pick the ones you want and leave the rest.</p></Reveal>
+      <Reveal><p className={s.eyebrow}>ONLY WHAT YOU NEED.</p><h2>A little space.<br/>So many possibilities.</h2></Reveal>
+      <Reveal step={1}><p>{WIDGETS.length} widgets, ready for your day. Keep the useful things close and leave the rest out of the way.</p></Reveal>
     </div>
-
-    <Reveal step={1}>
-      <div className={s.wall} role="img" aria-label={`Sample widgets: ${FACES.map(f => f.title).join(", ")}`}>
-        {ROWS.map((row, r) => <div key={r} className={`${s.wallRow} ${r ? s.reverse : ""}`} aria-hidden="true">
-          {[0, 1].map(copy => <div key={copy} className={s.wallTrack}>
-            {row.map(f => <span key={f.title} className={s.face}><small className={s.faceTitle}>{f.title}</small>{f.body}</span>)}
-          </div>)}
-        </div>)}
+    <Reveal>
+      <div className={s.widgetGallery} aria-label="Widget previews with sample data">
+        {[FACES[0], FACES[1], FACES[5], FACES[8], FACES[9], FACES[11]].map(f => <div key={f.title} className={s.widgetPreview}><span className={s.face}><small className={s.faceTitle}>{f.title}</small>{f.body}</span></div>)}
       </div>
+      <p className={s.sampleNote}>Widget previews use sample data.</p>
+      <details className={s.widgetDirectory}><summary>Explore all {WIDGETS.length} widgets <span aria-hidden="true">+</span></summary><ul>{WIDGETS.map(w => <li key={w.name}>{w.name}</li>)}</ul><p>Some widgets need a connected account or permission. AI availability depends on the source; API spend is separate from subscription limits.</p></details>
     </Reveal>
-
-    <div className={s.bento}>
-      <Reveal className={`${s.tile} ${s.tileLayouts}`}>
-        <div className={s.copy}><h3>A layout for every part of your day.</h3><p>Save your apps, widgets, colours and size as a layout. Switch from deep work to the evening in one click.</p></div>
-        <div className={s.layoutStage} aria-hidden="true">
-          <div className={s.segmentedMac}>{["Work", "Studio", "Evening"].map((name, i) => <span key={name} style={{"--step": i} as CSSProperties}>{name}</span>)}</div>
-          <div className={s.layoutDocks}>
-            <MiniDock icons={["finder", "safari", "notes", "calendar"]} widgets={2} className={s.layoutA}/>
-            <MiniDock icons={["finder", "dockgrove", "safari"]} widgets={3} className={s.layoutB}/>
-            <MiniDock icons={["notes", "calendar"]} widgets={1} className={s.layoutC}/>
-          </div>
-        </div>
-      </Reveal>
-
-      <Reveal step={1} className={`${s.tile} ${s.tileWallpaper}`}>
-        <div className={s.copy}><h3>Bottom, top or floating.</h3><p>Put the Dock on any edge, or let it float.</p></div>
-        <div className={s.desk} aria-hidden="true"><MiniDock icons={ICONS} className={s.glide}/></div>
-      </Reveal>
-
-      <Reveal step={2} className={`${s.tile} ${s.tileDark}`}>
-        <div className={s.shapeStage} aria-hidden="true">
-          <span className={s.shapeWidget}><b>72°</b><small>Cloudy</small></span>
-        </div>
-        <div className={s.copy}><h3>Card, square, circle or pill.</h3><p>Small shapes show a summary. Click for the full widget.</p></div>
-      </Reveal>
-
-      <Reveal step={0} className={`${s.tile} ${s.tileTwo}`}>
-        <div className={s.copy}><h3>More than one Dock.</h3><p>Add extra Docks, each with its own apps, widgets and position.</p></div>
-        <div className={s.twoDocks} aria-hidden="true">
-          <span className={s.monitor}><MiniDock icons={["finder", "safari", "notes"]}/></span>
-          <span className={s.monitor}><MiniDock icons={["calendar", "dockgrove"]} widgets={2}/></span>
-        </div>
-      </Reveal>
-
-      <Reveal step={1} className={`${s.tile} ${s.tilePlain}`}>
-        <ul className={s.promises}>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span><b>Personal by design.</b> Notes and voice memos stay on your Mac, and API keys stay in Keychain. <a href="/privacy">Privacy details</a></span></li>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h7"/></svg><span><b>Connect on your terms.</b> Choose the calendars, music players and usage sources you want.</span></li>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l2.5 2"/></svg><span><b>Designed for your pace.</b> Keyboard access and Reduce Motion support throughout.</span></li>
-        </ul>
-      </Reveal>
-    </div>
+    <div className={s.detailGrid}>{DETAILS.map(([title, text]) => <Reveal key={title}><article><h3>{title}</h3><p>{text}</p></article></Reveal>)}</div>
+    <p className={s.privacyLink}><a href="/privacy">Your privacy, explained ↗</a></p>
   </section>;
 }
