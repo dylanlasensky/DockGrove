@@ -465,9 +465,11 @@ private func winWakeAccessibility() async {
             field.stringValue = query
             field.delegate?.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: field))
         }
-        enter("fixture")
-        await winSettle()
-        XCTAssertGreaterThan(winPress(view, manager.windows[0].title + ", open. Restore window"), 0)
+        for query in ["fixture", "  fixture  ", "fíxture", "ＦＩＸＴＵＲＥ", "   "] {
+            enter(query)
+            await winSettle()
+            XCTAssertGreaterThan(winPress(view, manager.windows[0].title + ", open. Restore window"), 0, query)
+        }
         enter("no window matches this query")
         await winSettle()
         XCTAssertEqual(winPress(view, manager.windows[0].title + ", open. Restore window"), 0)
