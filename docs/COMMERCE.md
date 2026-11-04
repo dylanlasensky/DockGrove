@@ -1,5 +1,7 @@
 # DockGrove website commerce candidate
 
+> Environment support now includes explicit, isolated test and production modes. Sales remain disabled. See [production readiness](PRODUCTION-READINESS.md) for new configuration, migration and evidence gates; the setup examples below remain test-only.
+
 The selected release route is direct purchase and license-token activation. The earlier $4.99 Plus/$9.99 Full Access StoreKit experiment is retained in [IN-APP-PURCHASES.md](IN-APP-PURCHASES.md) for reference; App Store publication is not part of this release.
 
 This implementation is **test-mode only**. No Stripe account, webhook endpoint, database, bucket, email sender, live sale, or production deployment was created. Fixture tests are not provider acceptance.

@@ -1,3 +1,5 @@
+export const COMMERCE_ENVIRONMENT = process.env.NEXT_PUBLIC_DOCKGROVE_COMMERCE_ENVIRONMENT ?? "test";
+
 /**
  * Typed port of the product/checkout logic in the original app.js that the home
  * #download section uses: load `/api/product` (falling back to `/product.json`),
@@ -76,16 +78,16 @@ export interface CheckoutState {
  * Button copy for a loaded product. `comingSoon` mirrors `data-coming-soon="true"`
  * on the marketing CTA, which always keeps checkout disabled.
  */
-export function checkoutState(product: Product, comingSoon: boolean): CheckoutState {
+export function checkoutState(product: Product, comingSoon: boolean, environment = COMMERCE_ENVIRONMENT): CheckoutState {
   if (comingSoon) {
     return { disabled: true, label: COMING_SOON_LABEL, status: COMING_SOON_STATUS };
   }
-  const enabled = product.available === true && product.mode === "test";
+  const enabled = product.available === true && ["test", "production"].includes(environment) && product.mode === environment;
   return {
     disabled: !enabled,
-    label: enabled ? "Try test checkout" : "Test checkout not configured",
+    label: enabled ? (product.mode === "production" ? "Buy DockGrove" : "Try test checkout") : "Checkout unavailable",
     status: enabled
-      ? "Test mode only. Use Stripe test payment details. No real payment is collected."
+      ? (product.mode === "production" ? "One-time purchase. Secure checkout with Stripe." : "Test mode only. Use Stripe test payment details. No real payment is collected.")
       : "Checkout is waiting for secure payment configuration. Live sales are not enabled.",
   };
 }
@@ -94,7 +96,7 @@ export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : GENERIC_ERROR;
 }
 
-/** Starts a Stripe test checkout; resolves to the validated destination. */
+/** Starts a Stripe checkout; resolves to the validated destination. */
 export async function startCheckout(): Promise<string> {
   const result = await api<{ url?: string }>("/api/checkout", {});
   const url = new URL(String(result.url));

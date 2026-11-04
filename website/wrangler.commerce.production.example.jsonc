@@ -1,0 +1,21 @@
+{
+  // Preparation only. Owner-reviewed readiness evidence is required before sales.
+  "name": "dockgrove-commerce-production",
+  "main": "backend/worker.mjs",
+  "compatibility_date": "2026-10-28",
+  "workers_dev": false,
+  "assets": {"directory":"./web/out","binding":"ASSETS","run_worker_first":["/api/*","/downloads/*"],"not_found_handling":"404-page"},
+  "vars": {
+    "SALES_MODE":"production",
+    "PRODUCTION_SALES_ENABLED":"false",
+    "PUBLIC_ORIGIN":"https://owner-config-required.invalid",
+    "STRIPE_PRICE_ID":"",
+    "STRIPE_PRODUCT_ID":"",
+    "ENTITLEMENT_KEY_ID":"",
+    "RELEASE_OBJECT":"",
+    "PRODUCTION_READINESS":"{}"
+  },
+  "d1_databases":[{"binding":"DB","database_name":"dockgrove-commerce-production","database_id":"OWNER_CONFIG_REQUIRED","migrations_dir":"migrations"}],
+  "r2_buckets":[{"binding":"RELEASES","bucket_name":"OWNER_CONFIG_REQUIRED"}],
+  "triggers":{"crons":["*/5 * * * *"]}
+}

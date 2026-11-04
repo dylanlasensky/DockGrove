@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import worker, { verifyWebhook, validateSession, hash } from '../backend/worker.mjs';
 import { PRODUCT } from '../backend/product.mjs';
 class D1 {
- constructor(){this.db=new DatabaseSync(':memory:');this.db.exec(readFileSync(new URL('../migrations/0001_commerce.sql',import.meta.url),'utf8'));}
+ constructor(){this.db=new DatabaseSync(':memory:');for(const migration of ['0001_commerce.sql','0002_environment.sql'])this.db.exec(readFileSync(new URL('../migrations/'+migration,import.meta.url),'utf8'));}
  prepare(sql){const db=this.db;return {bind(...args){return {async first(){return db.prepare(sql).get(...args)||null;},async all(){return {results:db.prepare(sql).all(...args)};},async run(){const result=db.prepare(sql).run(...args);return {meta:{changes:result.changes}};},sql,args};}};}
  async batch(queries){this.db.exec('BEGIN');try{const out=queries.map(q=>this.db.prepare(q.sql).run(...q.args));this.db.exec('COMMIT');return out;}catch(e){this.db.exec('ROLLBACK');throw e;}}
 }
@@ -15,21 +15,23 @@ async function signature(body,secret,stamp=Math.floor(Date.now()/1000)) {
  const key=await crypto.subtle.importKey('raw',encoded(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
  return `t=${stamp},v1=${Buffer.from(await crypto.subtle.sign('HMAC',key,encoded(`${stamp}.${body}`))).toString('hex')}`;
 }
-function validSession(id='cs_test_1',purchase='p1') {return {id,client_reference_id:purchase,livemode:false,mode:'payment',currency:'usd',amount_total:999,amount_subtotal:999,payment_status:'paid',status:'complete',customer_details:{email:'buyer@example.test'},payment_intent:{id:`pi_${id}`,latest_charge:{refunded:false,amount_refunded:0,disputed:false}},line_items:{has_more:false,data:[{quantity:1,price:{id:'price_test',product:'prod_test',unit_amount:999,currency:'usd',livemode:false}}]}};}
-async function fixture(){
+function validSession(id='cs_test_1',purchase='p1') {return {id,client_reference_id:purchase,livemode:false,mode:'payment',currency:'usd',amount_total:999,amount_subtotal:999,payment_status:'paid',status:'complete',customer_details:{email:'buyer@example.test'},payment_intent:{livemode:false,id:`pi_${id}`,latest_charge:{livemode:false,refunded:false,amount_refunded:0,disputed:false}},line_items:{has_more:false,data:[{quantity:1,price:{id:'price_test',product:'prod_test',unit_amount:999,currency:'usd',livemode:false}}]}};}
+async function fixture(mode="test"){
+ const live=mode==="production";
  const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
  const env={DB:new D1(),SALES_MODE:'test',PUBLIC_ORIGIN:'https://test.example',STRIPE_SECRET_KEY:'sk_test_fixture',STRIPE_PRICE_ID:'price_test',STRIPE_PRODUCT_ID:'prod_test',STRIPE_WEBHOOK_SECRET:'whsec_fixture',LICENSE_KEY_SECRET:'fixture-only-secret-do-not-configure-for-any-real-service',ENTITLEMENT_PRIVATE_JWK:JSON.stringify(await crypto.subtle.exportKey('jwk',pair.privateKey)),ENTITLEMENT_KEY_ID:'test-1',RESEND_API_KEY:'fixture-email',RECOVERY_FROM:'test@example.test',RELEASES:{async head(){return {size:3};},async get(){return {body:new Uint8Array([1,2,3])};}},RELEASE_OBJECT:'test.zip',ASSETS:{fetch(){return new Response('asset');}}};
+ if(live)Object.assign(env,{SALES_MODE:'production',STRIPE_SECRET_KEY:'sk_live_fixture',ENTITLEMENT_KEY_ID:'production-fixture',PRODUCTION_SALES_ENABLED:'true',PRODUCTION_READINESS:JSON.stringify({environment:'production',origin:env.PUBLIC_ORIGIN,releaseObject:env.RELEASE_OBJECT,keyId:'production-fixture',priceId:env.STRIPE_PRICE_ID,releaseSHA256:'a'.repeat(64),...Object.fromEntries(['providerSandbox','nativeActivation','recoveryDelivery','deviceLimitAndRevocation','signedNotarizedArtifact','ownerApproval'].map(k=>[k,'OFFLINE FIXTURE ONLY']))}),RELEASES:{async head(){return {size:3,customMetadata:{sha256:'a'.repeat(64)}};},async get(){return {body:new Uint8Array([1,2,3])};}}});
  const sessions=new Map();let emailText='',checkoutCount=0,emailFailure=false;
  globalThis.fetch=async(url,options)=>{
   if(url==='https://api.resend.com/emails'){emailText=JSON.parse(options.body).text;return Response.json({id:'email'},{status:emailFailure?503:200});}
-  if(url==='https://api.stripe.com/v1/prices/price_test')return Response.json({active:true,id:'price_test',product:'prod_test',unit_amount:999,currency:'usd',livemode:false});
-  if(url==='https://api.stripe.com/v1/checkout/sessions') {assert.ok(options.headers.Authorization.startsWith('Bearer sk_test_'));const params=new URLSearchParams(options.body);const id=`cs_test_${++checkoutCount}`;const s=validSession(id,params.get('client_reference_id'));s.payment_status='unpaid';s.status='open';sessions.set(id,s);return Response.json({...s,url:'https://checkout.stripe.com/c/pay/cs_test_fixture'});}
+  if(url==='https://api.stripe.com/v1/prices/price_test')return Response.json({active:true,id:'price_test',product:'prod_test',unit_amount:999,currency:'usd',livemode:live});
+  if(url==='https://api.stripe.com/v1/checkout/sessions') {assert.ok(options.headers.Authorization.startsWith(live?'Bearer sk_live_':'Bearer sk_test_'));const params=new URLSearchParams(options.body);const id=`cs_${live?"live":"test"}_${++checkoutCount}`;const s=validSession(id,params.get('client_reference_id'));s.livemode=live;s.payment_intent.livemode=live;s.line_items.data[0].price.livemode=live;s.payment_intent.latest_charge.livemode=live;s.payment_status='unpaid';s.status='open';sessions.set(id,s);return Response.json({...s,url:'https://checkout.stripe.com/c/pay/cs_test_fixture'});}
   const id=url.match(/checkout\/sessions\/([^?]+)/)?.[1];if(id&&sessions.has(id))return Response.json(sessions.get(id));
   if(url.includes('/v1/charges/')){const latest=[...sessions.values()].at(-1);return Response.json({...latest.payment_intent.latest_charge,payment_intent:latest.payment_intent.id});}
   throw new Error(`Unexpected mock request ${url}`);
  };
  const call=async(path,body,headers={})=>worker.fetch(new Request(`https://test.example${path}`,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','CF-Connecting-IP':crypto.randomUUID(),...headers},body:body===undefined?undefined:JSON.stringify(body)}),env);
- const event=async(type,s,extra={})=>{const e={id:`evt_${crypto.randomUUID()}`,type,livemode:false,data:{object:s},...extra};const body=JSON.stringify(e);const req=new Request('https://test.example/api/stripe/webhook',{method:'POST',headers:{'Stripe-Signature':await signature(body,env.STRIPE_WEBHOOK_SECRET)},body});return worker.fetch(req,env);};
+ const event=async(type,s,extra={})=>{const e={id:`evt_${crypto.randomUUID()}`,type,livemode:live,data:{object:{livemode:live,...s}},...extra};const body=JSON.stringify(e);const req=new Request('https://test.example/api/stripe/webhook',{method:'POST',headers:{'Stripe-Signature':await signature(body,env.STRIPE_WEBHOOK_SECRET)},body});return worker.fetch(req,env);};
  const buy=async()=>{const r=await call('/api/checkout',{});assert.equal(r.status,200);const cookie=r.headers.get('Set-Cookie').split(';')[0];const s=[...sessions.values()].at(-1);s.payment_status='paid';s.status='complete';assert.equal((await event('checkout.session.completed',s)).status,200);const p=await call('/api/purchase',undefined,{Cookie:cookie});return {licenseKey:(await p.json()).licenseKey,s,cookie};};
  return {env,pair,call,event,buy,sessions,email:()=>emailText,failEmail:()=>{emailFailure=true;},restoreEmail:()=>{emailFailure=false;}};
 }
@@ -41,7 +43,7 @@ test('webhook rejects missing, forged, stale, and future signatures; supports ro
  await assert.rejects(verifyWebhook(body+' ',good,secret));
 });
 test('strict product, amount, environment, price and quantity validation',()=>{
- const env={STRIPE_PRICE_ID:'price_test',STRIPE_PRODUCT_ID:'prod_test'};
+ const env={SALES_MODE:'test',STRIPE_PRICE_ID:'price_test',STRIPE_PRODUCT_ID:'prod_test'};
  validateSession(validSession(),env);
  for(const [key,value] of [['livemode',true],['mode','subscription'],['currency','eur'],['amount_total',1],['amount_subtotal',1000]]){const s=validSession();s[key]=value;assert.throws(()=>validateSession(s,env));}
  for(const key of ['id','product','unit_amount','currency','livemode','recurring']){const s=validSession();s.line_items.data[0].price[key]=key==='recurring'?{interval:'month'}:'wrong';assert.throws(()=>validateSession(s,env));}
@@ -142,4 +144,62 @@ test('outstanding purchase retains original offer when configured price changes'
  assert.equal((await f.event('checkout.session.completed',s)).status,200);
  const cookie=checkout.headers.get('Set-Cookie').split(';')[0];
  const result=await (await f.call('/api/purchase',undefined,{Cookie:cookie})).json();assert.equal(result.status,'paid');assert.match(result.licenseKey,/^WD1-/);
+});
+
+test('production fixture purchases and signs production claims; availability needs exact release evidence',async()=>{
+ const f=await fixture('production');
+ assert.equal((await (await f.call('/api/product')).json()).mode,'production');
+ const {licenseKey,s}=await f.buy();const deviceId=crypto.randomUUID();
+ const reply=await f.call('/api/activate',{licenseKey,deviceId});assert.equal(reply.status,200);
+ const signed=(await reply.json()).entitlement;
+ assert.equal(signed.keyId,'production-fixture');
+ assert.equal(JSON.parse(Buffer.from(signed.payload,'base64url')).environment,'production');
+ assert.equal(await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},f.pair.publicKey,Buffer.from(signed.signature,'base64url'),encoded(signed.payload)),true);
+ assert.equal((await f.event('checkout.session.completed',s,{livemode:false})).status,400);
+ assert.equal((await f.event('charge.refunded',{livemode:false,payment_intent:s.payment_intent.id,amount_refunded:999})).status,400);
+ for(const bad of ['', '{}', JSON.stringify({...JSON.parse(f.env.PRODUCTION_READINESS),releaseObject:'other.zip'})]){
+  const saved=f.env.PRODUCTION_READINESS;f.env.PRODUCTION_READINESS=bad;
+  assert.equal((await (await f.call('/api/product')).json()).available,false);
+  assert.equal((await f.call('/api/checkout',{})).status,503);f.env.PRODUCTION_READINESS=saved;
+ }
+ f.env.PRODUCTION_SALES_ENABLED='false';assert.equal((await f.call('/api/checkout',{})).status,503);
+ // A sales pause must not lock existing customers out of their license.
+ assert.equal((await f.call('/api/refresh',{licenseKey,deviceId})).status,200);
+});
+test('unknown mode, mixed keys, database switching and cross-mode session objects fail closed',async()=>{
+ const f=await fixture();await f.buy();
+ for(const mode of ['',undefined,'live','production']){
+  f.env.SALES_MODE=mode;assert.equal((await (await f.call('/api/product')).json()).available,false);
+  assert.equal((await f.call('/api/checkout',{})).status,503);
+ }
+ f.env.SALES_MODE='production';f.env.STRIPE_SECRET_KEY='sk_live_fixture';f.env.ENTITLEMENT_KEY_ID='production-fixture';
+ assert.equal((await f.call('/api/activate',{licenseKey:'WD1-'+'a'.repeat(43),deviceId:crypto.randomUUID()})).status,503);
+ for(const mode of ['test','production']){
+  const env={SALES_MODE:mode,STRIPE_PRICE_ID:'price_test',STRIPE_PRODUCT_ID:'prod_test'};
+  const s=validSession();s.livemode=mode==='production';s.line_items.data[0].price.livemode=s.livemode;
+  validateSession(s,env);s.line_items.data[0].price.livemode=!s.livemode;assert.throws(()=>validateSession(s,env));
+ }
+ const prod=await fixture('production');const {s,cookie}=await prod.buy();
+ s.livemode=false;assert.equal((await prod.call('/api/purchase',undefined,{Cookie:cookie})).status,400);
+});
+
+test('production release digest and nested payment environment cannot be substituted',async()=>{
+ const f=await fixture('production');const head=f.env.RELEASES.head;
+ f.env.RELEASES.head=async()=>({size:3,customMetadata:{sha256:'b'.repeat(64)}});
+ assert.equal((await f.call('/api/checkout',{})).status,503);f.env.RELEASES.head=head;
+ const r=await f.call('/api/checkout',{});assert.equal(r.status,200);
+ const s=[...f.sessions.values()][0];s.payment_status='paid';s.payment_intent.livemode=false;
+ assert.equal((await f.event('checkout.session.completed',s)).status,400);
+ s.payment_intent.livemode=true;s.payment_intent.latest_charge.livemode=false;
+ assert.equal((await f.event('checkout.session.completed',s)).status,400);
+ assert.equal(f.env.DB.db.prepare('SELECT COUNT(*) n FROM licenses').get().n,0);
+});
+
+test('scoped Stripe keys are supported only in their own environment',async()=>{
+ for(const mode of ['test','production']){
+  const f=await fixture(mode);f.env.STRIPE_SECRET_KEY=mode==='test'?'rk_test_fixture':'rk_live_fixture';
+  assert.equal((await (await f.call('/api/product')).json()).available,true);
+  f.env.STRIPE_SECRET_KEY=mode==='test'?'rk_live_fixture':'rk_test_fixture';
+  assert.equal((await (await f.call('/api/product')).json()).available,false);
+ }
 });

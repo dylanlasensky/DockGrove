@@ -76,6 +76,7 @@ jobs:
       DOCKGROVE_LICENSE_SERVER_URL: ${{ secrets.DOCKGROVE_LICENSE_SERVER_URL }}
       DOCKGROVE_LICENSE_PUBLIC_KEY: ${{ secrets.DOCKGROVE_LICENSE_PUBLIC_KEY }}
       DOCKGROVE_LICENSE_KEY_ID: ${{ secrets.DOCKGROVE_LICENSE_KEY_ID }}
+      DOCKGROVE_LICENSE_ENVIRONMENT: ${{ vars.DOCKGROVE_LICENSE_ENVIRONMENT || 'test' }}
       OUT: app/.build/artifacts
     steps:
       - uses: actions/checkout@v4
@@ -103,7 +104,7 @@ jobs:
         run: >
           xcodebuild build -project "$PROJECT" -scheme "DockGrove Commercial" -configuration Commercial -derivedDataPath app/.build/xcode
           DOCKGROVE_LICENSE_SERVER_URL="$DOCKGROVE_LICENSE_SERVER_URL" DOCKGROVE_LICENSE_PUBLIC_KEY="$DOCKGROVE_LICENSE_PUBLIC_KEY"
-          DOCKGROVE_LICENSE_KEY_ID="$DOCKGROVE_LICENSE_KEY_ID"
+          DOCKGROVE_LICENSE_KEY_ID="$DOCKGROVE_LICENSE_KEY_ID" DOCKGROVE_LICENSE_ENVIRONMENT="$DOCKGROVE_LICENSE_ENVIRONMENT"
       - name: Verify and package
         run: |
           mkdir -p "$OUT"

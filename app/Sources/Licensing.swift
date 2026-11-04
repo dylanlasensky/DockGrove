@@ -8,7 +8,12 @@ import AppKit
 /// separate artifacts; never publish them as the commercial download.
 enum LicenseConfiguration {
     static let majorVersion = 1
-    static let environment = "test"
+    static var environment: String {
+        let value = info("DockGroveLicenseEnvironment") as? String ?? ""
+        if value == "test" || value == "production" { return value }
+        // Preserve old development/test fixtures only. Commercial builds require explicit configuration.
+        return value.isEmpty && !commercial ? "test" : "disabled"
+    }
     static var commercial: Bool {
         #if DOCKGROVE_COMMERCIAL
         return true
@@ -25,7 +30,7 @@ enum LicenseConfiguration {
     static var info: (String) -> Any? = { Bundle.main.object(forInfoDictionaryKey: $0) }
     static var server: URL? {
         guard let value = info("DockGroveLicenseServerURL") as? String,
-              let url = URL(string: value), url.scheme == "https", url.host != nil,
+              let url = URL(string: value), url.scheme == "https", let host = url.host, !host.hasSuffix(".invalid"),
               url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
               url.path.isEmpty || url.path == "/" else { return nil }
         return url
@@ -37,7 +42,7 @@ enum LicenseConfiguration {
     }
     static var keyID: String {
         let value = info("DockGroveLicenseKeyID") as? String ?? ""
-        return value.isEmpty ? "test-1" : value
+        return value.isEmpty && environment == "test" ? "test-1" : value
     }
 }
 struct SignedLicense: Codable {
@@ -76,7 +81,10 @@ enum LicenseVerifier {
         Data(SHA256.hash(data: Data(device.utf8))).base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
     }
     static func verify(_ signed: SignedLicense, publicKey: Data, keyID: String, device: String, now: Date = Date()) throws -> LicenseClaims {
-        guard signed.keyId == keyID,
+        guard ["test", "production"].contains(LicenseConfiguration.environment),
+              !keyID.isEmpty,
+              (LicenseConfiguration.environment == "production") == keyID.hasPrefix("production-"),
+              signed.keyId == keyID,
               let signatureData = decode(signed.signature), let payload = decode(signed.payload),
               let key = try? P256.Signing.PublicKey(x963Representation: publicKey),
               let signature = try? P256.Signing.ECDSASignature(rawRepresentation: signatureData),
@@ -185,7 +193,7 @@ enum LicenseVault {
         guard !busy else { return }; busy = true; defer { busy = false }
         lastRefresh = Date()
         do {
-            guard let server = LicenseConfiguration.server, let publicKey = LicenseConfiguration.publicKey else { throw LicenseFailure.configuration }
+            guard ["test", "production"].contains(LicenseConfiguration.environment), let server = LicenseConfiguration.server, let publicKey = LicenseConfiguration.publicKey else { throw LicenseFailure.configuration }
             var request = URLRequest(url: server.appendingPathComponent("api/\(action)")); request.httpMethod = "POST"; request.timeoutInterval = 20
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             let deviceID: String
@@ -230,7 +238,7 @@ struct LicenseSettingsView: View {
             Text("DockGrove license").font(.headline)
             Text("One-time purchase · This major version and its maintenance updates. See the purchase page for pricing and device allowance.").font(.caption)
             if !LicenseConfiguration.commercial { Text("Development build · No purchase required here. Not a commercial release artifact.").font(.caption).foregroundStyle(.secondary) }
-            Text("Payment integration is in test mode.").font(.caption).foregroundStyle(.secondary)
+            Text(LicenseConfiguration.environment == "production" ? "Purchased licenses activate this release." : "Payment integration is in test mode or unavailable.").font(.caption).foregroundStyle(.secondary)
             SecureField("License key", text: $key).textFieldStyle(.roundedBorder)
             HStack {
                 Button { Task { await license.activate(key); if license.valid { key = "" } } } label: { FontAwesomeLabel("Activate", icon: .key) }
