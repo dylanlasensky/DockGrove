@@ -27,10 +27,10 @@ const NAV=[{id:"features",label:"Features"},{id:"notch",label:"Notch"},{id:"laun
 function Pet({name}: {name:string}) {
   return <span aria-hidden="true" className={s.pet} style={{backgroundImage:`url(/assets/companions/${name}.png)`}}/>;
 }
-function DemoDock({light=false, graphite=false, accent, pet="dragon", animate=false, section="all"}: {light?:boolean;graphite?:boolean;accent?:string;pet?:string;animate?:boolean;section?:string}) {
+function DemoDock({light=false, graphite=false, accent, pet="dragon", section="all"}: {light?:boolean;graphite?:boolean;accent?:string;pet?:string;section?:string}) {
   const [musicPlaying,setMusicPlaying]=useState(true);
   const [seconds,setSeconds]=useState(1500);
-  const [running,setRunning]=useState(animate&&section==="all");
+  const [running,setRunning]=useState(false);
   const deadline=useRef(0);
   useEffect(()=>{
     if(!running)return;
@@ -76,7 +76,7 @@ export default function RefinedLanding(){
     </div><a className={s.button} href="#download">Explore the Dock</a><button className={s.menu} aria-label="Toggle navigation" aria-expanded={menu} onClick={()=>setMenu(!menu)} onKeyDown={e=>{if(e.key==="Escape")setMenu(false);}}>☰</button></nav></header>
     <main id="main">
       <section id="top" className={s.hero}>
-        <div className={s.stage} aria-label="Interactive Dock illustration with sample data"><DemoDock animate={moving}/><div className={s.stageCaption}><span>Apps. Widgets. A little company. <small>Sample data.</small></span><button onClick={()=>setPaused(!paused)} aria-pressed={paused}>{paused?"Play motion":"Pause motion"}</button></div></div>
+        <div className={s.stage} aria-label="Interactive Dock illustration with sample data"><DemoDock/><div className={s.stageCaption}><span>Apps. Widgets. A little company. <small>Sample data.</small></span><button onClick={()=>setPaused(!paused)} aria-pressed={paused}>{paused?"Play motion":"Pause motion"}</button></div></div>
         <div className={s.heroCopy}><p className={s.eyebrow}>A LITTLE SPACE. A BETTER EVERYDAY.</p><h1>Your Mac.<br/>Everything within reach.</h1><p className={s.lead}>Apps, live widgets, and AI usage in one beautifully personal Dock.</p><div className={s.actions}><a className={s.button} href="#download">Explore DockGrove</a><a className={s.playLink} href="#widgets"><span aria-hidden="true">▷</span>Try it in action</a></div><p className={s.fine}>For macOS 14 and later · Apple silicon &amp; Intel</p></div>
       </section>
       <Statement/>
@@ -87,7 +87,7 @@ export default function RefinedLanding(){
       </div></section>
       <NotchShowcase playing={moving}/>
       <LauncherShowcase playing={moving}/>
-      <section id="widgets" className={s.workspace}><div className={s.workspaceInner}><Reveal><p className={s.eyebrow}>FEELS LIKE YOUR MAC.</p><h2>Make room for<br/>your way of working.</h2><p>Arrange your apps. Save your layouts. Pick a mood and an accent — the same choices as the app’s Appearance settings.</p><div style={{"--accent":accentColor} as CSSProperties}><AppearanceStudio mood={mood} onPickMood={setMoodPick} show={look} showRef={lookRef} light={light}/></div></Reveal><Reveal step={1} className={s.workspaceDocks}><DemoDock light={light} graphite={mood==="Graphite"} accent={accentColor} pet={pet} animate={moving}/><p>{mood}{mood==="Automatic"?` (${light?"light":"dark"} right now)`:""} · {accent.name} · {chosen.heading}. Sample data.</p><div className={s.secondaryDock} inert aria-hidden="true"><DemoDock light={!light} accent={accentHex(accent,!light)} pet="black-cat" animate={moving}/></div></Reveal></div></section>
+      <section id="widgets" className={s.workspace}><div className={s.workspaceInner}><Reveal><p className={s.eyebrow}>FEELS LIKE YOUR MAC.</p><h2>Make room for<br/>your way of working.</h2><p>Arrange your apps. Save your layouts. Pick a mood and an accent — the same choices as the app’s Appearance settings.</p><div style={{"--accent":accentColor} as CSSProperties}><AppearanceStudio mood={mood} onPickMood={setMoodPick} show={look} showRef={lookRef} light={light}/></div></Reveal><Reveal step={1} className={s.workspaceDocks}><DemoDock light={light} graphite={mood==="Graphite"} accent={accentColor} pet={pet}/><p>{mood}{mood==="Automatic"?` (${light?"light":"dark"} right now)`:""} · {accent.name} · {chosen.heading}. Sample data.</p><div className={s.secondaryDock} inert aria-hidden="true"><DemoDock light={!light} accent={accentHex(accent,!light)} pet="black-cat"/></div></Reveal></div></section>
       <section id="companions" className={s.companions}><div className={s.companionIntro}><Reveal><p className={s.eyebrow}>SMALL FRIENDS. BIG PERSONALITIES.</p><h2>A little company.<br/>A lot of character.</h2><p>Nine companions to make your Dock feel like yours. More room to roam, with care and details just a click away.</p><p className={s.meetAll}>Meet all nine companions <span aria-hidden="true">→</span></p></Reveal>
         <Reveal step={1}><div ref={petsRef} {...pets.bind} className={s.petShow} role="group" aria-roledescription="slideshow" aria-label="Companions">
           <div className={s.petSpotlight}><div key={pet} className={s.petHero}><Pet name={pet}/></div><div key={pet+"-text"} className={s.petCaption} aria-live={pets.running?"off":"polite"}><b>{chosen.heading}</b><span>{chosen.tagline}</span></div></div>
