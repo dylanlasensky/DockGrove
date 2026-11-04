@@ -146,7 +146,7 @@ final class DockPanel: NSPanel {
         let mainMenu = NSMenu(), appItem = NSMenuItem(), appMenu = NSMenu()
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
         settingsItem.target = self; appMenu.addItem(settingsItem)
-        appMenu.addItem(withTitle: "Close Settings", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        appMenu.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         appMenu.addItem(withTitle: "Quit DockGrove", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu; mainMenu.addItem(appItem)
         let editItem = NSMenuItem(), editMenu = NSMenu(title: "Edit")
@@ -156,7 +156,14 @@ final class DockPanel: NSPanel {
         for (title, action, key) in [("Cut", "cut:", "x"), ("Copy", "copy:", "c"), ("Paste", "paste:", "v"), ("Select All", "selectAll:", "a")] {
             editMenu.addItem(withTitle: title, action: Selector(action), keyEquivalent: key)
         }
-        editItem.submenu = editMenu; mainMenu.addItem(editItem); NSApp.mainMenu = mainMenu
+        editItem.submenu = editMenu; mainMenu.addItem(editItem)
+        let windowItem = NSMenuItem(), windowMenu = NSMenu(title: "Window")
+        windowMenu.addItem(withTitle: "Minimize", action: #selector(NSWindow.performMiniaturize(_:)), keyEquivalent: "m")
+        windowMenu.addItem(withTitle: "Zoom", action: #selector(NSWindow.performZoom(_:)), keyEquivalent: "")
+        windowMenu.addItem(.separator())
+        windowMenu.addItem(withTitle: "Bring All to Front", action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
+        windowItem.submenu = windowMenu; mainMenu.addItem(windowItem)
+        NSApp.mainMenu = mainMenu; NSApp.windowsMenu = windowMenu
         if purchasesEnabled { Task { await PurchaseManager.shared.load() } }
         model = DockModel(defaults: preferences)
         do { if !testing { try SystemDock.restore() } } catch { model.systemError = "Could not restore the original Dock setting. Use Restore Apple Dock to retry." }
