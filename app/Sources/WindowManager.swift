@@ -167,9 +167,16 @@ struct AccessibilityClient {
         let restored = ax.set(selected.element, kAXMinimizedAttribute, kCFBooleanFalse)
         ax.activate(selected.owner)
         let raised = ax.perform(selected.element, kAXRaiseAction)
-        status = raised == .success && (restored == .success || restored == .attributeUnsupported)
-            ? "Window brought forward."
-            : "This app could not restore or focus the window. Refresh and check Accessibility access."
+        if raised == .success && (restored == .success || restored == .attributeUnsupported) {
+            status = "Window brought forward."
+        } else if selected.isMinimized, restored == .success,
+                  (ax.copy(selected.element, kAXMinimizedAttribute) as? Bool) == false {
+            // Finder can restore the window while rejecting the separate raise request.
+            // Confirm the state before reporting restoration; an acknowledgement alone is insufficient.
+            status = "Window restored."
+        } else {
+            status = "This app could not restore or focus the window. Refresh and check Accessibility access."
+        }
     }
     func minimize() {
         guard trusted, !loading else { status = "Allow Accessibility to minimize windows."; return }
