@@ -58,7 +58,7 @@ struct ToolTile: View {
     @Environment(\.widgetEffects) private var effects
     var caption: String {
         switch kind {
-        case .pet: return kit.pet.state.name
+        case .pet: return kit.pet.displayName
         case .github: return kit.github.snapshot?.run?.displayStatus ?? "GitHub"
         case .water: return kit.utilities.waterDue ? "Water break" : "\(kit.utilities.water)/\(kit.utilities.waterGoal) glasses"
         case .habits: return "\(kit.utilities.habits.filter { $0.completedDays.contains(Habit.day(Date())) }.count) done today"

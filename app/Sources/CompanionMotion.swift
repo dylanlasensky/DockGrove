@@ -16,6 +16,7 @@ struct CompanionMotion: Equatable {
     var velocity = 0.0
     var gait = 0.0
     var total = 0.0
+    var flightPhase = 0.0
     var jumpHeight = 0.0
     var weights: [Activity:Double] = [.idle:1]
     private var randomState: UInt64
@@ -56,6 +57,8 @@ struct CompanionMotion: Equatable {
         x += velocity*dt
         if walking && abs(distance)<0.003 && abs(velocity)<0.005 {transition(.look,duration:1.3+random()*2.5)}
         let stride=animal=="Cow" ? 0.10:animal=="Rabbit" ? 0.12:0.096
+        // Integrate wing phase: multiplying total time by a changing speed skips poses.
+        flightPhase += dt * (6 + min(1, abs(velocity) / speed) * 3)
         travelDistance += abs(x-priorX)
         gait += abs(x-priorX)/stride*2 * .pi
         x=min(0.88,max(0.12,x))

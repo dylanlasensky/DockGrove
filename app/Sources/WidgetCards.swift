@@ -15,7 +15,7 @@ struct RichWidgetCard: View {
                 summary.accessibilityHidden(true).overlay {
                     Button(action: open) { Color.clear.contentShape(Rectangle()) }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("\(kit.pet.state.name), \(kit.pet.state.mood). Open companion care.")
+                        .accessibilityLabel("\(kit.pet.displayName), \(kit.pet.state.mood). Open companion care.")
                 }
             } else {
                 HStack(spacing: 8) {
@@ -35,7 +35,7 @@ struct RichWidgetCard: View {
         case .pet:
             LiveCompanionPortrait(pet: kit.pet, accent: model.color)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .accessibilityLabel("\(kit.pet.state.name), \(kit.pet.state.mood). Open companion care.")
+                .accessibilityLabel("\(kit.pet.displayName), \(kit.pet.state.mood). Open companion care.")
 
         case .focus:
             VStack(alignment: .leading, spacing: 3) {

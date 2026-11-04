@@ -61,7 +61,9 @@ final class CompanionSpriteScene: SKScene {
         sprite.texture = textures[frameIndex]
         sprite.size = CGSize(width: width.rounded(), height: height.rounded())
         sprite.xScale = motion.facing < 0 ? -1 : 1
-        sprite.position = CGPoint(x: (4 + travel * motion.x + width / 2).rounded(), y: (max(5, size.height * 0.07) + (reducedMotion ? 0 : motion.jump * min(14, size.height * 0.09))).rounded())
+        // Keep the feet anchored; subtle breathing replaces mismatched idle poses.
+        sprite.yScale = reducedMotion ? 1 : 1 + sin(motion.total * 1.8) * 0.008 * (1 - motion.weight(.walk))
+        sprite.position = CGPoint(x: 4 + travel * motion.x + width / 2, y: max(5, size.height * 0.07) + (reducedMotion ? 0 : motion.jump * min(14, size.height * 0.09)))
     }
 }
 

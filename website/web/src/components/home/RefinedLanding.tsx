@@ -25,7 +25,17 @@ function usePrefersDark(){
 const NAV=[{id:"features",label:"Overview"},{id:"widgets",label:"Make it yours"},{id:"companions",label:"Companions"}] as const;
 
 function Pet({name}: {name:string}) {
-  return <span aria-hidden="true" className={`${s.pet} ${name==="dragon"?s.dragon:""}`} style={{backgroundImage:`url(/assets/companions/${name}.png)`}}/>;
+  const ref = useRef<HTMLSpanElement>(null);
+  const [active, setActive] = useState(false);
+  useEffect(() => {
+    let visible = false;
+    const refresh = () => setActive(visible && !document.hidden);
+    const observer = new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; refresh(); });
+    if (ref.current) observer.observe(ref.current);
+    document.addEventListener("visibilitychange", refresh);
+    return () => { observer.disconnect(); document.removeEventListener("visibilitychange", refresh); };
+  }, []);
+  return <span ref={ref} data-active={active} aria-hidden="true" className={`${s.pet} ${name==="dragon"?s.dragon:""}`} style={{backgroundImage:`url(/assets/companions/${name}.png)`}}/>;
 }
 function DemoDock({light=false, graphite=false, accent, pet="dragon", section="all"}: {light?:boolean;graphite?:boolean;accent?:string;pet?:string;section?:string}) {
   const [musicPlaying,setMusicPlaying]=useState(true);

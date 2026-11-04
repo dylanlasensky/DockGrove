@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 struct CompanionState: Codable, Equatable {
-    var name = "Miso"
+    var name = "Cream cat"
     var fullness = 75.0
     var energy = 80.0
     var joy = 70.0
@@ -26,6 +26,8 @@ struct CompanionState: Codable, Equatable {
 @MainActor final class Companion: ObservableObject {
     @Published var animal: String { didSet { defaults.set(animal, forKey: "companionAnimal") } }
     static let animals = ["Miso", "Black cat", "Orange cat", "Golden dog", "Husky", "Dragon", "Cow", "Rabbit", "Fox"]
+    static func displayName(_ animal: String) -> String { animal == "Miso" ? "Cream cat" : animal }
+    var displayName: String { state.name == "Miso" ? "Cream cat" : state.name }
     @Published var state: CompanionState { didSet { save() } }
     @Published private(set) var playRequest = 0
     func play() { guard !state.resting else { return }; state.play(); playRequest &+= 1 }
@@ -79,7 +81,7 @@ struct CatPortrait: NSViewRepresentable {
     func updateNSView(_ view: CompanionStage, context: Context) {
         view.animal = animal; view.resting = resting
         view.receivePlay(playRequest)
-        view.setAccessibilityLabel(animal + (resting ? " sleeping" : " autonomous companion"))
+        view.setAccessibilityLabel(Companion.displayName(animal) + (resting ? " sleeping" : " autonomous companion"))
         view.refreshScene()
     }
 }
@@ -100,15 +102,15 @@ struct CompanionView: View {
     var body: some View {
         VStack(spacing: 14) {
             CatPortrait(resting: pet.state.resting, animal: pet.animal, accent: accent, playRequest: pet.playRequest).frame(width:250, height:180)
-            Picker("Companion", selection:$pet.animal) { ForEach(Companion.animals,id: \.self) { Text($0) } }
-            Text(pet.state.name).font(.title2.bold())
+            Picker("Companion", selection:$pet.animal) { ForEach(Companion.animals,id: \.self) { Text(Companion.displayName($0)).tag($0) } }
+            Text(pet.displayName).font(.title2.bold())
             Text(pet.state.mood).foregroundStyle(.secondary)
             HStack { Button("Feed") { pet.state.feed() }; Button("Play") { pet.play() }.disabled(pet.state.resting); Button(pet.state.resting ? "Wake up" : "Rest") { pet.state.resting.toggle() } }
             VStack(alignment: .leading) { meter("Fullness", pet.state.fullness); meter("Energy", pet.state.energy); meter("Joy", pet.state.joy) }
             Text("Level \(pet.state.level) · \(pet.state.sessions) completed focus sessions").font(.caption)
             HStack { TextField("Companion name", text: $name).textFieldStyle(.roundedBorder); Button("Rename") { pet.rename(name) }.disabled(name.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty) }
             Text("Finish a DockGrove focus session to earn a little joy. Your companion is safe while you’re away. No app or keyboard activity is tracked.").font(.caption).foregroundStyle(.secondary)
-        }.onAppear { name = pet.state.name }
+        }.onAppear { name = pet.displayName }
     }
     private func meter(_ name: String, _ value: Double) -> some View { HStack { Text(name).frame(width:65,alignment:.leading); ProgressView(value:value,total:100).tint(accent); Text("\(Int(value))").monospacedDigit().frame(width:28) }.font(.caption) }
 }
