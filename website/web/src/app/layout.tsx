@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   },
   description:
     "A calmer space for your Mac. DockGrove brings apps, useful widgets, AI usage and window controls into one beautifully considered Dock. A commercial release in preparation.",
-  icons: { icon: [{ url: "/assets/DockGrove-icon.png", type: "image/png" }] },
+  icons: { icon: [{ url: "/favicon-v2.png", type: "image/png", sizes: "32x32" }], apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }] },
   openGraph: {
     title: "DockGrove — Everything within reach.",
     description: "Your apps. Your tools. A little more room to think.",

@@ -40,7 +40,7 @@ export default function Companions() {
             <div
               className={`${styles.pet} pixel-pet`}
               role="img"
-              aria-label={`${companion.ariaName}, animated pixel-art companion`}
+              aria-label={`${companion.ariaName}, resting pixel-art companion`}
               style={{ backgroundImage: `url(${companionSprite(companion)})` }}
             />
             <h3 className="m-0 text-[1.125rem] font-bold leading-[1.15] tracking-[-.02em]">
@@ -53,8 +53,7 @@ export default function Companions() {
         ))}
       </div>
       <p className={`${fineMutedClass} text-center`}>
-        Walking and flight previews from the app’s actual artwork. Animations pause when you
-        prefer reduced motion.
+        Idle previews from the app’s actual artwork. Your companions roam and play in the app.
       </p>
     </section>
   );

@@ -53,7 +53,7 @@ for(const [route] of Object.entries(pages)){
 test('page titles and metadata',()=>{
  assert.match(purchase,/<title>Your purchase — DockGrove<\/title>/);
  assert.match(recover,/<title>Restore purchase — DockGrove<\/title>/);
- for(const source of [html,purchase,recover])assert(source.includes('color-scheme')&&source.includes('DockGrove-icon.png'),'color-scheme meta and icon');
+ for(const source of [html,purchase,recover])assert(source.includes('color-scheme')&&source.includes('/favicon-v2.png'),'color-scheme meta and icon');
 });
 
 test('purchase page copy, ids and server-authority notice',()=>{
