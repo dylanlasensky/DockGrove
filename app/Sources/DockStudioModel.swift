@@ -51,6 +51,13 @@ extension DockModel {
         studioHistory.append(DockStudioSnapshot(apps: apps, widgets: toolkit.enabled, order: entryOrder, clock: showClock, usage: showUsageCard, shapes: toolkit.widgetShapes, iconSize: iconSize, widthFraction: widthFraction, toolbarHeight: toolbarHeight, fitToolbarToContent: fitToolbarToContent))
         if studioHistory.count > 30 { studioHistory.removeFirst() }
     }
+    /// An explicit Dock length always wins: fit-to-items would otherwise cap it at the content width
+    /// and the length control would appear to do nothing.
+    func setDockLength(_ fraction: Double) {
+        guard fraction.isFinite else { return }
+        widthFraction = min(1, max(0.35, (fraction * 100).rounded() / 100))
+        if fitToolbarToContent { fitToolbarToContent = false }
+    }
     func undoStudioLayout() {
         guard let snapshot = studioHistory.popLast() else { return }
         apps = snapshot.apps; toolkit.enabled = snapshot.widgets; entryOrder = snapshot.order

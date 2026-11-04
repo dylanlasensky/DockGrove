@@ -1,5 +1,98 @@
+import XCTest
 import AppKit
 @testable import DockGrove
+
+/// Hiding and showing the Dock: the toggle model, persistence and the auto-hide reveal geometry.
+@MainActor final class DockHidingTests: XCTestCase {
+    func testToggleHidingPersistsAndRecoversASwitchedOffDock() {
+        let model = makeSettingsModel(self)
+        var refreshes = 0
+        model.visibilityAction = { refreshes += 1 }
+        model.toolkit.autoHide = false
+        XCTAssertEqual(model.hidingMenuTitle, "Turn Hiding On")
+        model.toggleHiding()
+        XCTAssertTrue(model.toolkit.autoHide)
+        XCTAssertTrue(model.defaults.bool(forKey: "autoHide"), "hiding persists")
+        XCTAssertEqual(model.hidingMenuTitle, "Turn Hiding Off")
+        XCTAssertTrue(DockModel(defaults: model.defaults).toolkit.autoHide, "hiding survives relaunch")
+        model.toggleHiding()
+        XCTAssertFalse(model.toolkit.autoHide)
+        model.visible = false
+        XCTAssertEqual(model.visibilityMenuTitle, "Show DockGrove")
+        model.toolkit.autoHide = true
+        model.toggleHiding()
+        XCTAssertTrue(model.visible, "the shortcut brings back a switched-off Dock")
+        XCTAssertFalse(model.toolkit.autoHide, "shown, not hidden")
+        XCTAssertEqual(model.visibilityMenuTitle, "Hide DockGrove")
+        XCTAssertEqual(refreshes, 3, "every toggle refreshes the live window")
+    }
+
+    func testShowSwitchNeverLeavesNoDockWhileReplacingAppleDock() {
+        let model = makeSettingsModel(self)
+        model.toolkit.autoHide = false
+        model.setShown(false)
+        XCTAssertFalse(model.visible, "an ordinary DockGrove can be switched off")
+        XCTAssertFalse(model.defaults.object(forKey: "dockVisible") as? Bool ?? true, "visibility persists")
+        model.setShown(true)
+        XCTAssertTrue(model.visible)
+        model.replacingDock = true
+        model.setShown(false)
+        XCTAssertTrue(model.visible, "replacing Apple's Dock keeps a Dock reachable")
+        XCTAssertTrue(model.toolkit.autoHide, "it auto-hides instead")
+    }
+
+    func testRevealEdgeAndHoverRegion() {
+        XCTAssertFalse(DockVisibility.revealsAtTop(edge: "Bottom", elevation: 0.9, replacing: false))
+        XCTAssertTrue(DockVisibility.revealsAtTop(edge: "Top", elevation: 0, replacing: false))
+        XCTAssertFalse(DockVisibility.revealsAtTop(edge: "Top", elevation: 0, replacing: true), "a replacement Dock is always at the bottom")
+        XCTAssertFalse(DockVisibility.revealsAtTop(edge: "Floating", elevation: 0.3, replacing: false), "low floating docks reveal at the bottom")
+        XCTAssertTrue(DockVisibility.revealsAtTop(edge: "Floating", elevation: 0.8, replacing: false), "high floating docks reveal at the top")
+
+        let screen = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let floating = CGRect(x: 320, y: 300, width: 800, height: 100)
+        let below = DockVisibility.hoverRegion(dock: floating, screen: screen, top: false)
+        XCTAssertEqual(below, CGRect(x: 320, y: 0, width: 800, height: 400), "edge-to-dock corridor keeps it open")
+        XCTAssertTrue(below.contains(CGPoint(x: 700, y: 150)))
+        XCTAssertFalse(below.contains(CGPoint(x: 700, y: 450)))
+        let above = DockVisibility.hoverRegion(dock: floating, screen: screen, top: true)
+        XCTAssertEqual(above, CGRect(x: 320, y: 300, width: 800, height: 601))
+        XCTAssertTrue(above.contains(CGPoint(x: 700, y: 900)), "the top pixel row counts")
+        XCTAssertFalse(above.contains(CGPoint(x: 700, y: 250)))
+    }
+
+    /// Simulates the pointer moving to each edge and on to the dock, through the same pure
+    /// functions the live timer uses, for Bottom, Top and Floating docks.
+    func testAutoHideRevealsAtTheEdgeForEveryPosition() {
+        let screen = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        let cases: [(edge: String, elevation: Double, dock: CGRect, edgePoint: CGPoint, travel: CGPoint)] = [
+            ("Bottom", 0, CGRect(x: 320, y: 0, width: 800, height: 100), CGPoint(x: 700, y: 1), CGPoint(x: 700, y: 60)),
+            ("Top", 0, CGRect(x: 320, y: 775, width: 800, height: 100), CGPoint(x: 700, y: 899), CGPoint(x: 700, y: 820)),
+            ("Floating", 0.3, CGRect(x: 320, y: 300, width: 800, height: 100), CGPoint(x: 700, y: 0), CGPoint(x: 700, y: 200)),
+            ("Floating", 0.8, CGRect(x: 320, y: 600, width: 800, height: 100), CGPoint(x: 700, y: 900), CGPoint(x: 700, y: 800)),
+        ]
+        for item in cases {
+            let top = DockVisibility.revealsAtTop(edge: item.edge, elevation: item.elevation, replacing: false)
+            var policy = DockVisibility(), shown = false
+            let start = Date(timeIntervalSince1970: 1_800_000_000)
+            let middle = CGPoint(x: item.dock.midX, y: item.dock.midY)
+            func tick(_ time: Double, _ point: CGPoint) -> Bool {
+                shown = policy.visible(now: start.addingTimeInterval(time), enabled: true, suppressed: false, autoHide: true, overlapping: false,
+                    pointerInside: shown && DockVisibility.hoverRegion(dock: item.dock, screen: screen, top: top).contains(point),
+                    pointerAtEdge: DockVisibility.atEdge(point, screen: screen, dock: item.dock, top: top), interacting: false)
+                return shown
+            }
+            let away = CGPoint(x: 100, y: 450)
+            XCTAssertFalse(tick(0, away), "\(item.edge): hidden while the pointer is away")
+            XCTAssertFalse(tick(0.1, middle), "\(item.edge): its hidden rectangle doesn't reveal it")
+            XCTAssertFalse(tick(0.2, item.edgePoint), "\(item.edge): a brief touch of the edge doesn't")
+            XCTAssertTrue(tick(0.5, item.edgePoint), "\(item.edge): resting at the edge reveals it")
+            for step in 1...8 { XCTAssertTrue(tick(0.5 + Double(step) * 0.2, item.travel), "\(item.edge): stays open on the way to the dock") }
+            XCTAssertTrue(tick(2.4, middle), "\(item.edge): stays open over the dock")
+            XCTAssertTrue(tick(2.9, away), "\(item.edge): lingers briefly after leaving")
+            XCTAssertFalse(tick(3.3, away), "\(item.edge): hides again after leaving")
+        }
+    }
+}
 
 @MainActor func runBehaviorTests() throws {
     let now = Date(timeIntervalSince1970: 1_800_000_000)

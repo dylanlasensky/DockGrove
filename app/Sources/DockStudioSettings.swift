@@ -103,7 +103,7 @@ struct SettingsView<Store: PurchaseStore>: View {
                     Label(purchases.tier.title, systemImage: purchases.tier == .free ? "leaf" : "checkmark.seal.fill").font(.caption.weight(.medium)).foregroundStyle(.secondary)
                 }
                 if !model.isAdditionalDock { Button("Manage docks…") { model.manageDocksAction?() }.buttonStyle(.link) }
-                Button("Restore Apple Dock") { model.changeDockAction?(false) }.buttonStyle(.link)
+                Button("Restore Apple Dock…") { model.restoreAppleDockAction?() }.buttonStyle(.link)
                 Button("Quit DockGrove") { terminate(nil) }.buttonStyle(.link)
                 Text("Thoughtfully at hand.").font(.system(size: 10)).foregroundStyle(.tertiary).padding(.top, 10)
             }
@@ -244,8 +244,8 @@ struct StudioAppearance: View {
                     }.buttonStyle(.plain)
                 }
             }
-            if !model.isAdditionalDock { NotchSettingsView(model: model) }
             StudioToolbarSize(model: model)
+            if !model.isAdditionalDock { NotchSettingsView(model: model) }
             StudioWidgetShapes(model: model)
             StudioPanel(title: "Color") {
                 StudioColorPacks(model: model)
@@ -260,6 +260,8 @@ struct StudioAppearance: View {
                     Text("Bottom").tag("Bottom"); Text("Top").tag("Top"); Text("Floating").tag("Floating")
                 }.pickerStyle(.segmented).disabled(model.replacingDock)
                 if model.toolkit.edge == "Floating" { StudioNumberControl(title: "Vertical position", value: $model.elevation, range: 0...1, step: 0.01, scale: 100, unit: "%") }
+                Toggle("Automatically hide and show the Dock", isOn: Binding(get: { model.toolkit.autoHide }, set: { model.objectWillChange.send(); model.toolkit.autoHide = $0; model.visibilityAction?() }))
+                Text("Press ⌥⌘D anywhere to turn hiding on or off. While hidden, move the pointer to the screen edge to show the Dock.").font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -377,9 +379,14 @@ struct StudioBehavior: View {
                 Toggle(access.canAccessAI(model) ? "Show Codex usage tile" : "Codex usage · Full Access", isOn: $model.showUsageCard).disabled(!access.canAccessAI(model))
                 if !model.isAdditionalDock {
                     Toggle("Use DockGrove as my Dock", isOn: Binding(get: { model.replacingDock }, set: { model.changeDockAction?($0) }))
-                    Text("Apple’s Dock returns when you turn this off or quit DockGrove.").font(.caption).foregroundStyle(.secondary)
+                    Text("Turning this off, quitting DockGrove or Restore Apple Dock… brings back Apple’s Dock with your original settings.").font(.caption).foregroundStyle(.secondary)
+                    Button("Restore Apple Dock…") { model.restoreAppleDockAction?() }
+                        .disabled(!model.canRestoreAppleDock)
+                        .help("Put back your original Dock settings and relaunch Apple’s Dock")
                 }
-                Toggle("Show DockGrove", isOn: Binding(get: { model.visible }, set: { model.visible = $0; model.visibilityAction?() }))
+                Toggle("Show DockGrove", isOn: Binding(get: { model.visible }, set: { model.setShown($0) }))
+                Text(model.replacingDock ? "While DockGrove is your Dock, turning this off hides it automatically instead, so a Dock is always one pointer move away."
+                     : "Turned off, DockGrove stays hidden until you turn this back on or press ⌥⌘D.").font(.caption).foregroundStyle(.secondary)
                 if let error = model.systemError { Text(error).font(.caption).foregroundStyle(.orange) }
             }
             WorkspaceSettings(model: model, kit: model.toolkit)
@@ -409,18 +416,21 @@ private struct StudioPanel<Content: View>: View {
 struct StudioToolbarSize: View {
     @ObservedObject var model: DockModel
     var body: some View {
-        StudioPanel(title: "Toolbar size") {
+        StudioPanel(title: "Size") {
             HStack(spacing: 12) {
                 preset("Compact", width: 0.65, height: 88, icon: 40)
                 preset("Balanced", width: 0.85, height: 104, icon: 48)
                 preset("Spacious", width: 1, height: 140, icon: 56)
             }
-            StudioNumberControl(title: "Toolbar width", value: $model.widthFraction, range: 0.35...1, step: 0.01, scale: 100, unit: "%", onBegin: model.rememberStudioLayout)
-            StudioNumberControl(title: "Toolbar height", value: Binding(get: { model.barHeight }, set: { model.toolbarHeight = $0 }), range: max(88, model.iconSize + 44)...180, step: 2, unit: "pt", onBegin: model.rememberStudioLayout)
+            DockLengthSlider(model: model, onBegin: model.rememberStudioLayout)
+            Toggle("Fit length to content", isOn: Binding(get: { model.fitToolbarToContent }, set: { model.rememberStudioLayout(); model.fitToolbarToContent = $0 }))
+            if model.fitToolbarToContent {
+                Text("The Dock is only as long as its items need, up to the Dock length. Moving the Dock length slider turns this off.").font(.caption).foregroundStyle(.secondary)
+            }
+            StudioNumberControl(title: "Dock height", value: Binding(get: { model.barHeight }, set: { model.toolbarHeight = $0 }), range: max(88, model.iconSize + 44)...180, step: 2, unit: "pt", onBegin: model.rememberStudioLayout)
             StudioNumberControl(title: "Icon size", value: $model.iconSize, range: 32...64, step: 2, unit: "pt", onBegin: model.rememberStudioLayout)
-            Toggle("Fit width to content", isOn: Binding(get: { model.fitToolbarToContent }, set: { model.rememberStudioLayout(); model.fitToolbarToContent = $0 }))
             HStack(alignment: .top) {
-                Text("Width is a percentage of your display. The bar keeps each widget whole and uses pages when needed. Height grows to keep icons comfortable.").font(.caption).foregroundStyle(.secondary)
+                Text("Dock length is a percentage of your display and applies on every edge. The Dock keeps each widget whole and uses pages when needed. Height grows to keep icons comfortable.").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Button("Reset size") { model.rememberStudioLayout(); model.widthFraction = 1; model.toolbarHeight = 92; model.iconSize = 48; model.fitToolbarToContent = true }
             }
@@ -442,6 +452,32 @@ struct StudioToolbarSize: View {
     }
 }
 
+
+/// Native Dock length slider, like System Settings ▸ Desktop & Dock ▸ Size. Moving it sets an
+/// explicit length, which turns off fit-to-items so the change is always visible.
+struct DockLengthSlider: View {
+    @ObservedObject var model: DockModel
+    var onBegin: () -> Void = {}
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Dock length")
+                Spacer()
+                Text("\(Int((model.widthFraction * 100).rounded())) %").monospacedDigit().foregroundStyle(.secondary)
+            }
+            HStack(spacing: 8) {
+                Text("Short").font(.caption).foregroundStyle(.secondary)
+                Slider(value: Binding(get: { model.widthFraction }, set: { model.setDockLength($0) }), in: 0.35...1) { editing in
+                    if editing { onBegin() }
+                }
+                .accessibilityLabel("Dock length")
+                .accessibilityValue("\(Int((model.widthFraction * 100).rounded())) percent of the display")
+                .help("Drag to change how long the Dock is")
+                Text("Long").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+}
 
 /// Scrubbable value badge with discrete buttons for keyboard and assistive access.
 struct StudioNumberControl: View {

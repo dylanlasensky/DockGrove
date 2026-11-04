@@ -26,6 +26,9 @@ struct DockApp: Identifiable, Equatable {
     @Published var fetching = false
     @Published var refreshed: Date?
     @Published var replacingDock = false
+    /// Saved Dock originals exist or Apple's Dock still looks hidden by DockGrove.
+    @Published var appleDockModified = false
+    var canRestoreAppleDock: Bool { replacingDock || appleDockModified }
     @Published var visible = true { didSet { defaults.set(visible, forKey: "dockVisible") } }
     @Published var dockName: String { didSet { defaults.set(String(dockName.prefix(40)), forKey: "dockName") } }
     @Published var theme: String { didSet { defaults.set(theme, forKey: "theme") } }
@@ -38,6 +41,8 @@ struct DockApp: Identifiable, Equatable {
             defaults.set(notchWidth, forKey: "notchWidth")
         }
     }
+    @Published var notchOpensOnHover: Bool { didSet { defaults.set(notchOpensOnHover, forKey: "notchOpensOnHover") } }
+    @Published var notchClosesOnExit: Bool { didSet { defaults.set(notchClosesOnExit, forKey: "notchClosesOnExit") } }
     var openNotchAction: (() -> Void)?
     @Published var toolbarHeight: Double { didSet { defaults.set(toolbarHeight, forKey: "toolbarHeight") } }
     @Published var fitToolbarToContent: Bool { didSet { defaults.set(fitToolbarToContent, forKey: "fitToolbarToContent") } }
@@ -45,6 +50,12 @@ struct DockApp: Identifiable, Equatable {
     @Published var elevation: Double { didSet { defaults.set(elevation, forKey: "elevation") } }
     @Published var albumColors: Bool { didSet { defaults.set(albumColors, forKey: "albumColors") } }
     @Published var showUsageCard: Bool { didSet { defaults.set(showUsageCard, forKey: "showUsageCard") } }
+    /// The Applications stack's Mac Dock options: Sort by, Display as and View content as.
+    @Published var stackSort: StackSortOrder { didSet { defaults.set(stackSort.rawValue, forKey: "stackSort") } }
+    @Published var stackDisplay: StackDisplayStyle { didSet { defaults.set(stackDisplay.rawValue, forKey: "stackDisplay") } }
+    /// Paths of other apps that open at login, as last read from System Events; persisted so menus show it without a script.
+    @Published var appLoginItems: Set<String> { didSet { defaults.set(appLoginItems.sorted(), forKey: "appLoginItems") } }
+    var stackPreviewCache: (key: String, apps: [DockApp])?
     @Published var snappingEnabled: Bool { didSet { defaults.set(snappingEnabled, forKey: "snappingEnabled") } }
     @Published var snapRequiresOption: Bool { didSet { defaults.set(snapRequiresOption, forKey: "snapRequiresOption") } }
     @Published var studioHistory: [DockStudioSnapshot] = []
@@ -84,6 +95,8 @@ struct DockApp: Identifiable, Equatable {
     var settingsAction: (() -> Void)?
     var closeSettingsAction: (() -> Void)?
     var changeDockAction: ((Bool) -> Void)?
+    /// Asks for confirmation, then stops replacing the Dock and puts back the user's original settings.
+    var restoreAppleDockAction: (() -> Void)?
     var visibilityAction: (() -> Void)?
     /// System side effects, replaceable so tests never launch apps, show panels or run the Codex CLI.
     var openApplication: (URL) -> Void = DockModel.launch
@@ -119,6 +132,8 @@ struct DockApp: Identifiable, Equatable {
         widthFraction = min(1,max(0.35,defaults.object(forKey: "widthFraction") as? Double ?? 1))
         notchEnabled = defaults.bool(forKey: "notchEnabled")
         notchWidth = NotchGeometry.normalizedWidth(defaults.object(forKey: "notchWidth") as? Double ?? 760)
+        notchOpensOnHover = defaults.object(forKey: "notchOpensOnHover") as? Bool ?? true
+        notchClosesOnExit = defaults.object(forKey: "notchClosesOnExit") as? Bool ?? true
         let storedHeight = defaults.object(forKey: "toolbarHeight") as? Double ?? 92
         toolbarHeight = storedHeight.isFinite ? min(180, max(88, storedHeight)) : 92
         fitToolbarToContent = defaults.object(forKey: "fitToolbarToContent") as? Bool ?? true
@@ -126,6 +141,9 @@ struct DockApp: Identifiable, Equatable {
         elevation = min(1,max(0,defaults.object(forKey: "elevation") as? Double ?? 0.5))
         albumColors = defaults.object(forKey: "albumColors") as? Bool ?? true
         showUsageCard = defaults.object(forKey: "showUsageCard") as? Bool ?? true
+        stackSort = StackSortOrder(rawValue: defaults.string(forKey: "stackSort") ?? "") ?? .name
+        stackDisplay = StackDisplayStyle(rawValue: defaults.string(forKey: "stackDisplay") ?? "") ?? .folder
+        appLoginItems = Set(defaults.stringArray(forKey: "appLoginItems") ?? [])
         snappingEnabled = defaults.bool(forKey: "snappingEnabled")
         snapRequiresOption = defaults.object(forKey: "snapRequiresOption") as? Bool ?? true
         visible = defaults.object(forKey: "dockVisible") as? Bool ?? true

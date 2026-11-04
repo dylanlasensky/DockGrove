@@ -24,7 +24,7 @@ import AppKit
     for (label, scheme) in [("light", ColorScheme.light), ("dark", ColorScheme.dark)] {
         try capture(DockView(model: model).environment(\.colorScheme, scheme), "dock-" + label, width: 1300, height: 130)
         try capture(SettingsView(model: model).environment(\.colorScheme, scheme), "settings-" + label, width: 1080, height: 780)
-        try capture(AppPickerView(model: model, replacing: model.apps.first, close: {}).environment(\.colorScheme, scheme), "app-picker-" + label, width: 600, height: 460)
+        try capture(AppsLauncherView(model: model, kit: model.toolkit, state: AppsChooserState(), mode: model.apps.first.map { .replace($0) } ?? .add, close: {}).environment(\.colorScheme, scheme), "app-picker-" + label, width: 760, height: 560)
     }
     print("PASS: automatic light/dark native dock, settings and searchable picker rendering")
 }

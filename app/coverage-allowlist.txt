@@ -6,13 +6,26 @@ NativeTests.swift # Test code that must ship in the app: the --native-test launc
 ReleaseVisualTests.swift # Test code rendered only by the --native-test launch mode run by DockGroveUITests
 
 # Live system side effects behind test seams (tests inject fakes)
+DockBehavior.swift: variable initialization expression of CarbonHotKeyRegistrar.handlers # live Carbon hot key registrar; tests inject a fake HotKeyRegistrar so no real ⌥⌘D is registered
+DockBehavior.swift: variable initialization expression of CarbonHotKeyRegistrar.references # live Carbon hot key registrar; tests inject a fake
+DockBehavior.swift: variable initialization expression of CarbonHotKeyRegistrar.nextID # live Carbon hot key registrar; tests inject a fake
+DockBehavior.swift: CarbonHotKeyRegistrar.register(_:handler:) # RegisterEventHotKey/InstallEventHandler register a real system-wide shortcut
+DockBehavior.swift: closure #1 in CarbonHotKeyRegistrar.register(_:handler:) # Carbon event callback, only called for a real hot key press
+DockBehavior.swift: closure #1 in closure #1 in CarbonHotKeyRegistrar.register(_:handler:) # Carbon event callback, only called for a real hot key press
+DockBehavior.swift: CarbonHotKeyRegistrar.fire(_:) # dispatches a real hot key press from the Carbon callback
+DockBehavior.swift: CarbonHotKeyRegistrar.unregisterAll() # UnregisterEventHotKey/RemoveEventHandler for the real registration
+App.swift: closure #1 in variable initialization expression of static DockContextMenu.present # production default runs a real modal NSMenu; tests inject a fake presenter
 AppWindows.swift: static DockSystemEffect.perform(_:) # presents/activates windows, opens files/Finder, hides/quits apps — real system effects
 NativeStudioDragSource.swift: NativeStudioDragSource.SourceView.startSession(_:event:) # starts a real system drag session
 Notch.swift: static NotchController.runOpenPanel(message:) # modal NSOpenPanel
+Notch.swift: closure #2 in static NotchController.installEventMonitors(panel:handler:) # global mouse-down monitor; only clicks in other apps reach it
+Notch.swift: closure #1 in closure #2 in static NotchController.installEventMonitors(panel:handler:) # main-actor hop inside the global mouse-down monitor
+Notch.swift: closure #4 in static NotchController.installEventMonitors(panel:handler:) # global Esc monitor; only keys typed in other apps reach it
+Notch.swift: closure #1 in closure #4 in static NotchController.installEventMonitors(panel:handler:) # main-actor hop inside the global Esc monitor
 NotchWorkspace.swift: closure #3 in NotchTrayView.trayItem(_:) # SwiftUI onDrag item provider only runs inside a real system drag session
 ToolViews.swift: static WidgetEffect.perform(_:) # live system side effects (NSWorkspace open/launch, pasteboard, panels, login item, profile import/export); tests use the WidgetEffects seam
 ToolViews.swift: implicit closure #1 in variable initialization expression of static WidgetEffectsKey.defaultValue # production default pointing at WidgetEffect.perform; tests always inject a fake
-ToolViews.swift: closure #3 in closure #1 in closure #1 in closure #1 in closure #15 in ToolTileContents.body.getter # onDrag item provider for the files row; only a real drag session calls it
+ToolViews.swift: closure #3 in closure #1 in closure #1 in closure #1 in closure #16 in ToolTileContents.body.getter # onDrag item provider for the files row; only a real drag session calls it
 UtilityViews.swift: closure #3 in closure #1 in closure #1 in closure #5 in UtilityView.content.getter # onDrag item provider for the folders row; only a real drag session calls it
 ExtraWidgets.swift: LiveVoiceMemoDevice.requestMicrophone() # real microphone permission prompt
 ExtraWidgets.swift: LiveVoiceMemoDevice.exportDestination() # modal NSSavePanel
@@ -58,27 +71,53 @@ Utilities.swift: static Utilities.interactiveCapture() # interactive screencaptu
 Utilities.swift: static SystemPicker.run(_:) # modal NSOpenPanel
 Utilities.swift: static SystemPicker.sampleColor(_:) # interactive NSColorSampler
 Utilities.swift: static LoginService.set(_:) # registers/unregisters the real login item
+Utilities.swift: implicit closure #1 in variable initialization expression of static AppLoginItems.read # production default pointing at the System Events script; tests inject a fake
+Utilities.swift: implicit closure #1 in variable initialization expression of static AppLoginItems.write # production default pointing at the System Events script; tests inject a fake
+Utilities.swift: static AppLoginItems.scriptedRead(_:) # runs osascript against the real System Events login items
+Utilities.swift: closure #1 in static AppLoginItems.scriptedRead(_:) # as above (background queue)
+Utilities.swift: closure #1 in closure #1 in static AppLoginItems.scriptedRead(_:) # as above (parsing the script output)
+Utilities.swift: closure #2 in closure #1 in static AppLoginItems.scriptedRead(_:) # as above
+Utilities.swift: implicit closure #1 in closure #2 in closure #1 in static AppLoginItems.scriptedRead(_:) # as above
+Utilities.swift: implicit closure #2 in closure #2 in closure #1 in static AppLoginItems.scriptedRead(_:) # as above
+Utilities.swift: closure #1 in closure #2 in closure #1 in static AppLoginItems.scriptedRead(_:) # as above
+Utilities.swift: closure #3 in closure #1 in static AppLoginItems.scriptedRead(_:) # as above (main-actor callback)
+Utilities.swift: static AppLoginItems.scriptedWrite(_:_:_:) # runs osascript to add/remove a real login item
+Utilities.swift: closure #1 in static AppLoginItems.scriptedWrite(_:_:_:) # as above (background queue)
+Utilities.swift: closure #1 in closure #1 in static AppLoginItems.scriptedWrite(_:_:_:) # as above (main-actor callback)
 WeatherClient.swift: closure #1 in variable initialization expression of static AppleWeatherClient.geocode # CLGeocoder network
 WeatherClient.swift: implicit closure #1 in variable initialization expression of static AppleWeatherClient.current # forwards to live WeatherKit
 WeatherClient.swift: static AppleWeatherClient.liveCurrent(_:) # WeatherKit network/entitlement
 WeatherClient.swift: implicit closure #1 in static AppleWeatherClient.liveCurrent(_:) # async let child task of the live call
 WeatherClient.swift: implicit closure #2 in static AppleWeatherClient.liveCurrent(_:) # async let child task of the live call
 
-# Applications launcher
-ApplicationsStack.swift: implicit closure #1 in AppsLauncher.show(model:) # fallback screen when the pointer is on no screen
-ApplicationsStack.swift: implicit closure #2 in implicit closure #1 in AppsLauncher.show(model:) # last-resort fallback screen when there is no main screen
-ApplicationsStack.swift: closure #2 in AppsLauncher.show(model:) # live presentation (activates the app and covers the real desktop); tests replace `present`
-ApplicationsStack.swift: closure #4 in AppsLauncher.show(model:) # local scroll-wheel monitor only receives real hardware events; AppsPager.scroll is tested directly
-ApplicationsStack.swift: implicit closure #1 in closure #1 in AppsLauncherView.emptyState.getter # loading placeholder only during the very first scan of an empty catalog
+# Applications chooser panel
+ApplicationsStack.swift: implicit closure #1 in AppsLauncher.show(model:mode:query:) # fallback screen when the pointer is on no screen
+ApplicationsStack.swift: implicit closure #2 in implicit closure #1 in AppsLauncher.show(model:mode:query:) # last-resort fallback screen when there is no main screen
+ApplicationsStack.swift: closure #2 in AppsLauncher.show(model:mode:query:) # the hosted view's close callback; only Esc or a pick in the on-screen panel calls it
+ApplicationsStack.swift: closure #4 in AppsLauncher.show(model:mode:query:) # local key-down monitor only receives real hardware events; AppsChooserState.handleKey is tested directly
+ApplicationsStack.swift: closure #5 in AppsLauncher.show(model:mode:query:) # global mouse-down monitor only fires for real clicks in other apps
+ApplicationsStack.swift: closure #1 in closure #5 in AppsLauncher.show(model:mode:query:) # body of that global click monitor
+~ ApplicationsStack.swift: implicit closure #1 in closure #1 in AppsLauncherView.emptyState(_:) # loading placeholder only during the very first scan of an empty catalog
 Utilities.swift: static SystemPicker.chooseFolder() # builds and runs a modal NSOpenPanel
 Utilities.swift: static SystemPicker.chooseFile(message:) # builds and runs a modal NSOpenPanel
 
 # Runner-dependent: fully covered on Xcode 27 / Apple silicon laptops, not on the GitHub macos-26 VM.
-~ ApplicationsStack.swift: closure #1 in closure #1 in AppsLauncherView.body.getter # backdrop DragGesture onChanged; the CI VM's window server does not deliver the synthesized drag to the borderless panel
-~ ApplicationsStack.swift: AppsLauncherView.finishDrag(_:) # ends that backdrop drag; AppsPager.go is tested directly
 ~ Design.swift: closure #1 in DockPlate.body.getter # the CI VM takes the material fallback, so the Liquid Glass line never runs there
 ~ Design.swift: NativeDockGlass.makeNSView(context:) # NSGlassEffectView is only created when the macOS 26 renderer draws the dock plate
 ~ Design.swift: NativeDockGlass.updateNSView(_:context:) # as above
 ~ Toolkit.swift: Toolkit.sampleSystem() # battery line runs only on machines with a power source (CI VMs have none)
 ~ SystemMonitor.swift: implicit closure #1 in CoreAudioHardware.volume(_:) # `&&` tail runs only when the default output device reports a main volume scalar (Bluetooth outputs such as AirPods do not)
 ~ SystemMonitor.swift: implicit closure #2 in CoreAudioHardware.volume(_:) # as above
+AIUsage.swift: implicit closure #1 in variable initialization expression of static AIUsageWidget.loadsSavedKey # short-circuited under XCTest; only a real app launch evaluates the UI-test flags
+AIUsage.swift: implicit closure #2 in variable initialization expression of static AIUsageWidget.loadsSavedKey # short-circuited under XCTest; only a real app launch evaluates the UI-test flags
+LocalAIUsage.swift: implicit closure #1 in variable initialization expression of static LocalAIWidget.runsUsageCommand # short-circuited under XCTest; only a real app launch evaluates the UI-test flags
+LocalAIUsage.swift: implicit closure #2 in variable initialization expression of static LocalAIWidget.runsUsageCommand # short-circuited under XCTest; only a real app launch evaluates the UI-test flags
+LocalAIUsage.swift: implicit closure #1 in variable initialization expression of LocalAIWidget.runUsage # production default launching the real `claude -p /usage`; test hosts get nil and inject fakes (ClaudeUsageCommand.run itself is tested with fixture scripts)
+AppsStackPopover.swift: implicit closure #1 in AppsStackPopover.toggle(model:anchor:) # no recorded tile anchor: falls back to the real pointer location
+AppsStackPopover.swift: implicit closure #3 in implicit closure #2 in AppsStackPopover.toggle(model:anchor:) # fallback screen when the anchor is on no screen
+AppsStackPopover.swift: implicit closure #4 in AppsStackPopover.toggle(model:anchor:) # last-resort frame when the Mac reports no screens
+AppsStackPopover.swift: closure #2 in AppsStackPopover.show(model:anchor:visible:) # hosted view's launch callback; only a click in the on-screen panel calls it (AppsStackView is tested with its own callbacks)
+AppsStackPopover.swift: closure #3 in AppsStackPopover.show(model:anchor:visible:) # hosted view's Open in Finder callback; only a click in the on-screen panel calls it
+AppsStackPopover.swift: closure #6 in AppsStackPopover.show(model:anchor:visible:) # global mouse-down monitor only fires for real clicks in other apps
+AppsStackPopover.swift: closure #1 in closure #6 in AppsStackPopover.show(model:anchor:visible:) # body of that global click monitor
+AppsStackPopover.swift: closure #2 in AppsStackView.body.getter # onExitCommand only fires for a real Esc in the on-screen panel; Esc dismissal is tested through the panel's cancelOperation

@@ -66,9 +66,10 @@ struct WidgetsContentsHost: View {
         kit.weatherSnapshot = weather(); kit.weatherText = "21°"
         for kind in [ToolKind.water, .focus, .weather] { _ = tile(kind) }
         let search = tile(.search)
+        kit.query = "Calc"
         search.press(ToolKind.search.title)
-        search.pump(0.3)
-        search.press(ToolKind.search.title)
+        XCTAssertEqual(log.names.last, "searchApps:Calc", "App search opens the launcher with its query")
+        kit.query = ""
         let weatherTile = tile(.weather)
         weatherTile.press(ToolKind.weather.title)
         weatherTile.pump(0.3)
@@ -85,6 +86,7 @@ struct WidgetsContentsHost: View {
         if let first = open.first { _ = WidgetHost.axBool(first, "accessibilityPerformPress"); rich.pump(0.3); _ = WidgetHost.axBool(first, "accessibilityPerformPress"); rich.pump() }
         let richSearch = tile(.search)
         if let first = richSearch.elements().first(where: { WidgetHost.role($0) == "AXButton" }) { _ = WidgetHost.axBool(first, "accessibilityPerformPress"); richSearch.pump(0.2) }
+        XCTAssertEqual(log.names.last, "searchApps:")
 
         kit.edge = "Top"
         for (kind, shape) in [(ToolKind.tasks, "circle"), (.search, "pill"), (.weather, "square"), (.github, "square"), (.water, "circle")] {
@@ -105,8 +107,22 @@ struct WidgetsContentsHost: View {
         XCTAssertEqual(kit.enabled, ["focus", "tasks", "notes"])
         host.contextPick("Square", on: label)
         XCTAssertEqual(kit.widgetShapes["tasks"], "square")
+        // Widget Settings… opens Settings, or the Connections page for widgets that sign in.
+        var settings = 0
+        model.settingsAction = { settings += 1 }
+        host.contextPick("Widget Settings…", on: label)
+        XCTAssertEqual(settings, 1)
+        XCTAssertNil(model.connectionSettingsKind)
+        XCTAssertTrue(ToolKind.spotify.hasConnectionSettings); XCTAssertTrue(ToolKind.claudeCodeUsage.hasConnectionSettings); XCTAssertFalse(ToolKind.tasks.hasConnectionSettings)
         host.contextPick("Remove from Dock", on: label)
         XCTAssertFalse(kit.enabled.contains("tasks"))
+        kit.widgetShapes["spotify"] = "square"
+        let spotify = tile(.spotify)
+        if let spotifyLabel = spotify.label(prefix: ToolKind.spotify.title + ": ") {
+            spotify.contextPick("Widget Settings…", on: spotifyLabel)
+            XCTAssertEqual(model.connectionSettingsKind, .spotify)
+            XCTAssertEqual(settings, 2)
+        } else { XCTFail("No Spotify tile: \(spotify.labels())") }
     }
 
     // MARK: Popover contents per kind
@@ -122,15 +138,10 @@ struct WidgetsContentsHost: View {
     }
 
     func testSearchContents() {
-        kit.applications = [DockApp(url: URL(fileURLWithPath: finder)), DockApp(url: URL(fileURLWithPath: calculator))]
-        model.apps = [DockApp(url: URL(fileURLWithPath: finder))]
+        kit.query = "Calc"
         let host = contents(.search)
-        let calc = kit.applications[1].name
-        host.press(calc)
-        XCTAssertEqual(log.names, ["launch:" + calculator])
-        host.press("Pin app", index: 1)
-        kit.query = "Calc"; host.pump()
-        XCTAssertTrue(host.has(calc))
+        host.press("Search Applications")
+        XCTAssertEqual(log.names, ["searchApps:Calc"], "hosted contents hand off to the launcher")
     }
 
     func testTasksFocusNotesContents() {
@@ -202,6 +213,20 @@ struct WidgetsContentsHost: View {
         event.title = title; event.startDate = Date().addingTimeInterval(3600); event.endDate = Date().addingTimeInterval(7200); event.isAllDay = allDay
         return event
     }
+    func testClaudeCardsShowEveryLimitWindow() {
+        let soon = Date().addingTimeInterval(600)
+        XCTAssertEqual(["5-hour window", "Weekly · all models", "Weekly · Fable", "Other"].map { LocalAIWindow(name: $0, used: 1, resets: nil).shortName }, ["5h", "Week", "Fable", "Other"])
+        kit.anthropicUsage.snapshot = nil
+        kit.claudeCodeUsage.report = LocalAIReport(provider: "claude", observed: Date(), windows: [LocalAIWindow(name: "5-hour window", used: 90, resets: soon), LocalAIWindow(name: "Weekly · all models", used: 30, resets: soon), LocalAIWindow(name: "Weekly · Fable", used: 14, resets: soon)], models: [], sessionCost: nil)
+        for kind: ToolKind in [.claudeCodeUsage, .anthropicUsage] { _ = card(kind) }
+        // Without an Admin API key the Claude API detail is the plan's limits too.
+        let detail = SettingsHarness(ToolTileContents(kind: .anthropicUsage, model: model, kit: kit, interaction: TileInteraction()), width: 400, height: 500)
+        detail.close()
+        // No session window reported, and an older report.
+        kit.claudeCodeUsage.report = LocalAIReport(provider: "claude", observed: Date().addingTimeInterval(-4000), windows: [LocalAIWindow(name: "Weekly · all models", used: 30, resets: soon)], models: [], sessionCost: nil)
+        _ = card(.anthropicUsage)
+        kit.claudeCodeUsage.stop()
+    }
     func testRichCardsEveryKindEmpty() {
         kit.clipboardEnabled = false
         for kind in ToolKind.allCases { _ = card(kind) }
@@ -234,6 +259,10 @@ struct WidgetsContentsHost: View {
         kit.claudeCodeUsage.report = LocalAIReport(provider: "claude", observed: Date().addingTimeInterval(-4000), windows: [], models: [], sessionCost: nil)
         kit.geminiUsage.report = LocalAIReport(provider: "gemini", observed: Date(), windows: [], models: [], sessionCost: nil)
         _ = card(.claudeCodeUsage); _ = card(.geminiUsage)
+        kit.claudeCodeUsage.report = LocalAIReport(provider: "claude", observed: Date().addingTimeInterval(-4000), windows: [LocalAIWindow(name: "Weekly · Fable", used: 85, resets: nil, resetText: "soon")], models: [], sessionCost: nil)
+        _ = card(.claudeCodeUsage)
+        kit.claudeCodeUsage.report = LocalAIReport(provider: "claude", observed: Date(), windows: [], models: [], sessionCost: nil)
+        _ = card(.claudeCodeUsage)
         kit.calendar.events = []; _ = card(.calendar)
         kit.calendar.connected = false; _ = card(.calendar)
         kit.weatherSnapshot = nil; kit.weatherCity = "Oslo"; _ = card(.weather)

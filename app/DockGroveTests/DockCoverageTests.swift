@@ -3,6 +3,7 @@ import AppKit
 import SwiftUI
 import Combine
 import UniformTypeIdentifiers
+import ServiceManagement
 @testable import DockGrove
 
 // MARK: - Harness
@@ -45,7 +46,7 @@ import UniformTypeIdentifiers
         spin(0.1)
     }
 
-    func close() { window.orderOut(nil); window.contentView = nil; window.close() }
+    func close() { window.makeFirstResponder(nil); window.orderOut(nil); window.contentView = nil; window.close() }
 
     // Accessibility
 
@@ -384,6 +385,7 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         controller.compatibleDisplay = { DockFakeNotchScreen() }
         controller.mouseLocation = { CGPoint(x: -1, y: -1) }
         controller.chooseFiles = { _ in nil }
+        controller.installDismissMonitors = { _, _ in [] }
         addTeardownBlock { controller.hide() }
         return controller
     }
@@ -402,6 +404,43 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         _ = controller.compatibleDisplay()
         XCTAssertGreaterThan(controller.clock(), 0)
         _ = controller.mouseLocation()
+        // The real Esc/click-outside monitors only observe events; install them, feed them synthetic
+        // in-process events, then remove them.
+        // Blank off-screen stand-ins play the notch panel and another DockGrove window, so the
+        // synthetic events dispatched below reach no real control.
+        final class Sink: NSView {
+            override func mouseDown(with event: NSEvent) {}
+            override func rightMouseDown(with event: NSEvent) {}
+        }
+        func standIn() -> NSWindow {
+            let window = NSWindow(contentRect: NSRect(x: DockFakeNotchScreen.origin.x, y: DockFakeNotchScreen.origin.y, width: 80, height: 32), styleMask: .borderless, backing: .buffered, defer: false)
+            window.contentView = Sink(); window.orderFrontRegardless()
+            addTeardownBlock { window.orderOut(nil) }
+            return window
+        }
+        let notch = standIn(), other = standIn()
+        var seen: [NotchDismissEvent] = []
+        let monitors = controller.installDismissMonitors(notch) { seen.append($0); return $0 == .escape }
+        XCTAssertGreaterThanOrEqual(monitors.count, 2)
+        func key(_ code: UInt16, in window: NSWindow) -> NSEvent {
+            let text = code == 53 ? "\u{1b}" : "a"
+            return NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, characters: text, charactersIgnoringModifiers: text, isARepeat: false, keyCode: code)!
+        }
+        func click(_ type: NSEvent.EventType = .leftMouseDown, in window: NSWindow) -> NSEvent {
+            NSEvent.mouseEvent(with: type, location: NSPoint(x: 4, y: 4), modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+        }
+        NSApp.sendEvent(key(0, in: notch))
+        NSApp.sendEvent(key(53, in: other))
+        XCTAssertEqual(seen, [], "Only Esc typed in the notch panel is handled locally")
+        NSApp.sendEvent(key(53, in: notch))
+        XCTAssertEqual(seen, [.escape])
+        NSApp.sendEvent(click(in: notch))
+        XCTAssertEqual(seen.last, .pointerDown(insidePanel: true))
+        NSApp.sendEvent(click(.rightMouseDown, in: other))
+        XCTAssertEqual(seen.last, .pointerDown(insidePanel: false))
+        monitors.forEach(controller.removeDismissMonitor)
+        NSApp.sendEvent(click(in: other))
+        XCTAssertEqual(seen.count, 3, "Removed monitors stop observing")
         let screen = NSScreen.screens[0]
         _ = NotchController.fullscreen(on: screen)
         XCTAssertNotNil(BrandIcon.loadArtwork("DockGrove-icon"))
@@ -587,14 +626,24 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         XCTAssertTrue(controller.expanded)
         harness.spin(0.2)
         XCTAssertTrue(harness.has("Collapse notch"), "\(harness.labels())")
+        harness.press("Close notch")
+        XCTAssertFalse(controller.expanded, "Clicking the notch housing again closes the strip")
+        harness.press("Expand DockGrove notch")
+        XCTAssertTrue(controller.expanded)
+        harness.spin(0.2)
         harness.press("Open Focus from notch")
         XCTAssertEqual(controller.selectedWidget, .focus)
         harness.spin(0.3)
         harness.press("Close Focus controls")
         XCTAssertNil(controller.selectedWidget)
+        model.toolkit.query = "Fin"
         harness.press("Open App search from notch")
-        XCTAssertEqual(controller.selectedWidget, .search)
-        controller.selectedWidget = nil
+        XCTAssertNil(controller.selectedWidget, "App search opens the launcher instead of inline controls")
+        XCTAssertNotNil(AppsLauncher.shared.panel)
+        if case .present(let window)? = effects.last { XCTAssertTrue(window === AppsLauncher.shared.panel) } else { XCTFail("the launcher should present through effects") }
+        XCTAssertEqual(AppsLauncher.shared.chooser.query, "Fin", "the widget's query pre-fills the search")
+        AppsLauncher.shared.close()
+        model.toolkit.query = ""
         harness.press("Files notch tab")
         XCTAssertTrue(controller.showingFiles)
         harness.spin(0.1)
@@ -767,6 +816,25 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         harness.press("Compact"); XCTAssertEqual(model.notchWidth, 640)
         harness.press("Wide"); XCTAssertEqual(model.notchWidth, 1000)
         harness.press("Balanced"); XCTAssertEqual(model.notchWidth, 760)
+        XCTAssertTrue(model.notchOpensOnHover && model.notchClosesOnExit)
+        let switches = IntegrationsUI.toggles(in: IntegrationsUI.body(NotchSettingsView(model: model, displayLookup: { "Built-in Display" })))
+        XCTAssertEqual(switches.count, 3, "Enable, open on hover, close on exit")
+        switches[1].isOn = false; XCTAssertFalse(model.notchOpensOnHover)
+        switches[2].isOn = false; XCTAssertFalse(model.notchClosesOnExit)
+        XCTAssertEqual(NotchSettingsView.openCaption(onHover: false), "Click the notch to open it.")
+        XCTAssertTrue(NotchSettingsView.closeCaption(onExit: false).hasPrefix("Click outside or press Esc to close."))
+        func strings(_ value: Any, _ depth: Int = 0) -> [String] {
+            if let text = value as? String { return [text] }
+            let mirror = Mirror(reflecting: value)
+            guard depth < 40, mirror.displayStyle != .class else { return [] }
+            return mirror.children.flatMap { strings($0.value, depth + 1) }
+        }
+        func captions() -> [String] { strings(IntegrationsUI.body(NotchSettingsView(model: model, displayLookup: { "Built-in Display" }))) }
+        XCTAssertTrue(captions().contains(NotchSettingsView.openCaption(onHover: false)), "Explains how to open with hover off")
+        XCTAssertTrue(captions().contains(NotchSettingsView.closeCaption(onExit: false)), "Explains how to close with close-on-exit off")
+        switches[1].isOn = true; switches[2].isOn = true
+        XCTAssertTrue(model.notchOpensOnHover && model.notchClosesOnExit)
+        XCTAssertTrue(captions().contains(NotchSettingsView.openCaption(onHover: true)) && captions().contains(NotchSettingsView.closeCaption(onExit: true)))
         name = "Built-in Display"
         changes.send(Notification(name: NSApplication.didChangeScreenParametersNotification))
         harness.spin(0.1)
@@ -972,8 +1040,8 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         if case .present(let window)? = effects.last { XCTAssertEqual(window.title, "App windows") } else { XCTFail("Show All Windows should present a window") }
         model.appPickerWindow?.close()
         harness.choose("Replace app…", inMenuAt: point)
-        if case .present(let window)? = effects.last { XCTAssertEqual(window.title, "Choose an application") } else { XCTFail("Replace app… should present the picker") }
-        model.appPickerWindow?.close()
+        if case .present(let window)? = effects.last { XCTAssertTrue(window === AppsLauncher.shared.panel) } else { XCTFail("Replace app… should present the launcher") }
+        AppsLauncher.shared.close()
         harness.choose(hide, inMenuAt: point)
         if case .setHidden(let running, _)? = effects.last { XCTAssertEqual(running.processIdentifier, getpid()) } else { XCTFail("Hide should go through effects") }
         harness.choose("Quit", inMenuAt: point)
@@ -986,8 +1054,30 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         harness.choose("Force Quit", inMenuAt: point)
         if case .forceTerminate(let running)? = effects.last { XCTAssertEqual(running.processIdentifier, getpid()) } else { XCTFail("Force Quit should go through effects") }
         DockSystemEffect.modifiers = { [] }
+        let options = harness.menuItem(["Options"], at: point)?.submenu
+        options?.update()
+        XCTAssertEqual(options?.items.map(\.title), ["Keep in Dock", "Open at Login", "Show in Finder"])
         harness.choose(["Options", "Show in Finder"], inMenuAt: point)
         if case .reveal(let urls)? = effects.last { XCTAssertEqual(urls, [app.url]) } else { XCTFail("Reveal should go through effects") }
+
+        // DockGrove's own Open at Login goes through SMAppService (faked), never System Events.
+        let savedRead = AppLoginItems.read, savedWrite = AppLoginItems.write
+        defer { AppLoginItems.read = savedRead; AppLoginItems.write = savedWrite }
+        var scripted: [(String, Bool)] = []
+        AppLoginItems.write = { url, on, done in scripted.append((url.lastPathComponent, on)); done(true) }
+        var loginRequests: [Bool] = [], loginState = SMAppService.Status.notRegistered
+        model.toolkit.utilities.setLoginItem = { on in loginRequests.append(on); loginState = on ? .enabled : .notRegistered }
+        model.toolkit.utilities.loginStatus = { loginState }
+        model.toolkit.utilities.loginEnabled = false
+        harness.spin() // Re-render after replacing the real login state with the fixture.
+        XCTAssertTrue(model.isDockGrove(app))
+        XCTAssertEqual(harness.menuItem(["Options", "Open at Login"], at: point)?.state, .off)
+        harness.choose(["Options", "Open at Login"], inMenuAt: point)
+        XCTAssertEqual(loginRequests, [true])
+        XCTAssertEqual(harness.menuItem(["Options", "Open at Login"], at: point)?.state, .on)
+        harness.choose(["Options", "Open at Login"], inMenuAt: point)
+        XCTAssertEqual(loginRequests, [true, false])
+        XCTAssertTrue(scripted.isEmpty)
 
         // Keep in Dock is a checkmark that pins and unpins.
         XCTAssertEqual(harness.menuItem(["Options", "Keep in Dock"], at: point)?.state, .on)
@@ -995,6 +1085,9 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         XCTAssertFalse(model.apps.contains(app))
         harness.spin(0.1)
         XCTAssertEqual(harness.menuItem(["Options", "Keep in Dock"], at: point)?.state, .off)
+        // A running app that is not pinned has no tile slot to replace.
+        XCTAssertEqual(harness.menuTitles(at: point).filter { !$0.isEmpty && !["Report", "Bare"].contains($0) }, ["Options", "Show All Windows", hide, "Quit", "Undo app change", "Move left", "Move right"])
+        XCTAssertEqual(harness.menuItem(["Move left"], at: point)?.isEnabled, false)
         harness.choose("Undo app change", inMenuAt: point)
         XCTAssertTrue(model.apps.contains(app))
         harness.spin(0.1)
@@ -1019,8 +1112,45 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         let idleTile = DockHarness(AppTile(app: idle, model: model), size: CGSize(width: 80, height: 80))
         defer { idleTile.close() }
         XCTAssertEqual(idleTile.menuTitles(at: point).filter { !$0.isEmpty }, ["Options", "Open", "Replace app…", "Undo app change", "Move left", "Move right"])
+        let idleOptions = idleTile.menuItem(["Options"], at: point)?.submenu
+        idleOptions?.update()
+        XCTAssertEqual(idleOptions?.items.map(\.title), ["Remove from Dock", "Open at Login", "Show in Finder"])
         idleTile.choose("Open", inMenuAt: point)
         XCTAssertEqual(launched.last, idle.url)
+
+        // Another app's Open at Login goes through the System Events seam (faked) and is remembered.
+        XCTAssertFalse(model.isDockGrove(idle))
+        XCTAssertEqual(idleTile.menuItem(["Options", "Open at Login"], at: point)?.state, .off)
+        idleTile.choose(["Options", "Open at Login"], inMenuAt: point)
+        XCTAssertEqual(scripted.map(\.0), ["Idle.app"]); XCTAssertEqual(scripted.map(\.1), [true])
+        XCTAssertTrue(model.appLoginItems.contains(idle.id))
+        XCTAssertEqual(model.defaults.stringArray(forKey: "appLoginItems"), [idle.id])
+        idleTile.spin(0.1)
+        XCTAssertEqual(idleTile.menuItem(["Options", "Open at Login"], at: point)?.state, .on)
+        idleTile.choose(["Options", "Open at Login"], inMenuAt: point)
+        XCTAssertFalse(model.appLoginItems.contains(idle.id))
+        AppLoginItems.write = { _, _, done in done(false) }
+        idleTile.choose(["Options", "Open at Login"], inMenuAt: point)
+        XCTAssertFalse(model.appLoginItems.contains(idle.id))
+        XCTAssertTrue(model.systemError?.contains("System Events") == true)
+
+        // Once used, hovering re-reads login items, at most every half minute.
+        var reads = 0
+        AppLoginItems.read = { done in reads += 1; done(["/Applications/Elsewhere.app/", idle.url.path]) }
+        AppLoginItems.lastRead = nil
+        idleTile.hover(point, entering: true)
+        idleTile.hover(CGPoint(x: 200, y: 200), entering: false)
+        XCTAssertEqual(reads, 1)
+        XCTAssertEqual(model.appLoginItems, ["/Applications/Elsewhere.app", idle.id])
+        model.refreshLoginItems()
+        XCTAssertEqual(reads, 1, "throttled")
+        AppLoginItems.read = { done in reads += 1; done(nil) }
+        model.refreshLoginItems(now: Date().addingTimeInterval(60))
+        XCTAssertEqual(reads, 2)
+        XCTAssertEqual(model.appLoginItems.count, 2, "a refused read keeps the cache")
+        model.defaults.removeObject(forKey: "appLoginItems")
+        model.refreshLoginItems(now: Date().addingTimeInterval(120))
+        XCTAssertEqual(reads, 2, "never read before Open at Login was used")
         idleTile.choose(["Options", "Remove from Dock"], inMenuAt: point)
         XCTAssertFalse(model.apps.contains(idle))
     }
@@ -1040,7 +1170,16 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         let point = CGPoint(x: 100, y: 50)
         model.toolkit.autoHide = false
         model.toolkit.edge = "Bottom"
-        XCTAssertEqual(harness.menuTitles(at: point), ["Turn Hiding On", "Position on Screen", "", "Dock Settings…"])
+        var restores = 0
+        model.restoreAppleDockAction = { restores += 1 }
+        XCTAssertEqual(harness.menuTitles(at: point), ["Turn Hiding On", "Position on Screen", "", "Restore Apple Dock…", "Dock Settings…"])
+        XCTAssertEqual(harness.menuItem(["Restore Apple Dock…"], at: point)?.isEnabled, false, "nothing to restore yet")
+        model.appleDockModified = true
+        harness.spin()
+        XCTAssertEqual(harness.menuItem(["Restore Apple Dock…"], at: point)?.isEnabled, true, "saved originals enable restore")
+        harness.choose("Restore Apple Dock…", inMenuAt: point)
+        XCTAssertEqual(restores, 1)
+        model.appleDockModified = false
         harness.choose("Turn Hiding On", inMenuAt: point)
         XCTAssertTrue(model.toolkit.autoHide)
         harness.choose("Turn Hiding Off", inMenuAt: point)
@@ -1054,8 +1193,13 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         harness.spin()
         let position = harness.menuItem(["Position on Screen"], at: point), top = harness.menuItem(["Position on Screen", "Top"], at: point)
         XCTAssertTrue(position?.isEnabled == false || top?.isEnabled == false, "a replacement Dock stays at the bottom")
+        XCTAssertEqual(harness.menuItem(["Restore Apple Dock…"], at: point)?.isEnabled, true, "replacing enables restore")
         harness.choose("Dock Settings…", inMenuAt: point)
         XCTAssertEqual(settings, 2)
+        model.isAdditionalDock = true
+        model.objectWillChange.send()
+        harness.spin()
+        XCTAssertFalse(harness.menuTitles(at: point).contains("Restore Apple Dock…"), "additional docks don't own Apple's Dock")
     }
 
     func testUsageTileMenu() throws {
@@ -1074,6 +1218,39 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         XCTAssertTrue(model.codexConnectionSelected)
         harness.choose("Remove from Dock", inMenuAt: point)
         XCTAssertFalse(model.showUsageCard)
+    }
+
+    func testSpacerSeparatorAndClockMenus() throws {
+        let model = dockModel(widgets: ["spacer", "separator"])
+        model.showUsageCard = false
+        model.widthFraction = 1 // one page, so the clock is on screen
+        let dock = DockHarness(DockView(model: model, screenLookup: { _ in nil }), size: CGSize(width: 1500, height: 160))
+        dock.resize(dock.host.fittingSize)
+        dock.spin(0.2)
+        func point(_ id: String) -> CGPoint? { model.tileFrames[id].map { dock.windowPoint(CGPoint(x: $0.midX, y: $0.midY)) } }
+        for id in ["spacer", "separator"] {
+            guard let at = point(id) else { XCTFail("No \(id) tile in \(model.tileFrames.keys)"); continue }
+            XCTAssertEqual(dock.menuTitles(at: at), ["Remove from Dock", "", "Move earlier", "Move later"], id)
+        }
+        if let clock = point("clock") {
+            XCTAssertEqual(dock.menuTitles(at: clock), ["Date & Time Settings…", "", "Remove from Dock"])
+            dock.choose("Date & Time Settings…", inMenuAt: clock)
+            if case .open(let url)? = effects.last { XCTAssertEqual(url, DockClockMenu.settingsURL) } else { XCTFail("Clock settings should open through effects") }
+            dock.choose("Remove from Dock", inMenuAt: clock)
+            XCTAssertFalse(model.showClock)
+        } else { XCTFail("No clock tile") }
+        dock.close()
+
+        let harness = DockHarness(Color.clear.frame(width: 120, height: 80).contentShape(Rectangle()).contextMenu { DockSpacerMenu(kind: .separator, kit: model.toolkit) }, size: CGSize(width: 120, height: 80))
+        defer { harness.close() }
+        let point = CGPoint(x: 60, y: 40)
+        XCTAssertEqual(harness.menuTitles(at: point), ["Remove from Dock", "", "Move earlier", "Move later"])
+        harness.choose("Move later", inMenuAt: point)
+        XCTAssertEqual(model.toolkit.enabled, ["spacer", "separator"])
+        harness.choose("Move earlier", inMenuAt: point)
+        XCTAssertEqual(model.toolkit.enabled, ["separator", "spacer"])
+        harness.choose("Remove from Dock", inMenuAt: point)
+        XCTAssertEqual(model.toolkit.enabled, ["spacer"])
     }
 
     func testAcceptFilesAndAppWindows() throws {
@@ -1210,7 +1387,12 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         XCTAssertEqual(customized, 1)
         harness.press("Customize", index: 1)
         harness.enter("Desk", intoField: 0)
-        harness.press("Visible")
+        // "Show" is a switch (NSSwitch), which SwiftUI exposes as a control rather than a pressable label.
+        func switches(_ view: NSView) -> [NSSwitch] { (view as? NSSwitch).map { [$0] } ?? view.subviews.flatMap(switches) }
+        let shown = workspace.docks[0].model.visible
+        let toggle = try XCTUnwrap(switches(harness.host).first, "each Dock row has a Show switch")
+        toggle.performClick(nil); harness.spin()
+        XCTAssertNotEqual(workspace.docks[0].model.visible, shown, "the Show switch toggles that Dock")
         harness.press("Remove")
         XCTAssertEqual(workspace.docks.count, 2)
         harness.press("Add a Dock")
@@ -1302,6 +1484,88 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         orphan.mouseDown(with: event(.leftMouseDown, 0, 0))
         orphan.mouseDragged(with: event(.leftMouseDragged, 30, 30))
         XCTAssertEqual(orphan.sessions.count, 1)
+    }
+
+    /// Real AppKit dispatch: events go through `NSWindow.sendEvent`, hit-testing and
+    /// `rightMouseDown`, not the menu builder; only the final pop-up is faked.
+    func testSecondaryClicksAndHoldOpenMenusThroughAppKit() throws {
+        let model = dockModel(widgets: [])
+        var launched = 0
+        model.openApplication = { _ in launched += 1 }
+        final class Shown { var menus: [[String]] = []; var views: [NSView] = [] }
+        let shown = Shown()
+        let savedPresent = DockContextMenu.present
+        defer { DockContextMenu.present = savedPresent }
+        DockContextMenu.present = { menu, event, view in
+            shown.menus.append(menu.items.map(\.title).filter { !$0.isEmpty }); shown.views.append(view)
+            // As AppKit does around its menu loop.
+            view.willOpenMenu(menu, with: event); view.didCloseMenu(menu, with: event)
+        }
+        // The live Dock's window: a non-activating panel in an inactive app.
+        let panel = DockPanel(contentRect: NSRect(x: -20000, y: -20000, width: 600, height: 160), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        panel.isFloatingPanel = true; panel.level = .floating; panel.isOpaque = false; panel.backgroundColor = .clear
+        let host = NSHostingView(rootView: DockView(model: model))
+        panel.contentView = host
+        panel.setContentSize(host.fittingSize)
+        panel.orderFrontRegardless()
+        defer { panel.orderOut(nil); panel.contentView = nil; panel.close() }
+        func spin(_ seconds: TimeInterval) { RunLoop.main.run(until: Date().addingTimeInterval(seconds)) }
+        func send(_ type: NSEvent.EventType, _ point: CGPoint, _ flags: NSEvent.ModifierFlags = []) {
+            panel.sendEvent(NSEvent.mouseEvent(with: type, location: point, modifierFlags: flags, timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: panel.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!)
+            spin(0.1)
+        }
+        spin(0.4)
+        let frame = try XCTUnwrap(model.tileFrames.filter { $0.key.hasPrefix("app:") }.min { $0.value.minX < $1.value.minX }?.value)
+        let tile = host.convert(CGPoint(x: frame.midX, y: frame.midY), to: nil)
+        func expectAppMenu(_ message: String, line: UInt = #line) {
+            XCTAssertEqual(shown.menus.count, 1, message, line: line)
+            XCTAssertTrue(shown.menus.last?.contains("Options") == true && shown.menus.last?.contains("Replace app…") == true, "\(message): \(shown.menus)", line: line)
+            XCTAssertTrue(shown.views.last === host, message, line: line)
+            shown.menus = []
+        }
+
+        // A first right-click, before any left click.
+        send(.rightMouseDown, tile); send(.rightMouseUp, tile)
+        expectAppMenu("right-click opens the tile's menu")
+        // After a primary click SwiftUI used to take the secondary press as a Button press.
+        send(.leftMouseDown, tile); send(.leftMouseUp, tile)
+        XCTAssertEqual(launched, 1)
+        XCTAssertTrue(shown.menus.isEmpty, "a plain click opens no menu")
+        send(.rightMouseDown, tile); send(.rightMouseUp, tile)
+        expectAppMenu("right-click after a click opens the menu")
+        XCTAssertEqual(launched, 1, "right-click never launches the app")
+        send(.leftMouseDown, tile, .control); send(.leftMouseUp, tile, .control)
+        expectAppMenu("control-click opens the menu")
+        XCTAssertEqual(launched, 1, "control-click never launches the app")
+
+        // Press and hold, like the Mac Dock; the release afterwards launches nothing.
+        send(.leftMouseDown, tile)
+        spin(DockContextMenu.holdDelay + 0.3)
+        expectAppMenu("holding the button opens the menu")
+        send(.leftMouseUp, tile)
+        XCTAssertEqual(launched, 1, "the held press does not also launch")
+        send(.leftMouseDown, tile); send(.leftMouseUp, tile)
+        XCTAssertEqual(launched, 2, "a later click still launches")
+        XCTAssertTrue(shown.menus.isEmpty, "a quick click does not count as a hold")
+        send(.rightMouseDown, tile); send(.rightMouseUp, tile)
+        expectAppMenu("right-click still works after a hold")
+        // Dragging away cancels the hold.
+        send(.leftMouseDown, tile)
+        send(.leftMouseDragged, CGPoint(x: tile.x + 12, y: tile.y))
+        spin(DockContextMenu.holdDelay + 0.3)
+        send(.leftMouseUp, CGPoint(x: tile.x + 12, y: tile.y))
+        XCTAssertTrue(shown.menus.isEmpty, "a drag is not a hold")
+
+        // The bar's own menu, from the plate's padding as well as between controls.
+        let bar = ["Position on Screen", "Dock Settings…"]
+        for point in [CGPoint(x: 20, y: host.bounds.midY), CGPoint(x: host.bounds.midX, y: host.bounds.maxY - 8), CGPoint(x: host.bounds.maxX - 100, y: host.bounds.midY)] {
+            shown.menus = []
+            let location = host.convert(point, to: nil)
+            send(.rightMouseDown, location); send(.rightMouseUp, location)
+            XCTAssertEqual(shown.menus.count, 1, "bar menu at \(point)")
+            XCTAssertTrue(bar.allSatisfy { shown.menus.last?.contains($0) == true }, "bar menu at \(point): \(shown.menus)")
+        }
+        XCTAssertEqual(launched, 2)
     }
 }
 

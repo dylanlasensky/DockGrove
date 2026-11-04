@@ -192,6 +192,58 @@ enum LoginService {
     static func set(_ enabled: Bool) throws { if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() } }
 }
 
+/// Other apps' login items, for the Dock menu's Options ▸ Open at Login. SMAppService only covers DockGrove
+/// itself and there is no other public API, so this scripts System Events (macOS asks once for Automation access).
+/// Tests replace `read` and `write`, so they never touch the real login items.
+@MainActor enum AppLoginItems {
+    /// Reads the paths of every login item, then calls back on the main actor; nil when System Events refused.
+    static var read: (@escaping @MainActor (Set<String>?) -> Void) -> Void = AppLoginItems.scriptedRead
+    /// Adds or removes an app's login item, then calls back on the main actor with whether it worked.
+    static var write: (URL, Bool, @escaping @MainActor (Bool) -> Void) -> Void = AppLoginItems.scriptedWrite
+    /// When `read` last ran, so hovering tiles re-reads at most every half minute.
+    static var lastRead: Date?
+    static func scriptedRead(_ done: @escaping @MainActor (Set<String>?) -> Void) {
+        let args = ["-e", "tell application \"System Events\" to set p to path of every login item",
+                    "-e", "set AppleScript's text item delimiters to linefeed", "-e", "return p as text"]
+        DispatchQueue.global(qos: .utility).async {
+            let result = try? SystemDock.run("/usr/bin/osascript", args)
+            let paths = result.flatMap { $0.0 == 0 ? String(data: $0.1, encoding: .utf8) : nil }
+                .map { Set($0.split(whereSeparator: \.isNewline).map(String.init).filter { !$0.isEmpty }) }
+            Task { @MainActor in done(paths) }
+        }
+    }
+    static func scriptedWrite(_ url: URL, _ enabled: Bool, _ done: @escaping @MainActor (Bool) -> Void) {
+        let change = enabled ? "make login item at end with properties {path:item 1 of argv, hidden:false}" : "delete (every login item whose path is item 1 of argv)"
+        let args = ["-e", "on run argv", "-e", "tell application \"System Events\"", "-e", change, "-e", "end tell", "-e", "end run", url.path]
+        DispatchQueue.global(qos: .userInitiated).async {
+            let worked = (try? SystemDock.run("/usr/bin/osascript", args))?.0 == 0
+            Task { @MainActor in done(worked) }
+        }
+    }
+}
+
+extension DockModel {
+    func isDockGrove(_ app: DockApp) -> Bool { app.id == Bundle.main.bundleURL.standardizedFileURL.path }
+    /// DockGrove's own login item comes from SMAppService; other apps' from the System Events cache.
+    func opensAtLogin(_ app: DockApp) -> Bool { isDockGrove(app) ? toolkit.utilities.loginEnabled : appLoginItems.contains(app.id) }
+    func setOpensAtLogin(_ app: DockApp, _ enabled: Bool) {
+        if isDockGrove(app) { toolkit.utilities.setLogin(enabled); objectWillChange.send(); return }
+        AppLoginItems.write(app.url, enabled) { [weak self] worked in
+            guard let self else { return }
+            guard worked else { systemError = "Could not change whether \(app.name) opens at login. Allow DockGrove to control System Events in System Settings > Privacy & Security > Automation."; return }
+            if enabled { appLoginItems.insert(app.id) } else { appLoginItems.remove(app.id) }
+        }
+    }
+    /// Re-reads other apps' login items, but only once Open at Login has been used, so hovering never prompts for Automation access.
+    func refreshLoginItems(now: Date = Date()) {
+        guard defaults.object(forKey: "appLoginItems") != nil, now.timeIntervalSince(AppLoginItems.lastRead ?? .distantPast) > 30 else { return }
+        AppLoginItems.lastRead = now
+        AppLoginItems.read { [weak self] paths in
+            if let paths { self?.appLoginItems = Set(paths.map { URL(fileURLWithPath: $0).standardizedFileURL.path }) }
+        }
+    }
+}
+
 enum TestEnvironment {
     /// True inside an `xcodebuild test` host process.
     static let isXCTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil

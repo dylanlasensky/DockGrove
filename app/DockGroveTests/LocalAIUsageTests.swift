@@ -43,11 +43,49 @@ func runLocalAIUsageTests() throws {
     try ClaudeStatusLineSetup.remove(at: settings, command: command)
     object = try JSONSerialization.jsonObject(with: Data(contentsOf: settings)) as! [String: Any]
     precondition(object["statusLine"] == nil && object["permissions"] != nil)
-    object["statusLine"] = ["type": "command", "command": "my-existing-status-line"]
+    // A status line that is not a command cannot be chained; it stays untouched.
+    object["statusLine"] = ["type": "static", "text": "mine"]
     let original = try JSONSerialization.data(withJSONObject: object); try original.write(to: settings)
-    do { try ClaudeStatusLineSetup.install(at: settings, command: command); preconditionFailure("Custom status line replaced") } catch { }
-    do { try ClaudeStatusLineSetup.remove(at: settings, command: command); preconditionFailure("Changed status line removed") } catch { }
+    do { try ClaudeStatusLineSetup.install(at: settings, command: command, backups: root); preconditionFailure("Custom status line replaced") } catch { precondition(error as? LocalAIError == .existingStatusLine) }
+    do { try ClaudeStatusLineSetup.remove(at: settings, command: command, backups: root); preconditionFailure("Changed status line removed") } catch { precondition(error as? LocalAIError == .changedSettings) }
     let after = try Data(contentsOf: settings); precondition(after == original)
+
+    // A custom command status line is wrapped: DockGrove captures, then runs it with the same input.
+    let custom: [String: Any] = ["type": "command", "command": "printf 'mine:'; /bin/cat", "padding": 2]
+    object["statusLine"] = custom; try JSONSerialization.data(withJSONObject: object).write(to: settings)
+    let wrapped = command + " --then " + ClaudeStatusLineSetup.quote("printf 'mine:'; /bin/cat")
+    let didWrap = try ClaudeStatusLineSetup.install(at: settings, command: command, backups: root); precondition(didWrap)
+    let wrappedData = try Data(contentsOf: settings)
+    object = try JSONSerialization.jsonObject(with: wrappedData) as! [String: Any]
+    var line = object["statusLine"] as! [String: Any]
+    precondition(line["command"] as? String == wrapped && line["padding"] as? Int == 2 && line["type"] as? String == "command" && object["theme"] as? String == "dark")
+    let backup = ClaudeStatusLineSetup.originalURL(root)
+    precondition(FileManager.default.fileExists(atPath: backup.path))
+    let rewrapped = try ClaudeStatusLineSetup.install(at: settings, command: command, backups: root); precondition(rewrapped, "Install is idempotent")
+    let rewrappedData = try Data(contentsOf: settings); precondition(rewrappedData == wrappedData, "Never double-wraps")
+    let restored = try ClaudeStatusLineSetup.remove(at: settings, command: command, backups: root); precondition(restored)
+    object = try JSONSerialization.jsonObject(with: Data(contentsOf: settings)) as! [String: Any]
+    precondition(NSDictionary(dictionary: object["statusLine"] as! [String: Any]).isEqual(to: custom) && object["permissions"] != nil)
+    precondition(!FileManager.default.fileExists(atPath: backup.path))
+
+    // Without its saved copy, the original command is recovered from the wrapper itself.
+    try ClaudeStatusLineSetup.install(at: settings, command: command, backups: root)
+    try FileManager.default.removeItem(at: backup)
+    let recovered = try ClaudeStatusLineSetup.remove(at: settings, command: command, backups: root); precondition(recovered)
+    line = (try JSONSerialization.jsonObject(with: Data(contentsOf: settings)) as! [String: Any])["statusLine"] as! [String: Any]
+    precondition(line["command"] as? String == "printf 'mine:'; /bin/cat" && line["padding"] as? Int == 2)
+
+    // Edited after wrapping: preserved and reported.
+    for edited in [command + " --then not-quoted", "someone-else"] {
+        object["statusLine"] = ["type": "command", "command": edited]
+        let data = try JSONSerialization.data(withJSONObject: object); try data.write(to: settings)
+        do { try ClaudeStatusLineSetup.remove(at: settings, command: command, backups: root); preconditionFailure("Edited status line removed") } catch { precondition(error as? LocalAIError == .changedSettings) }
+        let kept = try Data(contentsOf: settings); precondition(kept == data)
+    }
     precondition(ClaudeStatusLineSetup.quote("a'b") == "'a'\\''b'")
-    print("PASS: Claude windows/missing/reset/staleness, Gemini multi-model nonoverlapping totals, duplicate import replacement, private-field stripping, file permissions and non-destructive status-line setup")
+    precondition(ClaudeStatusLineSetup.unquote(ClaudeStatusLineSetup.quote("a'b c '")) == "a'b c '")
+    precondition(ClaudeStatusLineSetup.unquote("x") == nil && ClaudeStatusLineSetup.unquote("'a'b'") == nil)
+    precondition(LocalAIStore.chainedCommand(["DockGrove", "--claude-statusline", "--then", "~/s.sh"]) == "~/s.sh")
+    precondition(LocalAIStore.chainedCommand(["DockGrove", "--claude-statusline"]) == nil && LocalAIStore.chainedCommand(["DockGrove", "--then"]) == nil)
+    print("PASS: Claude windows/missing/reset/staleness, Gemini multi-model nonoverlapping totals, duplicate import replacement, private-field stripping, file permissions and non-destructive status-line wrapping")
 }

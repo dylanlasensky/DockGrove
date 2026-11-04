@@ -28,31 +28,42 @@ struct NotchGeometry: Equatable {
     static var compatibleDisplay: NSScreen? { NSScreen.screens.first { NotchGeometry(display: $0) != nil } }
 }
 
+/// Decides when the pointer opens or closes the notch. Only a notch the pointer (or a file drag)
+/// opened closes by itself; one the user clicked open stays until a click, Esc or an outside click.
 struct NotchHoverState {
     private var started: TimeInterval?
     private var lastInside: TimeInterval = 0
     private var openedByHover = false
+    private var openedByDrag = false
     private var armed = true
+    /// True while the open notch belongs to the pointer and may close when it leaves.
+    var hoverOwned: Bool { openedByHover }
     mutating func beginDrag(now: TimeInterval, alreadyExpanded: Bool) {
-        if !alreadyExpanded { openedByHover = true; lastInside = now; started = nil }
+        if !alreadyExpanded { openedByHover = true; openedByDrag = true; lastInside = now; started = nil }
     }
+    /// A click, Esc or code opened or closed the notch: the pointer no longer owns it, and after a
+    /// close the pointer must leave the notch before hovering can open it again.
     mutating func manualChange(expanded: Bool) {
-        started = nil; openedByHover = false; armed = expanded
+        started = nil; openedByHover = false; openedByDrag = false; armed = expanded
     }
-    mutating func update(now: TimeInterval, trigger: Bool, inside: Bool, expanded: Bool, interacting: Bool) -> Bool? {
+    /// A file drag always closes when it leaves, even with close-on-exit off, so dragging across the
+    /// top of the screen (or finishing a drop) never strands an open tray.
+    mutating func update(now: TimeInterval, trigger: Bool, inside: Bool, expanded: Bool, interacting: Bool, opensOnEnter: Bool = true, closesOnExit: Bool = true) -> Bool? {
         if !trigger { armed = true; started = nil }
         if expanded {
-            if inside || interacting { lastInside = now }
+            // While leaving cannot close the notch, keep the grace timer fresh so re-enabling the
+            // option starts a full grace period instead of snapping shut.
+            if inside || interacting || !(closesOnExit || openedByDrag) { lastInside = now }
             else if openedByHover && now - lastInside >= 0.7 {
-                openedByHover = false; started = nil; return false
+                openedByHover = false; openedByDrag = false; started = nil; return false
             }
-        } else if trigger && armed {
+        } else if opensOnEnter && trigger && armed {
             let begin = started ?? now
             started = begin
             if now - begin >= 0.18 {
                 started = nil; lastInside = now; openedByHover = true; return true
             }
-        }
+        } else { started = nil }
         return nil
     }
 }
@@ -67,8 +78,12 @@ extension DockModel {
     }
 }
 
+/// Something that should close an open notch: a mouse-down (in the notch panel or anywhere else)
+/// or the Esc key.
+enum NotchDismissEvent: Equatable { case pointerDown(insidePanel: Bool), escape }
+
 @MainActor final class NotchController: NSObject, ObservableObject, NSSharingServiceDelegate {
-    @Published var expanded = false
+    @Published var expanded = false { didSet { if expanded != oldValue { syncDismissMonitors() } } }
     @Published var selectedWidget: ToolKind?
     @Published var showingFiles = false
     @Published var fileDragActive = false
@@ -85,6 +100,54 @@ extension DockModel {
     var compatibleDisplay: () -> NSScreen? = { NotchGeometry.compatibleDisplay }
     var mouseLocation: () -> CGPoint = { NSEvent.mouseLocation }
     var clock: () -> TimeInterval = { Date.timeIntervalSinceReferenceDate }
+    /// Installs the Esc and click-outside monitors while the notch is open; tests inject fakes.
+    var installDismissMonitors: (NSWindow?, @escaping (NotchDismissEvent) -> Bool) -> [Any] = NotchController.installEventMonitors
+    var removeDismissMonitor: (Any) -> Void = { NSEvent.removeMonitor($0) }
+    private var dismissMonitors: [Any] = []
+    private func syncDismissMonitors() {
+        if expanded, dismissMonitors.isEmpty {
+            dismissMonitors = installDismissMonitors(panel) { [weak self] event in self.map { $0.dismiss(event) } == true }
+        } else if !expanded {
+            dismissMonitors.forEach(removeDismissMonitor); dismissMonitors = []
+        }
+    }
+    /// Local monitors see clicks and keys in DockGrove's own windows; global ones see clicks in other
+    /// apps (and Esc there, when the app is trusted for accessibility). Esc typed in another
+    /// DockGrove window is left to that window.
+    static func installEventMonitors(panel: NSWindow?, handler: @escaping (NotchDismissEvent) -> Bool) -> [Any] {
+        weak var panel = panel
+        let mouse: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        let monitors: [Any?] = [
+            NSEvent.addLocalMonitorForEvents(matching: mouse) { event in
+                MainActor.assumeIsolated { _ = handler(.pointerDown(insidePanel: event.window != nil && event.window === panel)) }
+                return event
+            },
+            NSEvent.addGlobalMonitorForEvents(matching: mouse) { _ in
+                MainActor.assumeIsolated { _ = handler(.pointerDown(insidePanel: false)) }
+            },
+            NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                guard event.keyCode == 53, event.window === panel else { return event }
+                return MainActor.assumeIsolated { handler(.escape) } ? nil : event
+            },
+            NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { event in
+                guard event.keyCode == 53 else { return }
+                MainActor.assumeIsolated { _ = handler(.escape) }
+            },
+        ]
+        return monitors.compactMap { $0 }
+    }
+    /// Closes the open notch for Esc or a click outside it, whichever options are set. Clicks
+    /// inside the panel belong to its controls, and nothing closes while a file picker, AirDrop or
+    /// a file drag is in progress, since their own windows sit outside the notch.
+    @discardableResult func dismiss(_ event: NotchDismissEvent) -> Bool {
+        guard expanded, !choosingFiles, !airDropBusy, !fileDragActive else { return false }
+        if case .pointerDown(let insidePanel) = event, insidePanel || panel.frame.contains(mouseLocation()) { return false }
+        setExpanded(false)
+        return true
+    }
+    /// Clicking the resting notch opens it; clicking the notch housing of the open strip closes it.
+    /// This is the only way to open the notch when opening on hover is off.
+    func toggleFromClick() { setExpanded(!expanded) }
     var airDropBusy: Bool { airDropService != nil }
     var expandedWidth: CGFloat { geometry?.panelFrame(expanded: true, preferredWidth: model.notchWidth).width ?? CGFloat(NotchGeometry.normalizedWidth(model.notchWidth)) }
     var defaultDropDestination: NotchDropDestination { expanded && showingFiles && airDropReview ? .airDrop : .tray }
@@ -153,7 +216,9 @@ extension DockModel {
         guard canAcceptFiles else { return false }
         let valid = NotchFileIntake.existingURLs(urls)
         guard !valid.isEmpty else { trayMessage = "Drop existing files or folders from Finder."; return false }
-        setExpanded(true); showingFiles = true
+        // A drag-opened tray stays owned by the pointer, so it still closes once the pointer leaves.
+        if !expanded { setExpanded(true) }
+        showingFiles = true
         airDropReview = false
         let before = model.toolkit.files.count
         for url in valid { model.toolkit.addFile(url.standardizedFileURL) }
@@ -209,7 +274,8 @@ extension DockModel {
         if let expand = hover.update(now: clock(),
                                      trigger: geometry.panelFrame(expanded: false).contains(mouse),
                                      inside: panel.frame.contains(mouse), expanded: expanded,
-                                     interacting: selectedWidget != nil || fileDragActive || choosingFiles || airDropService != nil) {
+                                     interacting: selectedWidget != nil || fileDragActive || choosingFiles || airDropService != nil,
+                                     opensOnEnter: model.notchOpensOnHover, closesOnExit: model.notchClosesOnExit) {
             setExpanded(expand, fromHover: true)
         }
         let frame = geometry.panelFrame(expanded: expanded, preferredWidth: model.notchWidth)
@@ -316,7 +382,9 @@ struct NotchShelfView: View {
                             TextField("Find a widget", text: $query).textFieldStyle(.plain).font(.caption)
                         }
                     }.padding(.leading, 16).frame(maxWidth: .infinity)
-                    Color.clear.frame(width: controller.geometry?.housing.width ?? 185).allowsHitTesting(false).accessibilityHidden(true)
+                    // Clicking the camera housing again closes the strip, mirroring the click that opened it.
+                    Button { controller.toggleFromClick() } label: { Color.clear.contentShape(Rectangle()) }
+                        .frame(width: controller.geometry?.housing.width ?? 185).accessibilityLabel("Close notch")
                     HStack {
                         Spacer()
                         tab("Home", files: false)
@@ -338,7 +406,7 @@ struct NotchShelfView: View {
                         if let kind, let index = items.firstIndex(of: .widget(kind)), let slide = pages.firstIndex(where: { $0.contains(index) }) { show(slide) }
                     }
             } else {
-                Button { controller.setExpanded(true) } label: { Color.black.contentShape(Rectangle()) }.accessibilityLabel("Expand DockGrove notch")
+                Button { controller.toggleFromClick() } label: { Color.black.contentShape(Rectangle()) }.accessibilityLabel("Expand DockGrove notch")
             }
         }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .foregroundStyle(.white).background(.black)
@@ -397,7 +465,7 @@ struct NotchShelfView: View {
         } else {
             Button {
                 guard model.canAccess(kind) else { return }
-                if kind == .search { model.toolkit.scanApplications() }
+                if kind == .search { model.showAppLauncher(query: model.toolkit.query); return }
                 controller.selectedWidget = kind
             } label: {
                 VStack(spacing: 7) {
@@ -420,6 +488,13 @@ struct NotchSettingsView: View {
         self.model = model; self.displayLookup = displayLookup; self.screenChanges = screenChanges
         _displayName = State(initialValue: displayLookup())
     }
+    static func openCaption(onHover: Bool) -> String {
+        onHover ? "Opens after a brief pause under the pointer. You can also click the notch." : "Click the notch to open it."
+    }
+    static func closeCaption(onExit: Bool) -> String {
+        onExit ? "Closes shortly after the pointer moves away, unless you clicked it open. Click outside or press Esc to close it sooner."
+               : "Click outside or press Esc to close. Clicking the notch again closes it too; a tray opened by dragging files still closes when you move away."
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -435,12 +510,20 @@ struct NotchSettingsView: View {
                         .background(.black, in: UnevenRoundedRectangle(bottomLeadingRadius: 14, bottomTrailingRadius: 14))
                 }.frame(width: 190, height: 85, alignment: .top).background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
                 VStack(alignment: .leading, spacing: 8) {
-                    Toggle("Enable notch access", isOn: $model.notchEnabled).disabled(displayName == nil && !model.notchEnabled)
+                    Toggle("Enable notch access", isOn: $model.notchEnabled).toggleStyle(.switch).disabled(displayName == nil && !model.notchEnabled)
                     Text(displayName.map { "Open your Dock widgets from the notch on " + $0 + "." } ?? "Connect a display with a built-in camera notch to use this feature.")
                         .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     if model.notchEnabled && displayName != nil { Button("Open notch") { model.openNotchAction?() } }
                 }
             }
+            VStack(alignment: .leading, spacing: 6) {
+                Toggle("Open when the pointer reaches the notch", isOn: $model.notchOpensOnHover)
+                Text(Self.openCaption(onHover: model.notchOpensOnHover))
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Toggle("Close when the pointer leaves", isOn: $model.notchClosesOnExit)
+                Text(Self.closeCaption(onExit: model.notchClosesOnExit))
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }.toggleStyle(.switch).disabled(!model.notchEnabled)
             StudioNumberControl(title: "Notch width", value: $model.notchWidth, range: 600...1600, step: 20, unit: "pt")
             HStack(spacing: 12) {
                 Button("Compact") { model.notchWidth = 640 }

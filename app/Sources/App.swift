@@ -7,9 +7,90 @@ private func orEmpty<Element>(_ values: [Element]?) -> [Element] { if let values
 /// Top edge of the primary display, the origin for top-left (CG/Accessibility) coordinates.
 func primaryScreenTop(_ screens: [NSScreen] = NSScreen.screens) -> CGFloat { guard let first = screens.first else { return 0 }; return first.frame.maxY }
 
+/// Shows context menus; tests swap it so no modal menu loop runs.
+enum DockContextMenu {
+    static var present: @MainActor (NSMenu, NSEvent, NSView) -> Void = { menu, event, view in NSMenu.popUpContextMenu(menu, with: event, for: view) }
+    /// How long a press on an app tile is held before its menu opens, as in the Mac Dock.
+    static var holdDelay: TimeInterval = 0.5
+}
+
+/// The Dock's window. SwiftUI reads mouse input through the window's gesture recognizers,
+/// which run inside `sendEvent` before any view sees the event. Left to them, a secondary click
+/// on a tile that had been clicked before was taken by the tile's Button, launching the app
+/// instead of showing its menu, and the bar's rim (the glass background) offered no menu at all.
+/// A Dock window therefore opens its menus here, from right-click, control-click or a held
+/// press on an app tile, and keeps the rest of that press away from SwiftUI.
 final class DockPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+    private var holdTimer: Timer?
+    private var holdStart: NSEvent?
+    /// The button whose press opened a menu; its drags and release never reach SwiftUI.
+    private var swallowing: NSEvent.EventType?
+
+    private var dock: NSHostingView<DockView>? { contentView as? NSHostingView<DockView> }
+
+    override func sendEvent(_ event: NSEvent) {
+        guard let dock else { return super.sendEvent(event) }
+        switch event.type {
+        case .rightMouseDown, .leftMouseDown:
+            cancelHold(); swallowing = nil
+            let secondary = event.type == .rightMouseDown || event.modifierFlags.contains(.control)
+            if secondary, openMenu(at: event.locationInWindow, in: dock) {
+                swallowing = event.type == .rightMouseDown ? .rightMouseUp : .leftMouseUp
+                return
+            }
+            super.sendEvent(event)
+            if event.type == .leftMouseDown, event.clickCount == 1, onAppTile(event.locationInWindow, in: dock) { startHold(event) }
+        case .leftMouseDragged, .rightMouseDragged:
+            if swallowing == (event.type == .leftMouseDragged ? .leftMouseUp : .rightMouseUp) { return }
+            if let start = holdStart, hypot(event.locationInWindow.x - start.locationInWindow.x, event.locationInWindow.y - start.locationInWindow.y) > 4 { cancelHold() }
+            super.sendEvent(event)
+        case .leftMouseUp, .rightMouseUp:
+            if event.type == .leftMouseUp { cancelHold() }
+            if swallowing == event.type { swallowing = nil; return }
+            super.sendEvent(event)
+        default:
+            super.sendEvent(event)
+        }
+    }
+
+    /// Asks SwiftUI for the menu at `point` and shows it; false where there is none, or where an
+    /// AppKit control (a text field in a widget, say) owns its own menu.
+    private func openMenu(at point: CGPoint, in dock: NSHostingView<DockView>) -> Bool {
+        if let frame = dock.superview, var view = frame.hitTest(frame.convert(point, from: nil)) {
+            while view !== dock {
+                if view is NSText || view is NSControl { return false }
+                guard let parent = view.superview else { break }
+                view = parent
+            }
+        }
+        guard let secondary = NSEvent.mouseEvent(with: .rightMouseDown, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1),
+              let menu = dock.menu(for: secondary) else { return false }
+        DockContextMenu.present(menu, secondary, dock)
+        return true
+    }
+    private func onAppTile(_ point: CGPoint, in dock: NSHostingView<DockView>) -> Bool {
+        // SwiftUI's global space is the hosting view's flipped coordinate space.
+        let local = dock.convert(point, from: nil)
+        return dock.rootView.model.tileFrames.contains { $0.key.hasPrefix("app:") && $0.value.contains(local) }
+    }
+    private func startHold(_ event: NSEvent) {
+        holdStart = event
+        let timer = Timer(timeInterval: DockContextMenu.holdDelay, repeats: false) { [weak self] _ in MainActor.assumeIsolated { self?.holdElapsed() } }
+        RunLoop.main.add(timer, forMode: .common)
+        holdTimer = timer
+    }
+    private func cancelHold() { holdTimer?.invalidate(); holdTimer = nil; holdStart = nil }
+    private func holdElapsed() {
+        guard let start = holdStart, let dock else { return }
+        cancelHold()
+        // End SwiftUI's pending press away from every control, so the tile's Button never fires.
+        if let release = NSEvent.mouseEvent(with: .leftMouseUp, location: CGPoint(x: -10_000, y: -10_000), modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 0) {
+            super.sendEvent(release)
+        }
+        if openMenu(at: start.locationInWindow, in: dock) { swallowing = .leftMouseUp }
+    }
 }
 
 @MainActor final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -40,10 +121,13 @@ final class DockPanel: NSPanel {
     var purchasesEnabled = PurchaseConfiguration.enabled
     var frontmostPID: () -> pid_t? = { NSWorkspace.shared.frontmostApplication?.processIdentifier }
     var windowOwner: (pid_t) -> NSRunningApplication? = NSRunningApplication.init(processIdentifier:)
+    /// System-wide ⌥⌘D; inert in test launches, and tests inject a fake before launching.
+    var hotKeys: HotKeyRegistrar
     init(arguments: [String] = CommandLine.arguments, preferences: UserDefaults? = nil) {
         self.arguments = arguments
         testing = arguments.contains("--ui-test") || arguments.contains("--native-test")
         self.preferences = preferences ?? (testing ? UserDefaults(suiteName: "DockGroveUITests")! : .standard)
+        hotKeys = testing || TestEnvironment.isXCTest ? InertHotKeyRegistrar() : CarbonHotKeyRegistrar()
         super.init()
     }
 
@@ -76,6 +160,7 @@ final class DockPanel: NSPanel {
         if purchasesEnabled { Task { await PurchaseManager.shared.load() } }
         model = DockModel(defaults: preferences)
         do { if !testing { try SystemDock.restore() } } catch { model.systemError = "Could not restore the original Dock setting. Use Restore Apple Dock to retry." }
+        refreshAppleDockState()
         workspace = DockWorkspace(defaults: model.defaults, testing: testing)
         workspace.configure = { [weak self] dock in self?.configureExtra(dock) }
         model.manageDocksAction = { [weak self] in self?.showDocks() }
@@ -83,6 +168,7 @@ final class DockPanel: NSPanel {
         model.settingsAction = { [weak self] in self?.showSettings() }
         model.closeSettingsAction = { [weak self] in self?.settings.orderOut(nil) }
         model.changeDockAction = { [weak self] enabled in self?.setReplacement(enabled) }
+        model.restoreAppleDockAction = { [weak self] in self?.confirmRestoreAppleDock() }
         model.visibilityAction = { [weak self] in self?.updateVisibility() }
         panel = DockPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isFloatingPanel = true; panel.level = .floating; panel.isOpaque = false
@@ -97,10 +183,12 @@ final class DockPanel: NSPanel {
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         status.button?.image = BrandIcon.menuImage
         let menu = NSMenu()
-        for (title, action, key) in [("Settings…", #selector(showSettings), ","), ("Show / hide DockGrove", #selector(toggleVisibility), "d"), ("Refresh usage", #selector(refresh), "r"), ("Restore Apple Dock", #selector(restore), ""), ("Quit DockGrove", #selector(quit), "q")] {
+        for (title, action, key) in [("Settings…", #selector(showSettings), ","), (model.hidingMenuTitle, #selector(toggleHiding), "d"), (model.visibilityMenuTitle, #selector(toggleVisibility), "d"), ("Refresh usage", #selector(refresh), "r"), ("Restore Apple Dock", #selector(restore), ""), ("Quit DockGrove", #selector(quit), "q")] {
             let item = NSMenuItem(title: title, action: action, keyEquivalent: key); item.target = self; menu.addItem(item)
+            if action == #selector(toggleHiding) { item.keyEquivalentModifierMask = [.option, .command] }
         }
         status.menu = menu
+        hotKeys.register(.toggleHiding) { [weak self] in self?.toggleHiding() }
         model.objectWillChange.debounce(for: .milliseconds(60), scheduler: RunLoop.main).sink { [weak self] _ in self?.layoutDock() }.store(in: &subscriptions)
         model.toolkit.objectWillChange.debounce(for: .milliseconds(60), scheduler: RunLoop.main).sink { [weak self] _ in
             self?.model.objectWillChange.send()
@@ -124,10 +212,11 @@ final class DockPanel: NSPanel {
             guard let self, !self.featuresAllowed(self.model) else { return }
             if self.model.replacingDock { self.setReplacement(false) }
             self.snapper?.cancel()
-            self.model.appPickerWindow?.close(); self.workspaceWindow?.close()
+            self.model.appPickerWindow?.close(); self.workspaceWindow?.close(); AppsLauncher.shared.closeEditing()
             for dock in self.workspace.docks { dock.model.appPickerWindow?.close() }
         }.store(in: &subscriptions)
         self.workspace.restore()
+        model.toolkit.startEnabledUsage()
         snapper = WindowSnapper(model: model)
         if !arguments.contains("--native-test") { snapper?.start() }
         notch = NotchController(model: model)
@@ -141,6 +230,8 @@ final class DockPanel: NSPanel {
     func configureExtra(_ dock: ExtraDock) {
         dock.model.manageDocksAction = { [weak self] in self?.showDocks() }
         dock.model.visibilityAction = { [weak self] in self?.checkAutoHide() }
+        // Every settings window's sidebar link reaches the one Apple Dock restore.
+        dock.model.restoreAppleDockAction = { [weak self] in self?.confirmRestoreAppleDock() }
         dock.model.toolkit.windows.usableFrameProvider = { [weak self] screen in self?.usableFrame(screen) ?? WindowManager.usableFrame(screen:screen,dockHeight:0) }
         dock.model.objectWillChange.debounce(for:.milliseconds(60),scheduler:RunLoop.main).sink { [weak self, weak dock] _ in guard let dock else { return }; self?.layout(dock.panel, model:dock.model); self?.checkAutoHide() }.store(in:&dock.subscriptions)
         for publisher in [dock.model.toolkit.objectWillChange,dock.model.toolkit.utilities.objectWillChange,dock.model.toolkit.github.objectWillChange] {
@@ -210,22 +301,40 @@ final class DockPanel: NSPanel {
             fullscreen = fullscreen || (pid == activePID && DockVisibility.coversScreen(rect, bounds))
             overlap = overlap || rect.intersects(dock)
         }
+        let top = DockVisibility.revealsAtTop(edge: model.toolkit.edge, elevation: model.elevation, replacing: model.replacingDock)
         let show = visibility.visible(now: Date(), enabled: model.visible,
             suppressed: fullscreen || !sessionActive || !screenAwake || Date() < settlingUntil,
-            autoHide: model.toolkit.autoHide && model.toolkit.edge != "Floating",
+            autoHide: model.toolkit.autoHide,
             overlapping: model.toolkit.hideOnOverlap && model.toolkit.edge != "Floating" && overlap,
-            pointerInside: panel.isVisible && panel.frame.contains(mouse),
-            pointerAtEdge: DockVisibility.atEdge(mouse, screen: screen.frame, dock: panel.frame, top: model.toolkit.edge == "Top"),
+            pointerInside: panel.isVisible && DockVisibility.hoverRegion(dock: panel.frame, screen: screen.frame, top: top).contains(mouse),
+            pointerAtEdge: DockVisibility.atEdge(mouse, screen: screen.frame, dock: panel.frame, top: top),
             interacting: !orEmpty(panel.childWindows).isEmpty)
         panel.ignoresMouseEvents = !show
         if show { if !panel.isVisible { panel.orderFrontRegardless() } }
         else if panel.isVisible { panel.orderOut(nil) }
     }
     @objc func showSettings() { settings.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
-    @objc func toggleVisibility() { model.visible.toggle(); updateVisibility() }
+    @objc func toggleVisibility() { model.setShown(!model.visible); updateVisibility() }
+    /// ⌥⌘D and the status menu's "Turn Hiding On/Off".
+    @objc func toggleHiding() { model.toggleHiding(); updateVisibility() }
     func updateVisibility() { checkAutoHide() }
     @objc func refresh() { model.refreshUsage() }
-    @objc func restore() { setReplacement(false) }
+    /// Status-menu item: works whether or not DockGrove is replacing the Dock right now.
+    @objc func restore() {
+        setReplacement(false)
+        guard let error = model?.systemError, model.appleDockModified else { return }
+        let alert = NSAlert(); alert.messageText = "Apple Dock could not be restored"
+        alert.informativeText = error + " You can also run DockGrove with --restore-dock, or turn off auto-hide in System Settings > Desktop & Dock."
+        _ = runAlert(alert)
+    }
+    func confirmRestoreAppleDock() {
+        let alert = NSAlert(); alert.messageText = "Restore Apple’s Dock?"
+        alert.informativeText = "DockGrove stops replacing the Dock, puts back your original Dock settings and relaunches Apple’s Dock."
+        alert.addButton(withTitle: "Restore Apple Dock"); alert.addButton(withTitle: "Cancel")
+        if runAlert(alert) == .alertFirstButtonReturn { restore() }
+    }
+    /// Re-reads whether anything is left to restore; test modes never look at the Dock.
+    func refreshAppleDockState() { model?.appleDockModified = !testing && SystemDock.needsRestore() }
     @objc func quit() { terminate(nil) }
     func setReplacement(_ enabled: Bool) {
         guard !enabled || featuresAllowed(model) else { model.systemError = "Activate DockGrove before using Dock replacement."; return }
@@ -237,8 +346,10 @@ final class DockPanel: NSPanel {
             layoutDock(); checkAutoHide()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in self?.layoutDock() }
         } catch { model.systemError = "Could not change Apple's Dock setting. Your saved original setting is retained for recovery." }
+        refreshAppleDockState()
     }
     func applicationWillTerminate(_ notification: Notification) {
+        hotKeys.unregisterAll()
         model?.codexSignIn.cancel()
         model?.toolkit.claudeCodeUsage.signIn.cancel()
         for dock in orEmpty(workspace?.docks) {
@@ -258,11 +369,20 @@ final class DockPanel: NSPanel {
     }
 }
 
+extension AppDelegate: NSMenuItemValidation {
+    /// Keeps the status menu's hiding and visibility titles current each time it opens.
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        if item.action == #selector(toggleHiding) { item.title = model.hidingMenuTitle }
+        if item.action == #selector(toggleVisibility) { item.title = model.visibilityMenuTitle }
+        return true
+    }
+}
+
 @main struct DockGroveMain {
     @MainActor static func main() {
         // Hosted XCTest runs need a run loop but never the Dock, menu bar item or system changes.
         if TestEnvironment.isXCTest { NSApplication.shared.run(); return }
-        if CommandLine.arguments.contains("--claude-statusline") { exit(LocalAIStore.capture(.claude)) }
+        if CommandLine.arguments.contains("--claude-statusline") { exit(LocalAIStore.capture(.claude, then: LocalAIStore.chainedCommand(CommandLine.arguments))) }
         if CommandLine.arguments.contains("--gemini-report") { exit(LocalAIStore.capture(.gemini)) }
         if CommandLine.arguments.contains("--restore-dock") {
             do { try SystemDock.restore(); print("Apple Dock preferences restored.") } catch { print("Could not restore Apple Dock: \(error)"); exit(1) }

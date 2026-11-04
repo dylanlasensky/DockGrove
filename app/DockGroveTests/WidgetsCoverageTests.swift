@@ -16,6 +16,7 @@ import AppKit
         case .copy(let text): return "copy:" + text
         case .characterPalette: return "palette"
         case .launch(_, let app): return "launch:" + app.id
+        case .searchApps(_, let query): return "searchApps:" + query
         case .exportProfiles: return "export"
         case .importProfiles: return "import"
         case .setLogin(_, let on): return "login:\(on)"

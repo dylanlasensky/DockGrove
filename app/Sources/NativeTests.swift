@@ -44,8 +44,10 @@ import SwiftUI
         for provider in [LocalAIProvider.claude, .gemini] {
             let widget = LocalAIWidget(provider)
             widget.report = LocalAIReport(provider: provider.rawValue, observed: Date().addingTimeInterval(-3600),
-                windows: provider == .claude ? ["5-hour window", "Weekly window", "Gateway spend limit"].map { LocalAIWindow(name: $0, used: 24, resets: Date().addingTimeInterval(3600)) } : [],
-                models: provider == .gemini ? (0..<20).map { LocalAIModel(name: "gemini-sample-model-\($0)", total: 130, input: 60, output: 30, cached: 40, requests: 2) } : [], sessionCost: provider == .claude ? 0.12 : nil)
+                windows: provider == .claude ? ["5-hour window", "Weekly · all models", "Weekly · Fable"].map { LocalAIWindow(name: $0, used: 24, resets: Date().addingTimeInterval(3600)) } : [],
+                models: provider == .gemini ? (0..<20).map { LocalAIModel(name: "gemini-sample-model-\($0)", total: 130, input: 60, output: 30, cached: 40, requests: 2) } : [], sessionCost: provider == .claude ? 0.12 : nil,
+                summary: provider == .claude ? "Last 24h · 1625 requests · 4 sessions" : nil,
+                drivers: provider == .claude ? [LocalAIDriver(percent: 89, text: "Give \"general-purpose\" subagents a cheaper model"), LocalAIDriver(percent: 56, text: "Start fresh when you switch tasks · run /clear"), LocalAIDriver(percent: 10, text: "Turn off MCP servers you don't use · 26k tokens per request")] : nil)
             widget.status = "SAMPLE DATA · Last received an hour ago"
             let view = NSHostingView(rootView: LocalAIUsageView(widget: widget, automaticallyRefresh: false).padding(22).frame(width: 350).preferredColorScheme(.dark))
             let size = view.fittingSize

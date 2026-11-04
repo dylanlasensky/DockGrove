@@ -163,7 +163,7 @@ private struct CompactAPITokenSetup: View {
                     Text("Stored in macOS Keychain.").font(.caption).foregroundStyle(.secondary)
                 }.padding(.top, 10)
             }
-        }.onDisappear { token = "" }
+        }.onAppear { widget.start() }.onDisappear { token = "" }
     }
     private func save() {
         guard !widget.busy, !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
@@ -236,9 +236,9 @@ private struct CompactLocalUsage: View {
                     let windows = report.activeWindows(at: Date())
                     if windows.isEmpty { Text("No active limits reported.").font(.caption) }
                     ForEach(windows.indices, id: \.self) { i in
-                        HStack { Text(windows[i].name); Spacer(); Text("\(Int(100 - windows[i].used))% left").monospacedDigit() }
-                        ProgressView(value: 100 - windows[i].used, total: 100)
-                        Text("Resets " + windows[i].resets.formatted(date: .abbreviated, time: .shortened)).font(.caption).foregroundStyle(.secondary)
+                        HStack { Text(windows[i].name); Spacer(); Text("\(Int(windows[i].used.rounded()))% used").monospacedDigit() }
+                        ProgressView(value: windows[i].used, total: 100)
+                        if let reset = windows[i].resetLabel { Text(reset).font(.caption).foregroundStyle(.secondary) }
                     }
                 } else {
                     Text(report.totalTokens.formatted() + " tokens").font(.title2).monospacedDigit()
