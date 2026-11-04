@@ -34,10 +34,10 @@ export default function WindowShelfPreview() {
   const [notice, setNotice] = useState("");
   const matches = windows.filter(window => (!minimizedOnly || window.minimized) && `${window.app} ${window.title}`.toLowerCase().includes(query.trim().toLowerCase()));
   return <div ref={root} className={s.windowControl} onKeyDown={event => {
-    if (event.key === "Escape") { event.preventDefault(); close(); }
+    if (open && event.key === "Escape") { event.preventDefault(); close(); }
     // Pointer dismissal is handled separately: macOS may blur an input before
     // firing a button click, so closing on blur would swallow that click.
-    if (event.key === "Tab") requestAnimationFrame(() => { if (!root.current?.contains(document.activeElement)) setOpen(false); });
+    if (open && event.key === "Tab") requestAnimationFrame(() => { if (!root.current?.contains(document.activeElement)) setOpen(false); });
   }}>
     <button ref={trigger} type="button" aria-haspopup="dialog" aria-controls={open ? dialogID : undefined} className={s.cubeButton} title="Open and minimized windows" aria-label="Show open and minimized sample windows" aria-expanded={open} onClick={() => setOpen(!open)}>
       <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 11 6v14l-11 6-11-6V9Z M5 9l11 6 11-6 M16 15v14 M5 23l11-6 11 6 M16 3v14"/></svg>
