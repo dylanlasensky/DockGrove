@@ -57,7 +57,7 @@ final class DockPanel: NSPanel {
 
     /// Asks SwiftUI for the menu at `point` and shows it; false where there is none, or where an
     /// AppKit control (a text field in a widget, say) owns its own menu.
-    private func openMenu(at point: CGPoint, in dock: NSHostingView<DockView>) -> Bool {
+    func openMenu(at point: CGPoint, in dock: NSHostingView<DockView>) -> Bool {
         if let frame = dock.superview, var view = frame.hitTest(frame.convert(point, from: nil)) {
             while view !== dock {
                 if view is NSText || view is NSControl { return false }
