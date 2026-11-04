@@ -1,5 +1,7 @@
 # Native in-app purchases
 
+> **Historical experiment, not the selected release route.** DockGrove is preparing a direct purchase and license-token release; see [COMMERCE.md](COMMERCE.md). No App Store submission is requested. StoreKit code and local test evidence remain for reference. In the current Xcode project, only Debug/Release retain `DOCKGROVE_STOREKIT`; Development uses unrestricted source-testing access, while Commercial and CommercialQA enforce direct-license activation. The older setup and account snapshots below are dated evidence, not a current account verification.
+
 The Xcode app uses StoreKit 2 with two non-consumable products. US base prices are $4.99 and $9.99; purchase buttons always use Apple's localized `Product.displayPrice`.
 
 | Access | Product ID | One-time US price | Includes |
@@ -16,7 +18,7 @@ The Xcode app uses StoreKit 2 with two non-consumable products. US base prices a
 
 There is no preference or license-key switch that grants StoreKit access. Saved and imported layouts retain their widget choices, but the Dock filters those choices against current ownership. Removing a purchase stops the affected active monitors and clears clipboard history if its access is lost. Refund of Full Access falls back to Plus if Plus is still owned, otherwise Free. Core Dock controls and Quit remain available.
 
-The Xcode target enables `DOCKGROVE_STOREKIT` in both Debug and Release. The separate shell development build remains an unrestricted source-testing artifact, and the existing `--commercial` shell build retains the website license system. Do not distribute either shell artifact as the StoreKit app. Website licenses are not silently converted into Apple purchases.
+The Xcode target enables `DOCKGROVE_STOREKIT` in Debug and Release. The Development configuration is an unrestricted source-testing artifact; Commercial and CommercialQA use the website license system. Do not distribute Development as a paid artifact or silently convert website licenses into Apple purchases.
 
 ## Local testing
 

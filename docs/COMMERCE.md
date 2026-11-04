@@ -1,6 +1,6 @@
 # DockGrove website commerce candidate
 
-For the native Xcode app’s $4.99 Plus and $9.99 Full Access StoreKit products, see [IN-APP-PURCHASES.md](IN-APP-PURCHASES.md). This document covers only the separate website license candidate.
+The selected release route is direct purchase and license-token activation. The earlier $4.99 Plus/$9.99 Full Access StoreKit experiment is retained in [IN-APP-PURCHASES.md](IN-APP-PURCHASES.md) for reference; App Store publication is not part of this release.
 
 This implementation is **test-mode only**. No Stripe account, webhook endpoint, database, bucket, email sender, live sale, or production deployment was created. Fixture tests are not provider acceptance.
 
