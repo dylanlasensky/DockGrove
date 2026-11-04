@@ -153,3 +153,6 @@
 
 .workspaceDocks .windowPreview{top:auto;bottom:calc(100% + 16px)}
 @media(max-width:360px){.workspaceDocks .apps img:nth-child(n+2){display:none}}
+
+/* Keep the open shelf above nearby captions and animated hero text. */
+.stage>.dock,.workspaceDocks>.dock{position:relative;z-index:2}

@@ -131,7 +131,8 @@ struct WindowShelfView: View {
     @State private var filter = WindowShelfFilter.all
     private let clock = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
     var matches: [ManagedWindow] {
-        manager.windows.filter { filter.includes($0) && (query.isEmpty || $0.title.localizedStandardContains(query)) }
+        let search = AppSearchIndex.fold(query)
+        return manager.windows.filter { filter.includes($0) && (search.isEmpty || AppSearchIndex.fold($0.title).contains(search)) }
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -166,7 +167,6 @@ struct WindowShelfView: View {
                                         Image(nsImage: window.owner.icon ?? NSImage()).resizable().frame(width: 30, height: 30)
                                         VStack(alignment: .leading, spacing: 3) {
                                             Text(window.title).lineLimit(2)
-                                            Text(window.isMinimized ? "Minimized" : "Open").font(.caption).foregroundStyle(.secondary)
                                         }
                                         Spacer()
                                         Image(systemName: window.isMinimized ? "minus.square" : "macwindow").foregroundStyle(.secondary)
