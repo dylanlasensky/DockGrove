@@ -7,6 +7,7 @@ struct ManagedWindow: Identifiable {
     let owner: NSRunningApplication
     let element: AXUIElement
     let title: String
+    var isMinimized: Bool = false
 }
 enum WindowPlacement: String, CaseIterable, Identifiable {
     case left = "Left half", right = "Right half", top = "Top half", bottom = "Bottom half", maximize = "Maximize", center = "Center"
@@ -52,7 +53,7 @@ struct AccessibilityClient {
     var pid: (AXUIElement) -> pid_t = { var pid: pid_t = 0; AXUIElementGetPid($0, &pid); return pid }
     var runningApplications: () -> [NSRunningApplication] = { NSWorkspace.shared.runningApplications }
     var runningApplication: (pid_t) -> NSRunningApplication? = { NSRunningApplication(processIdentifier: $0) }
-    var activate: (NSRunningApplication) -> Void = { $0.activate(options: []) }
+    var activate: (NSRunningApplication) -> Void = { $0.unhide(); $0.activate(options: []) }
     var pause: (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) }
     static var current = AccessibilityClient()
 }
@@ -93,7 +94,7 @@ struct AccessibilityClient {
                 let role = ax.copy(window, kAXSubroleAttribute)
                 guard [kAXStandardWindowSubrole, kAXDialogSubrole].contains(role as? String ?? "") else { continue }
                 let name = (ax.copy(window, kAXTitleAttribute) as? String).flatMap { $0.isEmpty ? nil : $0 }
-                found.append(ManagedWindow(id: "\(app.processIdentifier):\(CFHash(window))", owner: app, element: window, title: windowTitle(app: app.localizedName, window: name, fallback: "Untitled window")))
+                found.append(ManagedWindow(id: "\(app.processIdentifier):\(CFHash(window))", owner: app, element: window, title: windowTitle(app: app.localizedName, window: name, fallback: "Untitled window"), isMinimized: (ax.copy(window, kAXMinimizedAttribute) as? Bool) == true))
             }
         }
         return found.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
@@ -168,7 +169,7 @@ struct AccessibilityClient {
             ? "Window brought forward."
             : "This app could not restore or focus the window. Refresh and check Accessibility access."
     }
-    func minimize() { guard let selected else { return }; if AccessibilityClient.current.set(selected.element, kAXMinimizedAttribute, kCFBooleanTrue) != .success { status = "This window cannot be minimized." } }
+    func minimize() { guard trusted, !loading else { status = "Allow Accessibility to minimize windows."; return }; guard let selected else { return }; if AccessibilityClient.current.set(selected.element, kAXMinimizedAttribute, kCFBooleanTrue) != .success { status = "This window cannot be minimized." } }
 }
 struct WindowManagerView: View {
     @ObservedObject var manager: WindowManager

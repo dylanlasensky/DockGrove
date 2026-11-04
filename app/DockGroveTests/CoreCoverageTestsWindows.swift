@@ -251,12 +251,14 @@ private func winWakeAccessibility() async {
         fake.put(app, kAXWindowsAttribute, [w1, w2, w3, w4] as CFArray)
         fake.put(w1, kAXSubroleAttribute, kAXStandardWindowSubrole as CFString); fake.put(w1, kAXTitleAttribute, "Beta" as CFString)
         fake.put(w2, kAXSubroleAttribute, kAXDialogSubrole as CFString); fake.put(w2, kAXTitleAttribute, "" as CFString)
+        fake.put(w1, kAXMinimizedAttribute, kCFBooleanTrue)
         fake.put(w4, kAXSubroleAttribute, "AXFloatingWindow" as CFString)
         fake.trusted = true
         manager.refresh()
         manager.refresh() // ignored while loading
         await winWait { !manager.loading }
         XCTAssertEqual(manager.windows.count, 2)
+        XCTAssertEqual(manager.windows.filter { $0.isMinimized }.count, 1)
         XCTAssertTrue(manager.windows.contains { $0.title.hasSuffix("Untitled window") })
         XCTAssertEqual(manager.selectedID, manager.windows.first?.id)
         XCTAssertNotNil(manager.selected)
@@ -357,6 +359,83 @@ private func winWakeAccessibility() async {
         fake.queue(kAXMinimizedAttribute, [.failure])
         manager.minimize()
         XCTAssertEqual(manager.status, "This window cannot be minimized.")
+    }
+
+    func testWindowShelfFiltersAndPermissionRevocation() throws {
+        XCTAssertEqual(AppIndexYAML.decode("apps:\n  - name: \"Unterminated\n    path: /Apps/U.app\n").first?.name, "")
+        let window = try managed(72901, frame: nil)
+        var minimized = window
+        minimized.isMinimized = true
+        for candidate in [window, minimized] { XCTAssertTrue(WindowShelfFilter.all.includes(candidate)) }
+        XCTAssertTrue(WindowShelfFilter.open.includes(window))
+        XCTAssertFalse(WindowShelfFilter.open.includes(minimized))
+        XCTAssertTrue(WindowShelfFilter.minimized.includes(minimized))
+        XCTAssertFalse(WindowShelfFilter.minimized.includes(window))
+        let manager = WindowManager()
+        manager.windows = [window]; manager.selectedID = window.id
+        fake.trusted = false
+        manager.minimize()
+        XCTAssertNil(fake.get(window.element, kAXMinimizedAttribute))
+        XCTAssertEqual(fake.activations, 0)
+        XCTAssertTrue(manager.status.contains("Allow Accessibility"))
+    }
+
+    func testWindowShelfPermissionAndEmptyStates() async throws {
+        let manager = WindowManager()
+        fake.trusted = false
+        var dismissed = 0
+        let denied = host(WindowShelfView(manager: manager) { dismissed += 1 })
+        await winSettle()
+        XCTAssertGreaterThan(winPress(denied, "Allow Accessibility"), 0)
+        XCTAssertGreaterThan(fake.prompts, 0)
+        XCTAssertGreaterThan(winPress(denied, "Done"), 0)
+        XCTAssertEqual(dismissed, 1)
+        fake.trusted = true
+        let empty = host(WindowShelfView(manager: manager) { dismissed += 1 })
+        await winWait { !manager.loading }
+        await winSettle()
+        XCTAssertTrue(manager.windows.isEmpty)
+        XCTAssertGreaterThan(winPress(empty, "Refresh windows"), 0)
+        let button = host(WindowShelfButton(manager: manager, enabled: true))
+        await winSettle()
+        XCTAssertGreaterThan(winPress(button, "Open and minimized windows"), 0)
+    }
+
+    func testWindowShelfRestoresAListedWindow() async throws {
+        let finder = try XCTUnwrap(winFinder)
+        fake.apps = [finder]
+        let app = winElement(finder.processIdentifier), element = winElement(72902)
+        fake.put(app, kAXWindowsAttribute, [element] as CFArray)
+        fake.put(element, kAXSubroleAttribute, kAXStandardWindowSubrole as CFString)
+        fake.put(element, kAXTitleAttribute, "Shelf restore fixture" as CFString)
+        fake.put(element, kAXMinimizedAttribute, kCFBooleanTrue)
+        let manager = WindowManager()
+        var dismissed = 0
+        let view = host(WindowShelfView(manager: manager) { dismissed += 1 })
+        await winWait { !manager.loading && !manager.windows.isEmpty }
+        await winSettle(0.3)
+        XCTAssertEqual(manager.windows.count, 1)
+        let label = manager.windows[0].title + ", minimized. Restore window"
+        XCTAssertGreaterThan(winPress(view, label), 0)
+        XCTAssertEqual(dismissed, 1)
+        XCTAssertEqual(fake.get(element, kAXMinimizedAttribute) as? Bool, false)
+        XCTAssertGreaterThan(fake.activations, 0)
+        manager.refresh()
+        await winWait { !manager.loading }
+        await winSettle(0.3)
+        XCTAssertFalse(manager.windows[0].isMinimized)
+        XCTAssertGreaterThan(winPress(view, manager.windows[0].title + ", open. Restore window"), 0)
+        func enterQuery(_ element: Any, depth: Int = 0) {
+            guard depth < 40, let object = element as? NSObject else { return }
+            if object.responds(to: #selector(NSAccessibilityProtocol.accessibilityRole)), (object.value(forKey: "accessibilityRole") as? NSAccessibility.Role) == .textField {
+                object.setValue("fixture", forKey: "accessibilityValue")
+            }
+            if object.responds(to: #selector(NSAccessibilityProtocol.accessibilityChildren)), let children = object.perform(#selector(NSAccessibilityProtocol.accessibilityChildren))?.takeUnretainedValue() as? [Any] {
+                for child in children { enterQuery(child, depth: depth + 1) }
+            }
+        }
+        enterQuery(view)
+        await winSettle()
     }
 
     func testFrameWriterApply() {

@@ -21,6 +21,8 @@ Toolbar dimensions are available in Settings → Appearance → Toolbar size. Dr
 
 ## Refined desktop preview
 
+A permanent cube button at the side of every Dock page opens **Your windows**: search open and minimized app windows, filter by state, and click to restore. Accessibility permission is required; no Screen Recording permission is needed. Browser tabs are represented by their containing windows.
+
 The latest design brings a silver-and-blue landing page, the new three-bar DockGrove mark, and nine distinct pixel companions. Pet details open on click so the main tile has more room to roam. Malcolm's notch, Studio, connection settings, Applications launcher and Next.js work are integrated in this release branch. See [integration review](docs/REFINED-RELEASE-REVIEW.md) for corrections and validation boundaries.
 
 ## Repository layout
