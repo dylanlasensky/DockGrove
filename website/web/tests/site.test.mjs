@@ -117,7 +117,15 @@ test('static product policy comes from central config, disabled by default',()=>
 test('security headers for the static deployment',()=>{
  const headers=fs.readFileSync(path.join(out,'_headers'),'utf8');
  assert(headers.includes("frame-ancestors 'none'")&&headers.includes('Referrer-Policy: no-referrer'));
+ assert(headers.includes('Strict-Transport-Security: max-age=31536000; includeSubDomains'));
  assert(/\/purchase(?:\.html)?\n\s+Cache-Control: no-store/.test(headers)&&/\/recover(?:\.html)?\n\s+Cache-Control: no-store/.test(headers));
+});
+
+test('sitemap and robots list only the public pages',()=>{
+ const sitemap=fs.readFileSync(path.join(out,'sitemap.xml'),'utf8');
+ for(const page of ['https://dockgrove.com/','https://dockgrove.com/privacy','https://dockgrove.com/terms'])assert(sitemap.includes(`<loc>${page}</loc>`),page);
+ assert(!sitemap.includes('/purchase')&&!sitemap.includes('/recover'),'Transactional pages stay out of the sitemap');
+ assert(fs.readFileSync(path.join(out,'robots.txt'),'utf8').includes('Sitemap: https://dockgrove.com/sitemap.xml'));
 });
 
 test('no app binaries in the static export',()=>{
@@ -127,6 +135,7 @@ test('no app binaries in the static export',()=>{
 test('Worker config serves the export without paid bindings',()=>{
  const config=JSON.parse(fs.readFileSync(path.resolve(web,'../wrangler.jsonc'),'utf8'));
  assert.equal(config.name,'wavedock-preview');
+ assert.equal(config.workers_dev,false,'Only the custom domains serve the site');
  assert(!config.main&&!config.d1_databases&&!config.r2_buckets,'Existing static Worker only, no paid service bindings');
  assert.deepEqual(config.routes,[{pattern:'dockgrove.com',custom_domain:true},{pattern:'www.dockgrove.com',custom_domain:true}]);
 });
