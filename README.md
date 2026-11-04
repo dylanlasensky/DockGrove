@@ -1,6 +1,9 @@
 # DockGrove
 
-![DockGrove — Everything within reach.](app/Assets.xcassets/Brand/DockGrove-wordmark.imageset/DockGrove-wordmark.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/DockGrove-wordmark-dark.png">
+  <img alt="DockGrove — Everything within reach." src="app/Assets.xcassets/Brand/DockGrove-wordmark.imageset/DockGrove-wordmark.png" width="420">
+</picture>
 
 **Your apps, useful widgets, and AI usage in one native Mac Dock.**
 

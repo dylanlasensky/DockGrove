@@ -59,7 +59,7 @@ export default function LauncherShowcase({playing}: {playing: boolean}) {
     <Reveal className={s.sectionHeading}>
       <p className={s.eyebrow}>ONE PLACE FOR EVERY APP.</p>
       <h2>Search, add, or swap.<br/>Same view every time.</h2>
-      <p>The Applications folder, the + button, Replace app… and the App search widget all open one full-screen launcher. Start typing to filter, press Return for the top result.</p>
+      <p>The + button, Replace app… and App search open a floating app chooser. Search by name, browse categories, or switch between a grid and list. The Applications stack opens beside your Dock.</p>
     </Reveal>
 
     <div className={s.launcherGrid}>
