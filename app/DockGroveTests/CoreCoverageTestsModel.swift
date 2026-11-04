@@ -276,6 +276,14 @@ private func usageResponse() throws -> UsageResponse {
         kit.stopLockedWidgets()
         XCTAssertTrue(kit.clipboard.isEmpty)
 
+        kit.enabled = ["claudeCodeUsage"]
+        kit.startEnabledUsage()
+        XCTAssertNil(kit.claudeCodeUsage.timer, "Saved premium widgets must not start on the free tier")
+        await grant(fullAccess)
+        kit.startEnabledUsage()
+        XCTAssertNotNil(kit.claudeCodeUsage.timer)
+        kit.claudeCodeUsage.stop()
+
         kit.toggle(.search, false)
         XCTAssertFalse(kit.enabled.contains("search"))
 
