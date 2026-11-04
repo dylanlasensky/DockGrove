@@ -137,8 +137,17 @@ import ServiceManagement
         pet.state.resting = true
         pet.play(); XCTAssertEqual(pet.playRequest, 1)
         pet.tick()
-        pet.rename("   "); XCTAssertEqual(pet.state.name, "Miso")
+        pet.rename("   "); XCTAssertEqual(pet.state.name, "Cream cat")
+        pet.state.name = "Miso"; pet.state.sessions = 9
+        pet.animal = "Miso"
+        let legacy = Companion(defaults: store)
+        XCTAssertEqual(legacy.animal, "Miso"); XCTAssertEqual(legacy.state.sessions, 9)
+        XCTAssertEqual(legacy.displayName, "Cream cat"); XCTAssertEqual(legacy.state.name, "Miso")
+        XCTAssertEqual(Companion.displayName("Miso"), "Cream cat")
+        XCTAssertEqual(Companion.displayName("Fox"), "Fox")
+        pet.state.sessions = 0
         pet.rename("  Pixel  "); XCTAssertEqual(pet.state.name, "Pixel")
+        XCTAssertEqual(pet.displayName, "Pixel")
         XCTAssertEqual(CompanionArtwork.frames("Not an animal").count, CompanionArtwork.frames("Miso").count)
         XCTAssertEqual(CatPortrait(resting: false, accent: .blue).animal, "Miso")
         pet.state.reward(); XCTAssertEqual(pet.state.sessions, 1)
@@ -176,7 +185,7 @@ import ServiceManagement
         IntegrationsUI.press(IntegrationsUI.body(view), "Play"); XCTAssertEqual(pet.playRequest, 1)
         IntegrationsUI.press(IntegrationsUI.body(view), "Rest"); XCTAssertTrue(pet.state.resting)
         IntegrationsUI.press(IntegrationsUI.body(CompanionView(pet: pet, accent: .orange)), "Wake up"); XCTAssertFalse(pet.state.resting)
-        IntegrationsUI.press(IntegrationsUI.body(view), "Rename"); XCTAssertEqual(pet.state.name, "Miso")
+        IntegrationsUI.press(IntegrationsUI.body(view), "Rename"); XCTAssertEqual(pet.state.name, "Cream cat")
         IntegrationsUI.appear(IntegrationsUI.body(view))
     }
 
@@ -217,6 +226,19 @@ import ServiceManagement
         let scene = CompanionSpriteScene(size: CGSize(width: 250, height: 180))
         scene.update(10)
         scene.update(10.5)
+        scene.animal = "Dragon"
+        var prior = scene.frameIndex
+        for _ in 0..<120 {
+            scene.advance(1.0 / 60)
+            XCTAssertLessThanOrEqual((scene.frameIndex - prior + 8) % 8, 1)
+            prior = scene.frameIndex
+        }
+        scene.reducedMotion = true
+        scene.advance(0)
+        let still = scene.sprite.position
+        scene.advance(1)
+        XCTAssertEqual(scene.sprite.position, still)
+        XCTAssertEqual(scene.sprite.yScale, 1)
         scene.resetClock()
         scene.update(11)
         XCTAssertTrue((0..<16).contains(scene.frameIndex))

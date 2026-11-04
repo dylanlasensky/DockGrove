@@ -655,6 +655,15 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         harness.press("Home notch tab")
         XCTAssertFalse(controller.showingFiles)
         harness.enter("Fo")
+        for query in ["  Focus  ", "Fócus", "ＦＯＣＵＳ"] {
+            harness.enter(query)
+            harness.spin(0.1)
+            XCTAssertTrue(harness.has("Open Focus from notch"), "Search should normalize \(query)")
+            XCTAssertFalse(harness.has("No matching widgets"))
+        }
+        harness.enter("   ")
+        harness.spin(0.1)
+        XCTAssertGreaterThan(harness.labels().filter { $0.hasPrefix("Notch slide ") }.count, 1, "Whitespace restores Home and all widget pages")
         harness.enter("zzzz-no-widget")
         harness.spin(0.1)
         controller.showingFiles = true

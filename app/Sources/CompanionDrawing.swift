@@ -65,15 +65,14 @@ enum CompanionDrawing {
         if sleep>0.12 || m.sleeping {
             if sleep<0.45 {return 12}
             if sleep<0.85 {return 13}
-            return 14+Int(m.total*1.2)%2
+            return 14
         }
-        if animal=="Dragon" {return Int(m.total*(abs(m.velocity)>0.002 ? 9:6))%8}
+        if animal=="Dragon" {return Int(m.flightPhase)%8}
         if abs(m.velocity)>0.002 || m.weight(.walk)>0.12 {return Int((walkCycle ?? m.gait/(2 * .pi))*8)%8}
         let offset=Double((names[animal] ?? "").utf8.reduce(0){$0+Int($1)}%41)/10
         let blink=(m.total+offset).truncatingRemainder(dividingBy:5.3)
         if blink>4.98 && blink<5.10 {return 10}
-        if blink>=5.10 && blink<5.22 {return 11}
-        return 8+Int(m.total*(animal=="Cow" ? 0.75:1.0))%2
+        return 8
     }
     static func draw(animal:String,motion m:CompanionMotion,in rect:CGRect,reducedMotion:Bool=false) {
         guard let context=NSGraphicsContext.current?.cgContext,let atlas=rig(animal) else{return}

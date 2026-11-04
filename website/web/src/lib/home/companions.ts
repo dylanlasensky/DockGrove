@@ -10,7 +10,7 @@ export interface Companion {
 }
 
 export const COMPANIONS: readonly Companion[] = [
-  { file: "miso", ariaName: "Miso", heading: "Miso", tagline: "Siamese curiosity" },
+  { file: "miso", ariaName: "Cream cat", heading: "Cream cat", tagline: "Siamese curiosity" },
   { file: "black-cat", ariaName: "Tuxedo cat", heading: "Tuxedo cat", tagline: "White paws, midnight mischief" },
   { file: "orange-cat", ariaName: "Orange cat", heading: "Orange cat", tagline: "A warm-hearted tabby" },
   { file: "golden-dog", ariaName: "Golden retriever", heading: "Golden retriever", tagline: "Always happy to see you" },

@@ -350,13 +350,14 @@ struct NotchShelfView: View {
     @State private var query = ""
     @State private var page = 0
     @State private var forward = true
+    private var search: String { AppSearchIndex.fold(query) }
     private var widgets: [ToolKind] {
-        model.notchWidgets.filter { $0 != .files && (query.isEmpty || $0.title.localizedCaseInsensitiveContains(query)) }
+        model.notchWidgets.filter { $0 != .files && (search.isEmpty || AppSearchIndex.fold($0.title).contains(search)) }
     }
     private var items: [Item] {
         if controller.showingFiles { return NotchTrayItem.items(model: model, kit: model.toolkit).map(Item.tray) }
         let found = widgets.map(Item.widget)
-        return (query.isEmpty ? [.home] : []) + (found.isEmpty ? [.noMatches] : found)
+        return (search.isEmpty ? [.home] : []) + (found.isEmpty ? [.noMatches] : found)
     }
     private var spacing: CGFloat { controller.showingFiles ? 10 : 14 }
     private func width(_ item: Item) -> CGFloat {

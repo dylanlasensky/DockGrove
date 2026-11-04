@@ -9,6 +9,7 @@ func runCompanionMotionTests() {
         for _ in 0..<18000 {
             let prior=a
             a.advance(1.0/60,animal:name,resting:false);b.advance(1.0/60,animal:name,resting:false)
+            precondition(a.flightPhase >= prior.flightPhase && a.flightPhase-prior.flightPhase <= 9.0/60 + 0.00001, "Wing phase must never skip when speed changes")
             precondition(abs(a.x-prior.x)<0.004 && abs(a.heading-prior.heading)<0.45)
             precondition(abs(a.velocity-prior.velocity)<0.03,"Acceleration must ease")
             if a.facing != prior.facing {precondition(abs(prior.velocity)<0.002,"Turn only after braking")}

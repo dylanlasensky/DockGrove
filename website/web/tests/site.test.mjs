@@ -77,6 +77,8 @@ test('recover page posts email, never in the URL',()=>{
 
 test('home redesign keeps all companions, interactive previews and the marketing checkout gate',()=>{
  assert.equal(fs.readdirSync(path.join(out,'assets/companions')).length,9);
+ assert(html.includes('Show Cream cat') && !html.includes('Show Miso'),'Descriptive display name with the existing sprite asset');
+ assert(fs.existsSync(path.join(out,'assets/companions/miso.png')),'Legacy asset identity stays stable');
  assert(html.includes('Everything within reach.') && html.includes('Meet all nine companions'));
  assert(html.includes('Sample data') && html.includes('API spend is separate'));
  assert(html.includes('Coming soon') && html.includes('Commercial release in preparation'));

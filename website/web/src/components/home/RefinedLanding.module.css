@@ -92,10 +92,17 @@
 .petStrip{gap:6px}.petStrip button{min-height:44px}
 .petStrip button.selectedPet>div{transform:none}
 .petStatus{font-size:12px}
-.dragon{animation:dragonHover 14s ease-in-out infinite}
-.cardImage .dragon,.petStrip .dragon{animation:none}
-.page[data-motion="off"] .dragon{animation-play-state:paused!important}
-@keyframes dragonHover{0%,100%{transform:translate(-3px,1px)}25%{transform:translate(2px,-2px)}50%{transform:translate(4px,0)}75%{transform:translate(0,-3px)}}
+/* Stable idle art: no walk-cycle silhouettes or changing body proportions.
+   Independent eased axes keep the dragon drifting without stopping at corners. */
+.pet{transform-origin:50% 85%;animation:petBreathe 3.5s ease-in-out infinite,petBlink 5.3s steps(1,end) infinite;animation-play-state:paused}
+.pet[data-active="true"]{animation-play-state:running}
+.dragon{animation:dragonSway 7s ease-in-out infinite alternate,dragonLift 3.8s ease-in-out infinite alternate;animation-play-state:paused}
+.cardImage .pet,.petStrip .pet{animation:none}
+.page[data-motion="off"] .pet{animation-play-state:paused!important}
+@keyframes petBreathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.012)}}
+@keyframes petBlink{0%,94%,98%,100%{background-position:0 66.6667%}95%{background-position:66.6667% 66.6667%}}
+@keyframes dragonSway{from{transform:translateX(-3px)}to{transform:translateX(3px)}}
+@keyframes dragonLift{from{translate:0 1px}to{translate:0 -3px}}
 @media(max-width:1000px){.workspaceDocks .cpu{display:none}.workspaceDocks .apps img{width:36px;height:36px}.workspaceDocks .apps{gap:5px}}
 @media(max-width:760px){
   .header{height:68px}.page section{scroll-margin-top:68px}
