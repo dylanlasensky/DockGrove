@@ -130,3 +130,19 @@
 
 @media(min-width:761px) and (max-width:1000px){.stage .cpu{display:none}.workspaceDocks .apps img:nth-child(n+4){display:none}}
 @media(max-width:360px){.actions{gap:10px}.actions .button{padding:12px 15px;font-size:11px;white-space:nowrap}.playLink{font-size:10px;white-space:nowrap;gap:6px}}
+
+.windowControl{position:relative;flex-shrink:0;color:inherit}
+.cubeButton{display:grid;place-items:center;width:42px;height:48px;border:1px solid #ffffff20;border-radius:11px;background:#ffffff10;color:inherit}
+.cubeButton svg{width:27px;height:27px}.cubeButton:hover{background:#ffffff20}
+.windowPreview{position:absolute;right:0;top:calc(100% + 16px);z-index:20;width:min(340px,calc(100vw - 48px));padding:15px;border-radius:17px;background:#202936;color:#f8fafc;border:1px solid #ffffff30;box-shadow:0 22px 60px #07111e66;white-space:normal;text-align:left;line-height:1.4}
+.windowPreview>header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.windowPreview header b{font-size:14px}.windowPreview header button{background:transparent;border:0;color:inherit;font-size:23px;min-width:36px;min-height:36px}
+.windowPreview input{width:100%;min-height:40px;padding:8px 10px;border:1px solid #ffffff26;border-radius:8px;background:#ffffff0a;color:inherit;font:inherit;font-size:12px;outline-offset:2px}
+.windowFilters{display:flex;gap:5px;margin:10px 0}.windowFilters button{flex:1;border:0;border-radius:7px;min-height:34px;background:#ffffff0b;color:#bfcbdc;font:inherit;font-size:11px}.windowFilters button[aria-pressed="true"]{background:#ffffff22;color:white}
+.windowRows{display:grid;gap:6px}.windowRows>button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:0;background:#ffffff09;color:inherit;border-radius:9px;padding:10px;text-align:left;min-height:52px}.windowRows b{display:block;font-size:12px;font-weight:500}.windowRows small{display:block;font-size:10px;color:#a9b8ca;margin-top:3px}.windowRows em{font-style:normal;font-size:9px;color:#a9b8ca}.windowPreview>p,.windowRows>p{font-size:10px;color:#adbdcf;margin-top:10px;max-width:none!important}
+.cardImage .windowControl{display:none}.workspaceDocks{overflow:visible}
+@media(min-width:761px) and (max-width:1000px){.stage .apps img:nth-child(5){display:none}}
+@media(max-width:760px){.stage .apps img:nth-child(3){display:none}.cubeButton{width:34px;height:44px;border-radius:9px}.cubeButton svg{width:24px;height:24px}.workspaceDocks .apps img:nth-child(3){display:none}.windowPreview{right:-3px}.windowPreview input{font-size:16px}}
+@media(max-width:360px){.cubeButton{width:30px}.stage>.dock{gap:5px}.workspaceDocks .apps img{width:26px;height:26px}.workspaceDocks>.dock{gap:5px;padding:7px}.workspaceDocks .usage{width:94px;min-width:94px}}
+
+.workspaceDocks .windowPreview{top:auto;bottom:calc(100% + 16px)}
+@media(max-width:360px){.workspaceDocks .apps img:nth-child(n+2){display:none}}

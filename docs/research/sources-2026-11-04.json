@@ -1,0 +1,3327 @@
+{
+  "reviewed_on": "2026-11-04",
+  "unique_source_count": 222,
+  "raw_source_count": 224,
+  "deduplicated_urls": [
+    "https://www.apple.com/macbook-air/",
+    "https://www.apple.com/accessibility/"
+  ],
+  "methodology": "Sources substantively reviewed through official web pages, official DocC data, or direct first-person issue/feedback pages. Search snippets, failed fetches and localized duplicates excluded. Visual inspection explicitly distinguished. Historical reports indicate failure modes, not current defect prevalence; vendor performance claims are not independent measurements. Refero public preview only; login-gated library not reviewed.",
+  "sources": [
+    {
+      "id": "apple-001",
+      "url": "https://developer.apple.com/documentation/appkit/nsrunningapplication/activate(options:)",
+      "title": "activate(options:)",
+      "publisher": "Apple",
+      "category": "app_activation",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nsrunningapplication/activate(options:).json",
+      "review_evidence": {
+        "finding": "Activation returns a success flag and fails for exited or nonactivatable apps.",
+        "retrieved_content_sha256": "2c1a78630d0f07bec15d8c8d052440e7dd3b9b4e7b448b1deb2e008933f85c2f",
+        "retrieved_word_count": 69
+      },
+      "relevance": "App launch and foreground switching.",
+      "actionable_recommendation": "Check activation results and recover when the process exits between discovery and selection.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-002",
+      "url": "https://developer.apple.com/documentation/appkit/nsrunningapplication/activate(from:options:)",
+      "title": "activate(from:options:)",
+      "publisher": "Apple",
+      "category": "app_activation",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nsrunningapplication/activate(from:options:).json",
+      "review_evidence": {
+        "finding": "Modern activation is a request and the system may decline it; cooperative activation uses a prior yield.",
+        "retrieved_content_sha256": "428eda6087c69b50ca550e4a3b9cacded87db9d45e183828662103876ac4c08e",
+        "retrieved_word_count": 85
+      },
+      "relevance": "Reliable switching across current macOS releases.",
+      "actionable_recommendation": "Do not treat an accepted request as proof of frontmost focus; verify the resulting active app.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-003",
+      "url": "https://developer.apple.com/documentation/appkit/nsrunningapplication/unhide()",
+      "title": "unhide()",
+      "publisher": "Apple",
+      "category": "app_activation",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nsrunningapplication/unhide().json",
+      "review_evidence": {
+        "finding": "Showing a hidden app has its own success result and can fail after the target exits.",
+        "retrieved_content_sha256": "d835568459fc1078b7a138584b6c55a5891e12966a04f7ab5700abb3e94ca0c4",
+        "retrieved_word_count": 49
+      },
+      "relevance": "Hidden and minimized states differ.",
+      "actionable_recommendation": "Model unhide separately from restoring a minimized window and handle stale running-app instances.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-004",
+      "url": "https://developer.apple.com/documentation/appkit/nsrunningapplication/isactive",
+      "title": "isActive",
+      "publisher": "Apple",
+      "category": "app_activation",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nsrunningapplication/isactive.json",
+      "review_evidence": {
+        "finding": "The frontmost state is exposed as an observable property.",
+        "retrieved_content_sha256": "fde933d6627c71291020d2980b1817ab88dc0450c1ac940502486201bfe1608e",
+        "retrieved_word_count": 22
+      },
+      "relevance": "Outcome verification for switching.",
+      "actionable_recommendation": "Use frontmost state to verify switching instead of recording success immediately after a request.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-005",
+      "url": "https://developer.apple.com/documentation/appkit/nsrunningapplication/activationpolicy",
+      "title": "activationPolicy",
+      "publisher": "Apple",
+      "category": "app_activation",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nsrunningapplication/activationpolicy.json",
+      "review_evidence": {
+        "finding": "Activation policy is observable and determines whether and how an app participates in activation.",
+        "retrieved_content_sha256": "f56d25265866c9024a37b206429f87628115aa2d5f707f8fac9f3faf0541f16b",
+        "retrieved_word_count": 43
+      },
+      "relevance": "Filtering launchable running apps.",
+      "actionable_recommendation": "Filter background-only targets appropriately and refresh when activation policy changes.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-006",
+      "url": "https://developer.apple.com/documentation/appkit/nsworkspace/openapplication(at:configuration:completionhandler:)",
+      "title": "openApplication(at:configuration:completionHandler:)",
+      "publisher": "Apple",
+      "category": "app_activation",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nsworkspace/openapplication(at:configuration:completionhandler:).json",
+      "review_evidence": {
+        "finding": "The launch API reports either a running application or an error asynchronously; its callback runs on a concurrent queue.",
+        "retrieved_content_sha256": "e781c462194d774d8a03bffcffb4189d235bb70fe6d25783184de47654a1c5e0",
+        "retrieved_word_count": 164
+      },
+      "relevance": "Safe app launching and failure feedback.",
+      "actionable_recommendation": "Launch by URL, handle asynchronous errors, and return UI mutations to the main actor.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-007",
+      "url": "https://developer.apple.com/documentation/appkit/nsworkspace/openconfiguration/activates",
+      "title": "activates",
+      "publisher": "Apple",
+      "category": "app_activation",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nsworkspace/openconfiguration/activates.json",
+      "review_evidence": {
+        "finding": "Foreground activation is enabled by default in OpenConfiguration.",
+        "retrieved_content_sha256": "a6197231d22aa6355ba805ea8e2107a8e594a48e8d0e50fe3628ea551a4131cf",
+        "retrieved_word_count": 45
+      },
+      "relevance": "Predictable open-versus-background behavior.",
+      "actionable_recommendation": "Specify foreground intent deliberately for a selected app and use background opens only for explicit background actions.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-008",
+      "url": "https://developer.apple.com/documentation/appkit/nsworkspace/openconfiguration/hidesothers",
+      "title": "hidesOthers",
+      "publisher": "Apple",
+      "category": "app_activation",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nsworkspace/openconfiguration/hidesothers.json",
+      "review_evidence": {
+        "finding": "Hiding all other apps is a separate opt-in configuration and defaults off.",
+        "retrieved_content_sha256": "73bc5dd1d4fe82deed948f7cbadca366346c72fd8f23de87b16f0a884ed19c93",
+        "retrieved_word_count": 55
+      },
+      "relevance": "Avoiding unexpected desktop changes.",
+      "actionable_recommendation": "Keep hidesOthers false for normal launch or switch actions.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-009",
+      "url": "https://developer.apple.com/documentation/appkit/nsworkspace/didactivateapplicationnotification",
+      "title": "didActivateApplicationNotification",
+      "publisher": "Apple",
+      "category": "app_activation",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nsworkspace/didactivateapplicationnotification.json",
+      "review_evidence": {
+        "finding": "Activation notifications carry a running application and must be observed through the workspace notification center.",
+        "retrieved_content_sha256": "04bc28a4e071621e4b5e25eaf0c1087c5f966021ff5d961d19560c8fdef4370d",
+        "retrieved_word_count": 83
+      },
+      "relevance": "Accurate running and active indicators.",
+      "actionable_recommendation": "Subscribe to NSWorkspace.notificationCenter and reconcile active state when the notification arrives.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-010",
+      "url": "https://developer.apple.com/documentation/appkit/nsapplication/activationoptions/activateignoringotherapps",
+      "title": "activateIgnoringOtherApps",
+      "publisher": "Apple",
+      "category": "app_activation",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nsapplication/activationoptions/activateignoringotherapps.json",
+      "review_evidence": {
+        "finding": "Ignoring other apps can steal focus if activation is delayed; Apple recommends this option only rarely.",
+        "retrieved_content_sha256": "24acadf9786f080fb45f8ad0cc7eae0307954e30e470e9ac14bf6edc2f827d34",
+        "retrieved_word_count": 113
+      },
+      "relevance": "Avoiding focus theft during slow launch.",
+      "actionable_recommendation": "Avoid unconditional activateIgnoringOtherApps and test a user switching elsewhere while a launch is pending.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-011",
+      "url": "https://developer.apple.com/documentation/appkit/nsapplication/yieldactivation(to:)",
+      "title": "yieldActivation(to:)",
+      "publisher": "Apple",
+      "category": "app_activation",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nsapplication/yieldactivation(to:).json",
+      "review_evidence": {
+        "finding": "Yielding permits another app to activate later but does not itself activate or deactivate either app.",
+        "retrieved_content_sha256": "4cb15b160b77367f0fb900166fc11ecceb54cb7b6ece0dee2f3d4a190e2a54d3",
+        "retrieved_word_count": 58
+      },
+      "relevance": "Cooperative activation lifecycle.",
+      "actionable_recommendation": "Keep yield and target activation as separate steps; do not infer a foreground change from yield alone.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-012",
+      "url": "https://developer.apple.com/documentation/appkit/nsapplication/activate()",
+      "title": "activate()",
+      "publisher": "Apple",
+      "category": "app_activation",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nsapplication/activate().json",
+      "review_evidence": {
+        "finding": "NSApplication activation is not guaranteed, and reactivating an active app cancels pending yields.",
+        "retrieved_content_sha256": "7099c7392431c41fac6fe7f3d8b389b0c34baa3f95ea22c7f4c2c93502f993f4",
+        "retrieved_word_count": 56
+      },
+      "relevance": "Launcher focus handoff.",
+      "actionable_recommendation": "Avoid repeatedly reactivating the launcher after handing focus to the selected app.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-013",
+      "url": "https://developer.apple.com/documentation/applicationservices/1459186-axisprocesstrustedwithoptions",
+      "title": "AXIsProcessTrustedWithOptions(_:)",
+      "publisher": "Apple",
+      "category": "accessibility_control",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/applicationservices/1459186-axisprocesstrustedwithoptions.json",
+      "review_evidence": {
+        "finding": "The trust check reports current Accessibility authorization; prompting is asynchronous and does not change that immediate return value.",
+        "retrieved_content_sha256": "13ebf144b003362b1caba584b1e5987ebd5da76474527a442eb7d171bf5f93ba",
+        "retrieved_word_count": 104
+      },
+      "relevance": "Permission recovery after a user visits System Settings.",
+      "actionable_recommendation": "Recheck trust on return to the app, keep denied and granted states distinct, and prompt only after an explicit enable action.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-014",
+      "url": "https://developer.apple.com/documentation/appkit/nswindow/canbecomekey",
+      "title": "canBecomeKey",
+      "publisher": "Apple",
+      "category": "focus_keyboard_motion",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nswindow/canbecomekey.json",
+      "review_evidence": {
+        "finding": "Untitled windows are not eligible to become key by default, and key requests are abandoned when eligibility is false.",
+        "retrieved_content_sha256": "e18dd6ba2e5faac61d0eb62f71aad922eb3d16f3c1c67b232046ad8ed51b5a7e",
+        "retrieved_word_count": 102
+      },
+      "relevance": "Keyboard control in a borderless Dock panel.",
+      "actionable_recommendation": "Provide a deliberate key-window policy for the launcher panel and test actual key receipt after opening it.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-015",
+      "url": "https://developer.apple.com/documentation/appkit/nspanel/becomeskeyonlyifneeded",
+      "title": "becomesKeyOnlyIfNeeded",
+      "publisher": "Apple",
+      "category": "focus_keyboard_motion",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nspanel/becomeskeyonlyifneeded.json",
+      "review_evidence": {
+        "finding": "A panel can become key only when input is needed; a nonactivating panel also depends on the hit view needing key focus.",
+        "retrieved_content_sha256": "3bf5a5ea19a4534071656ebc2b872137aa833addea613726b3c79cff5897a872",
+        "retrieved_word_count": 146
+      },
+      "relevance": "Avoiding focus stealing while supporting keyboard search.",
+      "actionable_recommendation": "Separate passive hover or pointer presentation from an explicit keyboard interaction mode.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-016",
+      "url": "https://developer.apple.com/documentation/appkit/nswindow/makekeyandorderfront(_:)",
+      "title": "makeKeyAndOrderFront(_:)",
+      "publisher": "Apple",
+      "category": "focus_keyboard_motion",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nswindow/makekeyandorderfront(_:).json",
+      "review_evidence": {
+        "finding": "Showing a window and making it key are combined by makeKeyAndOrderFront, within the window level.",
+        "retrieved_content_sha256": "d127aa00d34ba91a82af7a10198501a92e24a1236d4955c2fdf4e09b473f9613",
+        "retrieved_word_count": 36
+      },
+      "relevance": "Explicit keyboard presentation.",
+      "actionable_recommendation": "Use key presentation when the user explicitly opens keyboard navigation, then restore focus after dismissal.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-017",
+      "url": "https://developer.apple.com/documentation/appkit/nswindow/orderfrontregardless()",
+      "title": "orderFrontRegardless()",
+      "publisher": "Apple",
+      "category": "focus_keyboard_motion",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nswindow/orderfrontregardless().json",
+      "review_evidence": {
+        "finding": "Ordering a window forward regardless of app activation leaves the key and main windows unchanged.",
+        "retrieved_content_sha256": "c2700d39e57cbc4a603d507dadd1484e0c2bb1ccde04f971feb490012af7f57f",
+        "retrieved_word_count": 89
+      },
+      "relevance": "Panel visibility versus input focus.",
+      "actionable_recommendation": "Do not rely on orderFrontRegardless to make arrow, Return, or Escape handling work.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-018",
+      "url": "https://developer.apple.com/documentation/appkit/nswindow/collectionbehavior-swift.struct/canjoinallspaces",
+      "title": "canJoinAllSpaces",
+      "publisher": "Apple",
+      "category": "focus_keyboard_motion",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nswindow/collectionbehavior-swift.struct/canjoinallspaces.json",
+      "review_evidence": {
+        "finding": "The collection behavior allows a window to appear in every Space.",
+        "retrieved_content_sha256": "d99172ef23764bf27435242a0b1d468b861eb18f1a4f9e0e0e015b658b1a5867",
+        "retrieved_word_count": 24
+      },
+      "relevance": "Desktop and multi-Space availability.",
+      "actionable_recommendation": "Apply the all-Spaces behavior only to the launcher surface, then test Space changes without moving target windows.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-019",
+      "url": "https://developer.apple.com/documentation/appkit/nswindow/collectionbehavior-swift.struct/fullscreenauxiliary",
+      "title": "fullScreenAuxiliary",
+      "publisher": "Apple",
+      "category": "focus_keyboard_motion",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nswindow/collectionbehavior-swift.struct/fullscreenauxiliary.json",
+      "review_evidence": {
+        "finding": "The auxiliary full-screen behavior places a window in the same Space as a full-screen window.",
+        "retrieved_content_sha256": "8d4f1f31bd1ce6bbb5fc9aeed0ceb4ddf41843afe4d205a1aef044bb4242306e",
+        "retrieved_word_count": 22
+      },
+      "relevance": "Launcher access during full-screen work.",
+      "actionable_recommendation": "Test the intended full-screen overlay behavior without forcing the selected app out of full screen.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-020",
+      "url": "https://developer.apple.com/documentation/appkit/nsresponder/keydown(with:)",
+      "title": "keyDown(with:)",
+      "publisher": "Apple",
+      "category": "focus_keyboard_motion",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nsresponder/keydown(with:).json",
+      "review_evidence": {
+        "finding": "Unconsumed key-down events flow to the next responder; event interpretation can use the input manager.",
+        "retrieved_content_sha256": "e951d35c2813538a8ba17ac59c89b32f033bf981840f4d7c38bd3b342614119c",
+        "retrieved_word_count": 55
+      },
+      "relevance": "Keyboard shortcuts and text entry.",
+      "actionable_recommendation": "Handle only launcher navigation keys and pass other events through the responder chain.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-021",
+      "url": "https://developer.apple.com/documentation/appkit/nsaccessibilityprotocol",
+      "title": "NSAccessibilityProtocol",
+      "publisher": "Apple",
+      "category": "focus_keyboard_motion",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nsaccessibilityprotocol.json",
+      "review_evidence": {
+        "finding": "Standard AppKit controls supply accessibility behavior, while custom controls need accurate properties, actions, and change notifications.",
+        "retrieved_content_sha256": "3821545f050a2d48c0dd315eca2e91000629cde2d95be20ee47ac907554e810f",
+        "retrieved_word_count": 541
+      },
+      "relevance": "VoiceOver support for custom app tiles.",
+      "actionable_recommendation": "Prefer semantic buttons and expose app names, running states, actions, and selection changes to assistive technologies.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-022",
+      "url": "https://developer.apple.com/documentation/appkit/nsworkspace/accessibilitydisplayshouldreducemotion",
+      "title": "accessibilityDisplayShouldReduceMotion",
+      "publisher": "Apple",
+      "category": "focus_keyboard_motion",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nsworkspace/accessibilitydisplayshouldreducemotion.json",
+      "review_evidence": {
+        "finding": "Reduce Motion requires avoiding large animated movements and can change while an app runs.",
+        "retrieved_content_sha256": "68d02293122a7571584e7377a4ddacbfc7edc7e233a54b2ad31b6358798fe698",
+        "retrieved_word_count": 57
+      },
+      "relevance": "Magnification, page movement, and companion animation.",
+      "actionable_recommendation": "Suppress large scale, spring, parallax, and page-travel effects when Reduce Motion is enabled.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-023",
+      "url": "https://developer.apple.com/documentation/appkit/nsworkspace/accessibilitydisplayoptionsdidchangenotification",
+      "title": "accessibilityDisplayOptionsDidChangeNotification",
+      "publisher": "Apple",
+      "category": "focus_keyboard_motion",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nsworkspace/accessibilitydisplayoptionsdidchangenotification.json",
+      "review_evidence": {
+        "finding": "Accessibility display change notifications come from NSWorkspace and contain no userInfo payload.",
+        "retrieved_content_sha256": "1ce2c2eb93dc42c55d8ab5e34073af8a13308cc64096bef7d7c2a281e702d423",
+        "retrieved_word_count": 71
+      },
+      "relevance": "Live preference recovery.",
+      "actionable_recommendation": "Observe the workspace notification center and reread all relevant accessibility display settings on every change.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-024",
+      "url": "https://developer.apple.com/documentation/swiftui/environmentvalues/accessibilityreducemotion",
+      "title": "accessibilityReduceMotion",
+      "publisher": "Apple",
+      "category": "focus_keyboard_motion",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/swiftui/environmentvalues/accessibilityreducemotion.json",
+      "review_evidence": {
+        "finding": "SwiftUI exposes the current Reduce Motion preference in its environment.",
+        "retrieved_content_sha256": "d6e86b2da76ceee1104f5aaa74d99dfd1307cca365fbfc44ff2983dd0a029dc8",
+        "retrieved_word_count": 35
+      },
+      "relevance": "SwiftUI animation gates.",
+      "actionable_recommendation": "Use the environment setting to choose instant or restrained transitions throughout the launcher views.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-025",
+      "url": "https://developer.apple.com/documentation/swiftui/view/accessibilitylabel(_:)",
+      "title": "accessibilityLabel(_:)",
+      "publisher": "Apple",
+      "category": "focus_keyboard_motion",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/swiftui/view/accessibilitylabel(_:).json",
+      "review_evidence": {
+        "finding": "Icon-only controls need descriptive accessibility labels, without repeating the button trait.",
+        "retrieved_content_sha256": "86aa7aa592cfea31038f0a18641f2029b2658eeaffd902946b25bf026f51861e",
+        "retrieved_word_count": 153
+      },
+      "relevance": "Readable launch, remove, and settings actions.",
+      "actionable_recommendation": "Label each icon with its purpose or app name, rather than generic labels such as icon or button.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-026",
+      "url": "https://developer.apple.com/documentation/swiftui/view/focusable(_:)",
+      "title": "focusable(_:)",
+      "publisher": "Apple",
+      "category": "focus_keyboard_motion",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/swiftui/view/focusable(_:).json",
+      "review_evidence": {
+        "finding": "SwiftUI allows focus eligibility to be set explicitly.",
+        "retrieved_content_sha256": "4c4166367ed8f235782188772981f56c03484342de95123c832aed22bc2820ac",
+        "retrieved_word_count": 40
+      },
+      "relevance": "Keyboard reachability of app tiles.",
+      "actionable_recommendation": "Make interactive tiles focusable and provide a visible selection state in keyboard mode.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-027",
+      "url": "https://developer.apple.com/design/human-interface-guidelines/accessibility",
+      "title": "Accessibility",
+      "publisher": "Apple",
+      "category": "human_interface_guidelines",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/design/human-interface-guidelines/accessibility.json",
+      "review_evidence": {
+        "finding": "Accessibility guidance calls for keyboard access, larger text, adequate contrast, sufficient control spacing, and redundant status cues.",
+        "retrieved_content_sha256": "364d5bab5c282fb6d34c41f14e1e8ce213bf645da9b1695eec14fba4462c2ff2",
+        "retrieved_word_count": 2544
+      },
+      "relevance": "Launcher usability beyond pointer input.",
+      "actionable_recommendation": "Audit keyboard-only and VoiceOver flows, color-independent running states, contrast on wallpapers, and enlarged text.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-028",
+      "url": "https://developer.apple.com/design/human-interface-guidelines/keyboards",
+      "title": "Keyboards",
+      "publisher": "Apple",
+      "category": "human_interface_guidelines",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/design/human-interface-guidelines/keyboards.json",
+      "review_evidence": {
+        "finding": "Apple reserves standard shortcuts and recommends Full Keyboard Access plus a small, discoverable set of custom shortcuts.",
+        "retrieved_content_sha256": "c7ea4267518958294f9eb3e681456aa02c160015e16a4fdcb1d8ca7ff37e7a78",
+        "retrieved_word_count": 2436
+      },
+      "relevance": "Keyboard switching and preferences.",
+      "actionable_recommendation": "Keep Command-Tab, Command-Q, Command-comma, Escape, Tab, and standard editing behavior consistent; expose launcher shortcuts in menus or help.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-029",
+      "url": "https://developer.apple.com/design/human-interface-guidelines/windows",
+      "title": "Windows",
+      "publisher": "Apple",
+      "category": "human_interface_guidelines",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/design/human-interface-guidelines/windows.json",
+      "review_evidence": {
+        "finding": "macOS distinguishes key, main, and inactive windows; the key window receives input, and Dock switching normally keys the most recently accessed window.",
+        "retrieved_content_sha256": "a0babe5ae7411466e26fe968302d096bb3a6ac9b56d888859d17b7697c5858cf",
+        "retrieved_word_count": 2429
+      },
+      "relevance": "Correct focus and window selection.",
+      "actionable_recommendation": "Track the intended target window independently from the active application and show clear keyboard focus in custom panels.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-030",
+      "url": "https://developer.apple.com/design/human-interface-guidelines/panels",
+      "title": "Panels",
+      "publisher": "Apple",
+      "category": "human_interface_guidelines",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/design/human-interface-guidelines/panels.json",
+      "review_evidence": {
+        "finding": "Panels are supplemental, should remain compact, and generally use direct controls; ordinary panels hide when their app becomes inactive.",
+        "retrieved_content_sha256": "d299f8552934c164b1ad6c6de247daef013747cd9580ac6c72237d67e0943689",
+        "retrieved_word_count": 837
+      },
+      "relevance": "Settings and customization surfaces.",
+      "actionable_recommendation": "Use a normal settings window for persistent configuration; keep transient launcher controls concise and clearly titled.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-031",
+      "url": "https://developer.apple.com/design/human-interface-guidelines/motion",
+      "title": "Motion",
+      "publisher": "Apple",
+      "category": "human_interface_guidelines",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/design/human-interface-guidelines/motion.json",
+      "review_evidence": {
+        "finding": "Motion should be purposeful, brief, optional, and interruptible, particularly for frequent interactions.",
+        "retrieved_content_sha256": "44ff1d53b86def708907213b902751a1d64035a144980be1b7af911ac5e398f0",
+        "retrieved_word_count": 1162
+      },
+      "relevance": "A calm DockGrove interaction style.",
+      "actionable_recommendation": "Let clicks and switching proceed immediately; avoid making animation completion a prerequisite for action.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-032",
+      "url": "https://developer.apple.com/design/human-interface-guidelines/buttons",
+      "title": "Buttons",
+      "publisher": "Apple",
+      "category": "human_interface_guidelines",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/design/human-interface-guidelines/buttons.json",
+      "review_evidence": {
+        "finding": "Buttons need clear meaning, press feedback, space around them, and a restrained hierarchy of prominent actions.",
+        "retrieved_content_sha256": "ef8b22105caf2d8aa08859ca23cb631a9a70dc8448fca645e40ebf9d2b176027",
+        "retrieved_word_count": 2622
+      },
+      "relevance": "App tiles and download actions.",
+      "actionable_recommendation": "Use real buttons with hover, pressed, focus, and disabled states; make Download the primary website action.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-033",
+      "url": "https://developer.apple.com/design/human-interface-guidelines/menus",
+      "title": "Menus",
+      "publisher": "Apple",
+      "category": "human_interface_guidelines",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/design/human-interface-guidelines/menus.json",
+      "review_evidence": {
+        "finding": "Menu labels should state the action, group related commands, indicate unavailable commands, and reveal shortcuts.",
+        "retrieved_content_sha256": "10a8945353957f8f71bbe2ef98c9dc89ca8b0dfbe59aa0d43c346ad000c0d872",
+        "retrieved_word_count": 2281
+      },
+      "relevance": "App context menus and menu bar recovery.",
+      "actionable_recommendation": "Use concise actions such as Open, Reveal in Finder, and Remove from DockGrove, with clear disabled states.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-034",
+      "url": "https://developer.apple.com/design/human-interface-guidelines/drag-and-drop",
+      "title": "Drag and drop",
+      "publisher": "Apple",
+      "category": "human_interface_guidelines",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/design/human-interface-guidelines/drag-and-drop.json",
+      "review_evidence": {
+        "finding": "Drag operations need continuous destination feedback, cancellation or reversal, and alternative ways to achieve the same result.",
+        "retrieved_content_sha256": "eaa7fac04cf5166f5047a74dc6e2c2d852d0efe5f6f22302c0bae7b3a2289875",
+        "retrieved_word_count": 2258
+      },
+      "relevance": "Cross-page app reordering.",
+      "actionable_recommendation": "Show insertion previews and provide menu or keyboard move actions so reordering is not drag-only.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-035",
+      "url": "https://developer.apple.com/design/human-interface-guidelines/inclusion",
+      "title": "Inclusion",
+      "publisher": "Apple",
+      "category": "human_interface_guidelines",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/design/human-interface-guidelines/inclusion.json",
+      "review_evidence": {
+        "finding": "Inclusive writing uses direct, plain language and makes onboarding approachable without requiring specialist knowledge.",
+        "retrieved_content_sha256": "20b8b654188a3241cd07a2052d69b00f17e4ed2468bdcdd188e5319b7f246cfd",
+        "retrieved_word_count": 2203
+      },
+      "relevance": "Permissions and setup copy.",
+      "actionable_recommendation": "Explain Accessibility in terms of selecting and restoring windows; offer clear next steps and a usable path when permission is declined.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-036",
+      "url": "https://developer.apple.com/design/human-interface-guidelines/materials",
+      "title": "Materials",
+      "publisher": "Apple",
+      "category": "human_interface_guidelines",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/design/human-interface-guidelines/materials.json",
+      "review_evidence": {
+        "finding": "Materials express functional hierarchy; effects should be used sparingly, semantically, and with readable foreground content.",
+        "retrieved_content_sha256": "beefec5ac27148a82caa50367efa809d8f6964e423cdcfe77b7ae93be7d10d0c",
+        "retrieved_word_count": 1716
+      },
+      "relevance": "Restrained translucent launcher styling.",
+      "actionable_recommendation": "Keep translucency concentrated in the launcher surface, preserve opaque readable text layers, and honor contrast or transparency settings.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-037",
+      "url": "https://developer.apple.com/design/human-interface-guidelines/color",
+      "title": "Color",
+      "publisher": "Apple",
+      "category": "human_interface_guidelines",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/design/human-interface-guidelines/color.json",
+      "review_evidence": {
+        "finding": "Color meanings should remain consistent and work across light, dark, and increased-contrast appearances.",
+        "retrieved_content_sha256": "44edb248154b70f187d99aae4d63b779bd4ff4423565ba3ea0a9f92657fc9308",
+        "retrieved_word_count": 3118
+      },
+      "relevance": "Black, gray, white, and limited-blue identity.",
+      "actionable_recommendation": "Reserve blue for actions or selection, pair status colors with shapes or text, and test against bright and dark wallpapers.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-038",
+      "url": "https://developer.apple.com/design/human-interface-guidelines/typography",
+      "title": "Typography",
+      "publisher": "Apple",
+      "category": "human_interface_guidelines",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/design/human-interface-guidelines/typography.json",
+      "review_evidence": {
+        "finding": "Typography guidance favors legible regular or stronger weights, few typefaces, and clear hierarchy that survives text size changes.",
+        "retrieved_content_sha256": "5416f03ae3676aff35f48998d8c0d81d33016d3b7b1eed3eec185a8d81f18b69",
+        "retrieved_word_count": 5947
+      },
+      "relevance": "Launcher captions, preferences, and website.",
+      "actionable_recommendation": "Use system typography, readable labels, restrained headline sizes, and test zoom or larger text without clipped actions.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-039",
+      "url": "https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution",
+      "title": "Notarizing macOS software before distribution",
+      "publisher": "Apple",
+      "category": "distribution",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/security/notarizing-macos-software-before-distribution.json",
+      "review_evidence": {
+        "finding": "Direct distribution notarization checks Developer ID signatures and malicious content; it is distinct from App Review and requires hardened runtime.",
+        "retrieved_content_sha256": "e8ca6e613c750f8274c082895241fac9496f903b0c06826332743247be2630f3",
+        "retrieved_word_count": 1544
+      },
+      "relevance": "Honest public download trust claims.",
+      "actionable_recommendation": "Publish a download only after signing, notarization, and ticket validation; describe the exact verified status without claiming App Store review.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-040",
+      "url": "https://developer.apple.com/documentation/security/customizing-the-notarization-workflow",
+      "title": "Customizing the notarization workflow",
+      "publisher": "Apple",
+      "category": "distribution",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/security/customizing-the-notarization-workflow.json",
+      "review_evidence": {
+        "finding": "The custom workflow uses notarytool, accepts supported containers, and requires stapling to the app before recreating a ZIP.",
+        "retrieved_content_sha256": "30eb30c6518321ab8574604dbc0e27991f95dd64638cd9fdf977643e53f709ed",
+        "retrieved_word_count": 1518
+      },
+      "relevance": "Repeatable release packaging.",
+      "actionable_recommendation": "Automate submission, inspect the result log, staple the app, and rebuild the final archive after stapling.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-041",
+      "url": "https://developer.apple.com/documentation/security/resolving-common-notarization-issues",
+      "title": "Resolving common notarization issues",
+      "publisher": "Apple",
+      "category": "distribution",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/security/resolving-common-notarization-issues.json",
+      "review_evidence": {
+        "finding": "Notarization failures require inspecting logs and validating signatures, timestamps, certificate type, and release entitlements.",
+        "retrieved_content_sha256": "497f5483ac0b868831ba8fca03e87fac86f5c1026048f30ff6b40b6477c94328",
+        "retrieved_word_count": 1792
+      },
+      "relevance": "Release gate evidence.",
+      "actionable_recommendation": "Check strict signature validity and Gatekeeper assessment on the exact delivered app, not only the build output.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-042",
+      "url": "https://developer.apple.com/documentation/xcode/packaging-mac-software-for-distribution",
+      "title": "Packaging Mac software for distribution",
+      "publisher": "Apple",
+      "category": "distribution",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/xcode/packaging-mac-software-for-distribution.json",
+      "review_evidence": {
+        "finding": "ZIP, DMG, and installer formats have different integrity properties; unstapled products can fail offline and should be tested outside the development environment.",
+        "retrieved_content_sha256": "9f09f9fe436f7189e84754d59c287c4f5179b841cc8e1e9898786769fd94f78d",
+        "retrieved_word_count": 1783
+      },
+      "relevance": "Download format and installation reliability.",
+      "actionable_recommendation": "Ship a simple signed single-app package, staple where supported, and validate a downloaded copy in fresh-install and upgrade scenarios.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-043",
+      "url": "https://developer.apple.com/documentation/xcode/creating-distribution-signed-code-for-the-mac",
+      "title": "Creating distribution-signed code for macOS",
+      "publisher": "Apple",
+      "category": "distribution",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/xcode/creating-distribution-signed-code-for-the-mac.json",
+      "review_evidence": {
+        "finding": "Distribution signing identifies code and governs identity used for privacy access; App Store and Developer ID variants have different default requirements.",
+        "retrieved_content_sha256": "0c0be648f9a96e49aab7532799d649ada6027e96f9170bbfcfff1b4e78e9ccc4",
+        "retrieved_word_count": 2525
+      },
+      "relevance": "Permission continuity across updates.",
+      "actionable_recommendation": "Keep distribution identity and bundle identifiers stable, and test permission recovery on upgrades instead of assuming development authorization transfers.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-044",
+      "url": "https://developer.apple.com/documentation/xcode/configuring-the-hardened-runtime",
+      "title": "Configuring the hardened runtime",
+      "publisher": "Apple",
+      "category": "distribution",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/xcode/configuring-the-hardened-runtime.json",
+      "review_evidence": {
+        "finding": "Hardened runtime is required for notarization and exceptions should be limited to functionality the app actually needs.",
+        "retrieved_content_sha256": "b286e4255fceb6042cd58a4e9b76b21dd26f90aa480f6273a131d46363a64d93",
+        "retrieved_word_count": 737
+      },
+      "relevance": "Minimal safe release configuration.",
+      "actionable_recommendation": "Enable hardened runtime and avoid broad runtime exceptions that the launcher does not require.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-045",
+      "url": "https://support.apple.com/guide/mac-help/open-apps-from-the-dock-mh35859/mac",
+      "title": "Use the Dock on Mac - Apple Support",
+      "publisher": "Apple",
+      "category": "mac_user_behavior",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; official HTML retrieved and article content inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://support.apple.com/guide/mac-help/open-apps-from-the-dock-mh35859/mac",
+      "review_evidence": {
+        "finding": "The system Dock supports click to open, context actions, alias-only removal, keyboard arrow navigation, and Return activation.",
+        "retrieved_content_sha256": "ed28aaf5572a431d8a1095d4cc07cfc0036b719e9161d57a2f140d1eb023ae29",
+        "retrieved_word_count": 776
+      },
+      "relevance": "Expected Dock interaction vocabulary.",
+      "actionable_recommendation": "Retain discoverable keyboard navigation and clearly communicate that removing a tile does not uninstall its app.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-046",
+      "url": "https://support.apple.com/en-us/102650",
+      "title": "Mac keyboard shortcuts - Apple Support",
+      "publisher": "Apple",
+      "category": "mac_user_behavior",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; official HTML retrieved and article content inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://support.apple.com/en-us/102650",
+      "review_evidence": {
+        "finding": "Apple distinguishes app switching, window switching, hiding, minimizing, and focus navigation, with established keyboard commands for each.",
+        "retrieved_content_sha256": "7b424e25238e13d645ed88ae6a45d5a00fb130c83b89752c5ddb25b45a995068",
+        "retrieved_word_count": 3349
+      },
+      "relevance": "Keyboard behavior and help text.",
+      "actionable_recommendation": "Test Escape cancellation, arrow navigation, Return selection, and keyboard-layout differences without repurposing system shortcuts.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-047",
+      "url": "https://support.apple.com/guide/mac-help/change-desktop-dock-settings-mchlp1119/mac",
+      "title": "Change Desktop & Dock settings on Mac - Apple Support",
+      "publisher": "Apple",
+      "category": "mac_user_behavior",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; official HTML retrieved and article content inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://support.apple.com/guide/mac-help/change-desktop-dock-settings-mchlp1119/mac",
+      "review_evidence": {
+        "finding": "Dock settings distinguish minimized windows inside app icons from separate Dock items; Mission Control settings control Space switching and display behavior.",
+        "retrieved_content_sha256": "ebfbbfc06a0880278e110cee7526171b1402ae29518e1d71b2bca064267e2e27",
+        "retrieved_word_count": 1334
+      },
+      "relevance": "Compatibility matrix for restore and multi-display behavior.",
+      "actionable_recommendation": "Test both minimize destinations, separate-Spaces settings, Dock edges, auto-hide, and Stage Manager combinations.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-048",
+      "url": "https://support.apple.com/guide/mac-help/work-with-app-windows-mchlp2469/mac",
+      "title": "Move and arrange app windows on Mac - Apple Support",
+      "publisher": "Apple",
+      "category": "mac_user_behavior",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; official HTML retrieved and article content inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://support.apple.com/guide/mac-help/work-with-app-windows-mchlp2469/mac",
+      "review_evidence": {
+        "finding": "Closing windows leaves an app running; minimizing, hiding, quitting, and switching are different operations.",
+        "retrieved_content_sha256": "8f38784bf72a3295b7e9081242dfde96842060ffd9ba5c1dbf7b109d885126f8",
+        "retrieved_word_count": 792
+      },
+      "relevance": "Reliable app/window state model.",
+      "actionable_recommendation": "Test open-with-no-windows, one minimized window, all minimized windows, hidden app, and terminated app as distinct cases.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-049",
+      "url": "https://support.apple.com/guide/mac-help/allow-accessibility-apps-to-access-your-mac-mh43185/mac",
+      "title": "Allow accessibility apps to access your Mac - Apple Support",
+      "publisher": "Apple",
+      "category": "mac_user_behavior",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; official HTML retrieved and article content inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://support.apple.com/guide/mac-help/allow-accessibility-apps-to-access-your-mac-mh43185/mac",
+      "review_evidence": {
+        "finding": "Users explicitly grant Accessibility under Privacy & Security, can later reverse denial, and may need to add the app manually if absent.",
+        "retrieved_content_sha256": "a1763cc0f3dcfa987091cdb5a076efd8985896be865615b42e8954d9bf26868f",
+        "retrieved_word_count": 322
+      },
+      "relevance": "Permission onboarding and recovery.",
+      "actionable_recommendation": "Provide a clear settings path, a refresh or return check, and a manual add-app instruction without implying access is already granted.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-050",
+      "url": "https://support.apple.com/en-us/102445",
+      "title": "Safely open apps on your Mac - Apple Support",
+      "publisher": "Apple",
+      "category": "mac_user_behavior",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; official HTML retrieved and article content inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://support.apple.com/en-us/102445",
+      "review_evidence": {
+        "finding": "Gatekeeper verifies developer identity and notarization for downloaded apps; first launch can require consent even for trusted software.",
+        "retrieved_content_sha256": "5a22db658e4bf15d9b9f8eec99466b67fb633c9d29de8444265aaa882c5ba371",
+        "retrieved_word_count": 1221
+      },
+      "relevance": "Safe installation messaging.",
+      "actionable_recommendation": "Explain the expected first-launch confirmation and solve release signing rather than instructing users to disable system protections.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-051",
+      "url": "https://support.apple.com/guide/mac-help/work-in-multiple-spaces-mh14112/mac",
+      "title": "Work in multiple spaces on Mac - Apple Support",
+      "publisher": "Apple",
+      "category": "mac_user_behavior",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; official HTML retrieved and article content inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://support.apple.com/guide/mac-help/work-in-multiple-spaces-mh14112/mac",
+      "review_evidence": {
+        "finding": "Apps and windows may be assigned to Spaces, full-screen apps occupy their own Space, and automatic Space switching is user-configurable.",
+        "retrieved_content_sha256": "1dfa365d37a5d3982a9315ab72569f2481792fd04e533a4835a73d2d23143e4e",
+        "retrieved_word_count": 690
+      },
+      "relevance": "Correct cross-Space activation.",
+      "actionable_recommendation": "Respect the system setting and test switching from another Space, a full-screen app, and a second display.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-052",
+      "url": "https://support.apple.com/guide/mac-help/open-items-automatically-when-you-log-in-mh15189/mac",
+      "title": "Open items automatically when you log in on Mac - Apple Support",
+      "publisher": "Apple",
+      "category": "mac_user_behavior",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; official HTML retrieved and article content inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://support.apple.com/guide/mac-help/open-items-automatically-when-you-log-in-mh15189/mac",
+      "review_evidence": {
+        "finding": "Login Items settings distinguish opening at login from allowing an app to perform background work.",
+        "retrieved_content_sha256": "e64c74aba0b562929a42d8d49f64d5c2ca588c8f77550601146accaf3bc07fb6",
+        "retrieved_word_count": 325
+      },
+      "relevance": "Launch-at-login preferences and support.",
+      "actionable_recommendation": "Make startup behavior opt-in and show its actual current registration state with a clear removal path.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-053",
+      "url": "https://www.apple.com/macos/",
+      "title": "OS - macOS 27 Golden Gate - Apple",
+      "publisher": "Apple",
+      "category": "product_web_and_trust",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; official HTML retrieved and article content inspected",
+      "review_scope": "Textual structure, headings, feature grouping, actions, and setup links; no visual screenshot audit",
+      "retrieval_url": "https://www.apple.com/macos/",
+      "review_evidence": {
+        "finding": "The product page organizes a short main promise, grouped feature demonstrations, and details or availability notes below each story.",
+        "retrieved_content_sha256": "48ac7056100ede18c1fdff442fadb5667d5032be1afc19937554f652ab8fd9d5",
+        "retrieved_word_count": 1514
+      },
+      "relevance": "Editorial structure for the DockGrove landing page.",
+      "actionable_recommendation": "Lead with the real launcher visual and one clear promise, then demonstrate a few tested benefits with availability details beside claims.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-054",
+      "url": "https://www.apple.com/macbook-air/",
+      "title": "MacBook Air 13-inch and MacBook Air 15-inch - Apple",
+      "publisher": "Apple",
+      "category": "product_web_and_trust",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; official HTML retrieved and article content inspected",
+      "review_scope": "Textual structure, headings, feature grouping, actions, and setup links; no visual screenshot audit",
+      "retrieval_url": "https://www.apple.com/macbook-air/",
+      "review_evidence": {
+        "finding": "The MacBook Air page separates an immediate product identity and action from a concise highlights section and deeper product stories.",
+        "retrieved_content_sha256": "38d3c22b63f6ec5b910f1833de8ed1c85cd532d87abbd841b53ec227c6dc1bac",
+        "retrieved_word_count": 3111
+      },
+      "relevance": "Product-led website hierarchy.",
+      "actionable_recommendation": "Keep the product preview and Download visible early, then reveal customization and workflow details progressively.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-055",
+      "url": "https://www.apple.com/accessibility/",
+      "title": "Accessibility - Apple",
+      "publisher": "Apple",
+      "category": "product_web_and_trust",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; official HTML retrieved and article content inspected",
+      "review_scope": "Textual structure, headings, feature grouping, actions, and setup links; no visual screenshot audit",
+      "retrieval_url": "https://www.apple.com/accessibility/",
+      "review_evidence": {
+        "finding": "The accessibility page groups features by concrete abilities and links each feature to platform-specific setup.",
+        "retrieved_content_sha256": "f2e8700a3d04332b712179fd48d4b346f30b2bc1c4295ede9447ef9f46bd1c6a",
+        "retrieved_word_count": 1917
+      },
+      "relevance": "Accessibility benefits and support content.",
+      "actionable_recommendation": "Explain exactly how keyboard access, labels, and reduced motion help, and link to practical setup instructions.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-056",
+      "url": "https://developer.apple.com/news/?id=saqachfa",
+      "title": "Updates to runtime protection in macOS\u00a0Sequoia - Latest News - Apple Developer",
+      "publisher": "Apple",
+      "category": "product_web_and_trust",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; official HTML retrieved and article content inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/news/?id=saqachfa",
+      "review_evidence": {
+        "finding": "Apple removed the Control-click Gatekeeper override path in Sequoia in favor of Privacy & Security review.",
+        "retrieved_content_sha256": "18009fdb3e8260298a0c59dcde4a92f31456ce6c8ad76cf71894b833cb8696a7",
+        "retrieved_word_count": 120
+      },
+      "relevance": "Accurate installation instructions.",
+      "actionable_recommendation": "Remove old right-click-to-bypass advice and prioritize a properly signed, notarized release.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-057",
+      "url": "https://developer.apple.com/help/account/certificates/create-developer-id-certificates",
+      "title": "Developer ID certificates - Certificates - Account - Help - Apple Developer",
+      "publisher": "Apple",
+      "category": "product_web_and_trust",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; official HTML retrieved and article content inspected",
+      "review_scope": "Focused review of best practices and macOS or task-relevant sections",
+      "retrieval_url": "https://developer.apple.com/help/account/certificates/create-developer-id-certificates",
+      "review_evidence": {
+        "finding": "Developer ID Application and Installer certificates have distinct uses; certificate creation is tied to account roles and certificate state matters for installation.",
+        "retrieved_content_sha256": "92376698701a0f74ba1cb27d93d6dafc2742b6b9e6fbb07e92f50d51e2db2c43",
+        "retrieved_word_count": 1102
+      },
+      "relevance": "Owner-controlled release preparation.",
+      "actionable_recommendation": "Document missing signing prerequisites for the owner; do not create or revoke certificates as part of read-only research.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-058",
+      "url": "https://developer.apple.com/documentation/applicationservices/1462085-axuielementcopyattributevalue",
+      "title": "AXUIElementCopyAttributeValue(_:_:_:)",
+      "publisher": "Apple",
+      "category": "accessibility_window_reliability",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/applicationservices/1462085-axuielementcopyattributevalue.json",
+      "review_evidence": {
+        "finding": "Attribute reads can fail because data is unsupported, missing, stale, or a target cannot finish messaging.",
+        "retrieved_content_sha256": "4dcc4c6998f548aabd5cc09cb93a9a009bf03cbda55a5f763d3c4474fd12cf40",
+        "retrieved_word_count": 121
+      },
+      "relevance": "Resilient window enumeration.",
+      "actionable_recommendation": "Treat unsupported and no-value results as capabilities or missing data, refresh stale elements, and preserve meaningful failure states.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-059",
+      "url": "https://developer.apple.com/documentation/applicationservices/1460434-axuielementsetattributevalue",
+      "title": "AXUIElementSetAttributeValue(_:_:_:)",
+      "publisher": "Apple",
+      "category": "accessibility_window_reliability",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/applicationservices/1460434-axuielementsetattributevalue.json",
+      "review_evidence": {
+        "finding": "Accessibility writes return explicit errors and support varied Core Foundation value types.",
+        "retrieved_content_sha256": "17cde6b2ff61475379964a7b968b92ce535b22a3a7ffb2c8d5849ddb6b24329e",
+        "retrieved_word_count": 142
+      },
+      "relevance": "Safe minimized-state restoration.",
+      "actionable_recommendation": "Write a correctly typed Boolean only after capability checks and verify the resulting minimized state.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-060",
+      "url": "https://developer.apple.com/documentation/applicationservices/1459972-axuielementisattributesettable",
+      "title": "AXUIElementIsAttributeSettable(_:_:_:)",
+      "publisher": "Apple",
+      "category": "accessibility_window_reliability",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/applicationservices/1459972-axuielementisattributesettable.json",
+      "review_evidence": {
+        "finding": "Attribute mutability must be queried; a communication timeout may warrant a bounded repeat or timeout adjustment.",
+        "retrieved_content_sha256": "aa56c0306b39154296a546933139e1bf1f6bcfc17e319d59db28ecc1b5df44d8",
+        "retrieved_word_count": 152
+      },
+      "relevance": "Restore support varies across apps.",
+      "actionable_recommendation": "Check whether minimized, main, or focused attributes are settable and avoid repeated unsupported writes.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-061",
+      "url": "https://developer.apple.com/documentation/applicationservices/1462091-axuielementperformaction",
+      "title": "AXUIElementPerformAction(_:_:)",
+      "publisher": "Apple",
+      "category": "accessibility_window_reliability",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/applicationservices/1462091-axuielementperformaction.json",
+      "review_evidence": {
+        "finding": "An accessibility action can time out while the target is still processing, so cannotComplete does not prove the action failed.",
+        "retrieved_content_sha256": "9cdf8b7b734542127c3f1c03d78d8f8efae5436bd8a9d4f07fdae8900f6ddb83",
+        "retrieved_word_count": 199
+      },
+      "relevance": "Reliable window raising.",
+      "actionable_recommendation": "After a raise timeout, reread state before a bounded retry and distinguish unsupported actions from transient communication failure.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-062",
+      "url": "https://developer.apple.com/documentation/applicationservices/1459345-axuielementsetmessagingtimeout",
+      "title": "AXUIElementSetMessagingTimeout(_:_:)",
+      "publisher": "Apple",
+      "category": "accessibility_window_reliability",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/applicationservices/1459345-axuielementsetmessagingtimeout.json",
+      "review_evidence": {
+        "finding": "Accessibility timeouts can be global or element-specific; equal object handles do not automatically share per-element settings.",
+        "retrieved_content_sha256": "b84d6681b93378f24fd5f0a0738db39cd8277f133dcbd82aeb797320f548c206",
+        "retrieved_word_count": 153
+      },
+      "relevance": "Keeping app switching responsive.",
+      "actionable_recommendation": "Use bounded per-operation timeouts off the UI path and avoid global timeout changes that make all actions slow.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-063",
+      "url": "https://developer.apple.com/documentation/applicationservices/1460133-axobservercreate",
+      "title": "AXObserverCreate(_:_:_:)",
+      "publisher": "Apple",
+      "category": "accessibility_window_reliability",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/applicationservices/1460133-axobservercreate.json",
+      "review_evidence": {
+        "finding": "Accessibility observers are created for a target process and deliver notifications through a callback.",
+        "retrieved_content_sha256": "39a04154284144ca25efa05e0452e36da5733b896487e23c9a21b53379ad137a",
+        "retrieved_word_count": 100
+      },
+      "relevance": "Keeping window lists current.",
+      "actionable_recommendation": "Observe the current process instance and rebuild observers when an app terminates or relaunches.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-064",
+      "url": "https://developer.apple.com/documentation/appkit/nswindow/isminiaturized",
+      "title": "isMiniaturized",
+      "publisher": "Apple",
+      "category": "accessibility_window_reliability",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nswindow/isminiaturized.json",
+      "review_evidence": {
+        "finding": "A minimized window is removed from the screen and represented by a counterpart such as its Dock icon.",
+        "retrieved_content_sha256": "a0c8f5e8c41deda5cb8bc6db982d2f5d1497dde56c1fbb5a1339117c679a29cc",
+        "retrieved_word_count": 55
+      },
+      "relevance": "Minimized state is independent of app activity.",
+      "actionable_recommendation": "Model minimized window state separately and test restoration rather than considering an active app sufficient.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-065",
+      "url": "https://developer.apple.com/documentation/applicationservices/1462089-axobserveraddnotification",
+      "title": "AXObserverAddNotification(_:_:_:_:)",
+      "publisher": "Apple",
+      "category": "accessibility_window_reliability",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/applicationservices/1462089-axobserveraddnotification.json",
+      "review_evidence": {
+        "finding": "Notification registration can be unsupported, duplicated, or invalid; the system-wide element does not support notifications.",
+        "retrieved_content_sha256": "8bf35c7d8e08417ff07ca0967518d370e188dd1d1ca9ea49f515fa8006f7c8a4",
+        "retrieved_word_count": 165
+      },
+      "relevance": "Robust window lifecycle observation.",
+      "actionable_recommendation": "Register supported notifications per application or window, handle duplicate registrations, and retain a fallback refresh path.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-066",
+      "url": "https://developer.apple.com/documentation/applicationservices/1459139-axobservergetrunloopsource",
+      "title": "AXObserverGetRunLoopSource(_:)",
+      "publisher": "Apple",
+      "category": "accessibility_window_reliability",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/applicationservices/1459139-axobservergetrunloopsource.json",
+      "review_evidence": {
+        "finding": "An AX observer must have its source attached to a run loop to receive callbacks; releasing it removes that source.",
+        "retrieved_content_sha256": "75edb3d0c2dc636ae61a6603aea91e6c0f2b9229d13bd4a1f94b65acb459d252",
+        "retrieved_word_count": 102
+      },
+      "relevance": "Avoiding stale window indicators.",
+      "actionable_recommendation": "Retain observers and install their run-loop sources, then clean them up on process exit.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-067",
+      "url": "https://developer.apple.com/documentation/appkit/nswindow/deminiaturize(_:)",
+      "title": "deminiaturize(_:)",
+      "publisher": "Apple",
+      "category": "accessibility_window_reliability",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nswindow/deminiaturize(_:).json",
+      "review_evidence": {
+        "finding": "AppKit exposes a dedicated operation for restoring a minimized window.",
+        "retrieved_content_sha256": "f97bcfdf83a2faa17d8dcc15fb8aab3b0055baab03010f1cfa2da41d034cbf22",
+        "retrieved_word_count": 27
+      },
+      "relevance": "Own-window restoration versus foreign app control.",
+      "actionable_recommendation": "Use the dedicated restore API for DockGrove-owned windows; use checked Accessibility operations for other apps.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-068",
+      "url": "https://developer.apple.com/documentation/appkit/nswindow/stylemask-swift.struct/nonactivatingpanel",
+      "title": "nonactivatingPanel",
+      "publisher": "Apple",
+      "category": "accessibility_window_reliability",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nswindow/stylemask-swift.struct/nonactivatingpanel.json",
+      "review_evidence": {
+        "finding": "A nonactivating panel does not activate the app that owns it.",
+        "retrieved_content_sha256": "515770f1f16efd4529bbc311fef8a8ddf03deb9e7d2d738e7f1da550b09761aa",
+        "retrieved_word_count": 27
+      },
+      "relevance": "Passive Dock presentation.",
+      "actionable_recommendation": "Choose deliberately whether each presentation is passive or keyboard-driven and test the resulting owner activation state.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-069",
+      "url": "https://developer.apple.com/documentation/appkit/nswindow/ignoresmouseevents",
+      "title": "ignoresMouseEvents",
+      "publisher": "Apple",
+      "category": "accessibility_window_reliability",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nswindow/ignoresmouseevents.json",
+      "review_evidence": {
+        "finding": "A window can be transparent to mouse events.",
+        "retrieved_content_sha256": "ffac2501c6554bf5c493c51f364f4dbb0ce3a1a0f35659ef00150d6284deb8a0",
+        "retrieved_word_count": 40
+      },
+      "relevance": "Avoiding invisible click interception.",
+      "actionable_recommendation": "Ensure only intended visible launcher areas intercept input and restore event handling consistently after hide or show.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-070",
+      "url": "https://developer.apple.com/documentation/appkit/nswindow/makefirstresponder(_:)",
+      "title": "makeFirstResponder(_:)",
+      "publisher": "Apple",
+      "category": "accessibility_window_reliability",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/appkit/nswindow/makefirstresponder(_:).json",
+      "review_evidence": {
+        "finding": "First-responder changes can be refused, and a true return can still leave the window itself as first responder.",
+        "retrieved_content_sha256": "b9c84f4ad230ed968bf7db792a85ac98aa20979af6d2b2357a5ba4ac7e84efce",
+        "retrieved_word_count": 280
+      },
+      "relevance": "Keyboard focus verification.",
+      "actionable_recommendation": "Check focus eligibility and the actual first responder after opening search or navigation, and use initialFirstResponder for first presentation.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-071",
+      "url": "https://developer.apple.com/documentation/applicationservices/kaxminimizedattribute",
+      "title": "kAXMinimizedAttribute",
+      "publisher": "Apple",
+      "category": "accessibility_window_state",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/applicationservices/kaxminimizedattribute.json",
+      "review_evidence": {
+        "finding": "The minimized attribute describes whether a window is currently minimized in the Dock and is recommended rather than guaranteed.",
+        "retrieved_content_sha256": "b77d694099978c01752bbf57a1edd1e31e6cbbd8f469b82e937665f14f16171f",
+        "retrieved_word_count": 37
+      },
+      "relevance": "Foreign window restoration.",
+      "actionable_recommendation": "Read minimized state for the selected target, clear it only when supported, and verify afterward.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-072",
+      "url": "https://developer.apple.com/documentation/applicationservices/kaxraiseaction",
+      "title": "kAXRaiseAction",
+      "publisher": "Apple",
+      "category": "accessibility_window_state",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/applicationservices/kaxraiseaction.json",
+      "review_evidence": {
+        "finding": "The raise action brings a window forward only as far as its app circumstances allow; floating inspectors can remain above it.",
+        "retrieved_content_sha256": "0f0ab8f74bc74d399f71eb3583c3336824491b0db44c709c163c6ffab0f7e7aa",
+        "retrieved_word_count": 42
+      },
+      "relevance": "Honest restore success criteria.",
+      "actionable_recommendation": "Do not equate raise success with guaranteed topmost placement or keyboard focus; verify each state separately.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-073",
+      "url": "https://developer.apple.com/documentation/applicationservices/kaxfocusedwindowattribute",
+      "title": "kAXFocusedWindowAttribute",
+      "publisher": "Apple",
+      "category": "accessibility_window_state",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/applicationservices/kaxfocusedwindowattribute.json",
+      "review_evidence": {
+        "finding": "The focused-window attribute identifies the application window currently receiving focus.",
+        "retrieved_content_sha256": "d00961dfafcc4b5f02b0e73976cd7edb238effb3b8be1332985687005eb8e912",
+        "retrieved_word_count": 28
+      },
+      "relevance": "Selecting the intended target after restoration.",
+      "actionable_recommendation": "Compare the selected target with the app focused window after a restore or raise operation.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": "apple-074",
+      "url": "https://developer.apple.com/documentation/applicationservices/kaxmainattribute",
+      "title": "kAXMainAttribute",
+      "publisher": "Apple",
+      "category": "accessibility_window_state",
+      "reviewed_at": "2026-11-04",
+      "review_method": "web.open attempted for canonical page; substantive Apple DocC JSON retrieved from the same official domain and inspected",
+      "review_scope": "Complete short API page",
+      "retrieval_url": "https://developer.apple.com/tutorials/data/documentation/applicationservices/kaxmainattribute.json",
+      "review_evidence": {
+        "finding": "The main-window attribute does not imply keyboard focus.",
+        "retrieved_content_sha256": "cd6b6a898454148e8a47a8ad81902307d207f7e031f03f85d29b7f95827edd38",
+        "retrieved_word_count": 48
+      },
+      "relevance": "Avoiding false-positive restore results.",
+      "actionable_recommendation": "Treat main, focused, minimized, and active state as independent conditions in result verification.",
+      "recommendation_is_inference": true,
+      "research_group": "apple"
+    },
+    {
+      "id": 1,
+      "url": "https://www.apple.com/",
+      "title": "Apple",
+      "inspection": "Text and image descriptions",
+      "finding": "Homepage isolates individual product stories with short headlines, a distinct product image, and paired learn/buy actions.",
+      "relevance": "Premium Mac application landing page",
+      "recommendation": "Make the DockGrove hero a focused product story with a real dock image and one primary free download action.",
+      "research_group": "website"
+    },
+    {
+      "id": 2,
+      "url": "https://www.apple.com/mac/",
+      "title": "Mac - Apple",
+      "inspection": "Text",
+      "finding": "Lineup cards combine concise purpose statements, product identity, color variants and direct actions.",
+      "relevance": "Premium Mac application landing page",
+      "recommendation": "Use concise feature summaries with direct relevance to a Mac workflow; avoid a generic card wall.",
+      "research_group": "website"
+    },
+    {
+      "id": 4,
+      "url": "https://www.apple.com/macbook-pro/",
+      "title": "MacBook Pro - Apple",
+      "inspection": "Text",
+      "finding": "Distinct model options are explicitly separated, and specifications appear as grouped, labeled facts.",
+      "relevance": "Premium Mac application landing page",
+      "recommendation": "If showing supported configurations or requirements, label them precisely and avoid implying unsupported platform features.",
+      "research_group": "website"
+    },
+    {
+      "id": 5,
+      "url": "https://www.apple.com/imac/",
+      "title": "iMac - Apple",
+      "inspection": "Text and image descriptions",
+      "finding": "Highlights pair individual capabilities with contextual imagery; the macOS highlight specifically describes a dock of app icons.",
+      "relevance": "Premium Mac application landing page",
+      "recommendation": "Show DockGrove with recognizable app icons and one concrete benefit per visual moment.",
+      "research_group": "website"
+    },
+    {
+      "id": 6,
+      "url": "https://www.apple.com/mac-mini/",
+      "title": "Mac mini - Apple",
+      "inspection": "Text and image descriptions",
+      "finding": "A brief product promise accompanies a precise front-view product image before longer feature explanations.",
+      "relevance": "Premium Mac application landing page",
+      "recommendation": "Use an immediately legible product silhouette; keep background decoration subordinate to the dock.",
+      "research_group": "website"
+    },
+    {
+      "id": 7,
+      "url": "https://www.apple.com/mac-studio/",
+      "title": "Mac Studio - Apple",
+      "inspection": "Text",
+      "finding": "Product introduction quickly leads to concrete performance categories and labeled evidence.",
+      "relevance": "Premium Mac application landing page",
+      "recommendation": "Tie every DockGrove marketing claim to implemented behavior; omit unverified speed metrics or customer numbers.",
+      "research_group": "website"
+    },
+    {
+      "id": 8,
+      "url": "https://www.apple.com/studio-display/",
+      "title": "Studio Display - Apple",
+      "inspection": "Text and image descriptions",
+      "finding": "A large display image precedes the product title and concise promise; detailed characteristics follow.",
+      "relevance": "Premium Mac application landing page",
+      "recommendation": "Give the product preview priority and put technical support details lower on the page.",
+      "research_group": "website"
+    },
+    {
+      "id": 9,
+      "url": "https://www.apple.com/os/macos/",
+      "title": "macOS - Apple",
+      "inspection": "Text and image descriptions",
+      "finding": "New capabilities are organized around screenshots and a short explanation of each action.",
+      "relevance": "Premium Mac application landing page",
+      "recommendation": "Use true-to-app visual states for dock paging, arranging apps, and companions, only where current code confirms them.",
+      "research_group": "website"
+    },
+    {
+      "id": 10,
+      "url": "https://refero.design/",
+      "title": "Refero",
+      "inspection": "Browser DOM and visual screenshot of public homepage; web reader returned no text",
+      "finding": "Public homepage has a dark near-black canvas, restrained navigation, a large centered serif heading, compact gray supporting text and a dominant research entry surface. An MCP promotion obscured part of the view; screenshot galleries were not yet available.",
+      "relevance": "Premium Mac application landing page",
+      "recommendation": "Borrow disciplined contrast, generous central whitespace and a single dominant task; do not reproduce its research UI or claim its underlying library was fully reviewed.",
+      "research_group": "website"
+    },
+    {
+      "id": 11,
+      "url": "https://www.apple.com/ipad-pro/",
+      "title": "iPad Pro - Apple",
+      "inspection": "Text and image descriptions; no visual screenshot",
+      "finding": "Product image, short name and promise precede discrete, image-backed highlights.",
+      "relevance": "Product-first presentation and usable Mac software marketing",
+      "recommendation": "Keep the hero proposition brief and let the product preview carry the detail.",
+      "research_group": "website"
+    },
+    {
+      "id": 12,
+      "url": "https://www.apple.com/ipad-air/",
+      "title": "iPad Air - Apple",
+      "inspection": "Text and image descriptions; no visual screenshot",
+      "finding": "The page separates introduction, highlights and a closer-look sequence.",
+      "relevance": "Product-first presentation and usable Mac software marketing",
+      "recommendation": "Present overview first, then let users explore selected dock features without forcing a tour.",
+      "research_group": "website"
+    },
+    {
+      "id": 13,
+      "url": "https://www.apple.com/watch/",
+      "title": "Apple Watch - Apple",
+      "inspection": "Text and image descriptions; no visual screenshot",
+      "finding": "Lineup separates products by their specific purpose and gives clear learn/buy actions.",
+      "relevance": "Product-first presentation and usable Mac software marketing",
+      "recommendation": "Use feature labels that explain the benefit immediately and retain a clear download path.",
+      "research_group": "website"
+    },
+    {
+      "id": 14,
+      "url": "https://www.apple.com/airpods-pro/",
+      "title": "AirPods Pro - Apple",
+      "inspection": "Text and image descriptions; no visual screenshot",
+      "finding": "A single leading benefit is followed by product imagery and individual use cases; comparative claims carry references.",
+      "relevance": "Product-first presentation and usable Mac software marketing",
+      "recommendation": "Avoid invented numerical proof; describe one authentic benefit at a time.",
+      "research_group": "website"
+    },
+    {
+      "id": 15,
+      "url": "https://www.apple.com/apple-vision-pro/",
+      "title": "Apple Vision Pro - Apple",
+      "inspection": "Text and image descriptions; no visual screenshot",
+      "finding": "Product explanation connects imagery with specific uses and provides a separate optional demo action.",
+      "relevance": "Product-first presentation and usable Mac software marketing",
+      "recommendation": "Let an optional dock interaction explain the product while leaving download immediately reachable.",
+      "research_group": "website"
+    },
+    {
+      "id": 16,
+      "url": "https://www.apple.com/safari/",
+      "title": "Safari - Apple",
+      "inspection": "Text and image descriptions; no visual screenshot",
+      "finding": "Main statement identifies speed/privacy and later sections explain the actual mechanisms.",
+      "relevance": "Product-first presentation and usable Mac software marketing",
+      "recommendation": "Support privacy statements with verified application behavior rather than decorative trust badges.",
+      "research_group": "website"
+    },
+    {
+      "id": 17,
+      "url": "https://www.apple.com/final-cut-pro/",
+      "title": "Final Cut Pro - Apple",
+      "inspection": "Text and image descriptions; no visual screenshot",
+      "finding": "Opening screenshot describes an edit in progress; later images show concrete editing and audio controls.",
+      "relevance": "Product-first presentation and usable Mac software marketing",
+      "recommendation": "Show a real DockGrove state in context rather than an invented dashboard or abstract illustration.",
+      "research_group": "website"
+    },
+    {
+      "id": 18,
+      "url": "https://www.apple.com/logic-pro/",
+      "title": "Logic Pro - Apple",
+      "inspection": "Text and image descriptions; no visual screenshot",
+      "finding": "Introductory copy identifies the product, platforms and concrete activities before showcasing the working interface.",
+      "relevance": "Product-first presentation and usable Mac software marketing",
+      "recommendation": "State what DockGrove does and its verified Mac compatibility in direct language.",
+      "research_group": "website"
+    },
+    {
+      "id": 19,
+      "url": "https://www.apple.com/pixelmator-pro/",
+      "title": "Pixelmator Pro - Apple",
+      "inspection": "Text and image descriptions; no visual screenshot",
+      "finding": "Hero image describes the actual image workspace and layers; a closer look progresses into examples.",
+      "relevance": "Product-first presentation and usable Mac software marketing",
+      "recommendation": "Use legible app artifacts in the hero and detail views that teach one operation.",
+      "research_group": "website"
+    },
+    {
+      "id": 21,
+      "url": "https://refero.design/search",
+      "title": "Refero Search",
+      "inspection": "Browser DOM and screenshot",
+      "finding": "Six public preview tiles show real screenshot content and labels; the results then explicitly require login to reveal 77,124 additional pages.",
+      "relevance": "Truthful premium Mac application presentation",
+      "recommendation": "Use real application visuals as evidence. Public sample only: do not represent the entire Refero library as inspected.",
+      "research_group": "website"
+    },
+    {
+      "id": 22,
+      "url": "https://www.apple.com/icloud/",
+      "title": "iCloud+ - Apple",
+      "inspection": "Text",
+      "finding": "Plans plainly display storage tier, recurring cost, purpose and action; feature descriptions connect service mechanisms with benefits.",
+      "relevance": "Truthful premium Mac application presentation",
+      "recommendation": "Clearly explain DockGrove's free token download steps without disguising them as a paid plan.",
+      "research_group": "website"
+    },
+    {
+      "id": 23,
+      "url": "https://www.apple.com/privacy/",
+      "title": "Privacy - Apple",
+      "inspection": "Text",
+      "finding": "Privacy positioning is followed by specific product mechanisms, comparison criteria and process details.",
+      "relevance": "Truthful premium Mac application presentation",
+      "recommendation": "Use only verifiable privacy statements and link a concise privacy explanation from the download form.",
+      "research_group": "website"
+    },
+    {
+      "id": 24,
+      "url": "https://support.apple.com/keynote",
+      "title": "Keynote Support - Apple",
+      "inspection": "Text",
+      "finding": "Support groups practical tasks under setup, presenting, browser collaboration and resources.",
+      "relevance": "Truthful premium Mac application presentation",
+      "recommendation": "Keep a small practical installation/requirements FAQ that answers likely first-run questions.",
+      "research_group": "website"
+    },
+    {
+      "id": 25,
+      "url": "https://www.apple.com/apple-creator-studio/",
+      "title": "Apple Creator Studio - Apple",
+      "inspection": "Text and image descriptions",
+      "finding": "A collection of app icons leads to specific app workflows; free trial duration and subsequent cost are stated together.",
+      "relevance": "Truthful premium Mac application presentation",
+      "recommendation": "State the actual free-download conditions next to the action and use authentic app icon assets.",
+      "research_group": "website"
+    },
+    {
+      "id": 26,
+      "url": "https://www.raycast.com/",
+      "title": "Raycast",
+      "inspection": "Text",
+      "finding": "The introduction describes a launcher in one sentence, then demonstrates concrete keyboard and extension workflows.",
+      "relevance": "Truthful premium Mac application presentation",
+      "recommendation": "Introduce DockGrove's category immediately; use real actions to explain the value of arranging and paging apps.",
+      "research_group": "website"
+    },
+    {
+      "id": 27,
+      "url": "https://www.alfredapp.com/",
+      "title": "Alfred",
+      "inspection": "Text and image descriptions",
+      "finding": "Download Alfred is distinct from buying the Powerpack; named feature screenshots explain search, clipboard and workflows.",
+      "relevance": "Truthful premium Mac application presentation",
+      "recommendation": "Keep the free download call to action clear and avoid invented paid tiers.",
+      "research_group": "website"
+    },
+    {
+      "id": 28,
+      "url": "https://cleanshot.com/",
+      "title": "CleanShot X",
+      "inspection": "Text",
+      "finding": "Sections name concrete outcomes such as drag sharing, recording and markup; testimonials and team logos are explicitly attributed.",
+      "relevance": "Truthful premium Mac application presentation",
+      "recommendation": "Use outcomes for feature headings and never fabricate logo walls, testimonials or user counts.",
+      "research_group": "website"
+    },
+    {
+      "id": 29,
+      "url": "https://screen.studio/",
+      "title": "Screen Studio",
+      "inspection": "Text",
+      "finding": "Download for Mac is immediately paired with a macOS recommendation, and a mobile visitor can request a link by email.",
+      "relevance": "Truthful premium Mac application presentation",
+      "recommendation": "Show verified macOS requirements beside the token-request action; make mobile download expectations clear.",
+      "research_group": "website"
+    },
+    {
+      "id": 30,
+      "url": "https://culturedcode.com/things/",
+      "title": "Things",
+      "inspection": "Text and available image descriptions; no screenshot",
+      "finding": "Product explanation is followed by platform screenshots and a Get Things area with requirements and prices.",
+      "relevance": "Clear Mac utility positioning and download experience",
+      "recommendation": "Pair the final download step with verified compatibility and explicit conditions.",
+      "research_group": "website"
+    },
+    {
+      "id": 31,
+      "url": "https://www.craft.do/",
+      "title": "Craft",
+      "inspection": "Text and available image descriptions; no screenshot",
+      "finding": "A brief notes/tasks proposition and free action lead to capability names and concrete user workflows.",
+      "relevance": "Clear Mac utility positioning and download experience",
+      "recommendation": "Keep headings short and let actual dock interactions describe the workflow.",
+      "research_group": "website"
+    },
+    {
+      "id": 32,
+      "url": "https://bear.app/",
+      "title": "Bear",
+      "inspection": "Text and available image descriptions; no screenshot",
+      "finding": "The first screen description identifies sidebar, note list and editor; feature sections show real interface details and mark Pro features.",
+      "relevance": "Clear Mac utility positioning and download experience",
+      "recommendation": "Use true product captures and clearly mark any feature or limitation instead of implying parity with a paid app.",
+      "research_group": "website"
+    },
+    {
+      "id": 33,
+      "url": "https://obsidian.md/",
+      "title": "Obsidian",
+      "inspection": "Text and available image descriptions; no screenshot",
+      "finding": "The page identifies the application as free, shows realistic note content, and explains local storage concretely.",
+      "relevance": "Clear Mac utility positioning and download experience",
+      "recommendation": "Say free clearly and demonstrate an authentic application state rather than filler content.",
+      "research_group": "website"
+    },
+    {
+      "id": 34,
+      "url": "https://www.iina.io/",
+      "title": "IINA",
+      "inspection": "Text and available image descriptions; no screenshot",
+      "finding": "An interface image, app identity, download version and OS requirements are grouped at the beginning.",
+      "relevance": "Clear Mac utility positioning and download experience",
+      "recommendation": "Place the current build identifier and macOS requirement beside the final download action.",
+      "research_group": "website"
+    },
+    {
+      "id": 35,
+      "url": "https://rectangleapp.com/",
+      "title": "Rectangle",
+      "inspection": "Text and available image descriptions; no screenshot",
+      "finding": "A single sentence explains the Mac utility; download, free/open-source status and macOS compatibility are adjacent.",
+      "relevance": "Clear Mac utility positioning and download experience",
+      "recommendation": "Use plain category copy such as a customizable Mac dock, and keep download conditions visible.",
+      "research_group": "website"
+    },
+    {
+      "id": 36,
+      "url": "https://www.keyboardmaestro.com/main/",
+      "title": "Keyboard Maestro",
+      "inspection": "Text and available image descriptions; no screenshot",
+      "finding": "Free Trial and Buy Now are labeled distinctly; example operations explain the automation utility.",
+      "relevance": "Clear Mac utility positioning and download experience",
+      "recommendation": "Label token request and installer retrieval as their actual steps; avoid a misleading instant-download label.",
+      "research_group": "website"
+    },
+    {
+      "id": 37,
+      "url": "https://linear.app/",
+      "title": "Linear",
+      "inspection": "Text and available image descriptions; no visual screenshot",
+      "finding": "A brief category statement is supported by a realistic issue workflow; a skip-to-content control appears at the beginning.",
+      "relevance": "Focused product marketing and truthful interactive demonstrations",
+      "recommendation": "Use a real app interaction and provide a skip link before the fixed navigation.",
+      "research_group": "website"
+    },
+    {
+      "id": 38,
+      "url": "https://www.notion.com/",
+      "title": "Notion",
+      "inspection": "Text and available image descriptions; no visual screenshot",
+      "finding": "Primary free action and demo action are distinct; product navigation organizes capabilities as capture, find and automate.",
+      "relevance": "Focused product marketing and truthful interactive demonstrations",
+      "recommendation": "Give free token request one dominant action and group features by familiar operations.",
+      "research_group": "website"
+    },
+    {
+      "id": 39,
+      "url": "https://www.figma.com/",
+      "title": "Figma",
+      "inspection": "Text and available image descriptions; no visual screenshot",
+      "finding": "Product navigation explains each capability in a short descriptor, and a skip-to-main link is present.",
+      "relevance": "Focused product marketing and truthful interactive demonstrations",
+      "recommendation": "Use plain feature names and an accessible document structure.",
+      "research_group": "website"
+    },
+    {
+      "id": 40,
+      "url": "https://www.framer.com/",
+      "title": "Framer",
+      "inspection": "Text and available image descriptions; no visual screenshot",
+      "finding": "Hero says what the tool is, gives a free-start action and separates app download from learning resources.",
+      "relevance": "Focused product marketing and truthful interactive demonstrations",
+      "recommendation": "Make the download workflow explicit and keep support content available without competing with it.",
+      "research_group": "website"
+    },
+    {
+      "id": 41,
+      "url": "https://www.pitch.com/",
+      "title": "Pitch",
+      "inspection": "Text and available image descriptions; no visual screenshot",
+      "finding": "The main proposition introduces the result, then distinguishes free signup from requesting a demo.",
+      "relevance": "Focused product marketing and truthful interactive demonstrations",
+      "recommendation": "Use a direct result-oriented heading and no unsupported social-proof metric.",
+      "research_group": "website"
+    },
+    {
+      "id": 42,
+      "url": "https://www.warp.dev/",
+      "title": "Warp",
+      "inspection": "Text and available image descriptions; no visual screenshot",
+      "finding": "Early access for the new product and an existing terminal download have separate labeled actions.",
+      "relevance": "Focused product marketing and truthful interactive demonstrations",
+      "recommendation": "Avoid conflating requesting a token with receiving an installer; label each stage truthfully.",
+      "research_group": "website"
+    },
+    {
+      "id": 43,
+      "url": "https://zed.dev/",
+      "title": "Zed",
+      "inspection": "Text and available image descriptions; no visual screenshot",
+      "finding": "Separate product identities have separate download actions, followed by realistic editor/project content.",
+      "relevance": "Focused product marketing and truthful interactive demonstrations",
+      "recommendation": "Keep DockGrove identity and actual app content clear; avoid unrelated product controls.",
+      "research_group": "website"
+    },
+    {
+      "id": 44,
+      "url": "https://cursor.com/",
+      "title": "Cursor",
+      "inspection": "Text and available image descriptions; no visual screenshot",
+      "finding": "Main product statement leads to an interactive interface demo; text explicitly describes the demo for sighted users.",
+      "relevance": "Focused product marketing and truthful interactive demonstrations",
+      "recommendation": "Make the optional dock preview understandable with accessible descriptive text.",
+      "research_group": "website"
+    },
+    {
+      "id": 45,
+      "url": "https://www.granola.ai/",
+      "title": "Granola",
+      "inspection": "Text and available image descriptions; no visual screenshot",
+      "finding": "Main product category and supported platforms are stated immediately, then short capability statements precede realistic content.",
+      "relevance": "Focused product marketing and truthful interactive demonstrations",
+      "recommendation": "Lead with what DockGrove is and accurately state platform support before details.",
+      "research_group": "website"
+    },
+    {
+      "id": 46,
+      "url": "https://superhuman.com/",
+      "title": "Superhuman",
+      "inspection": "Text and available image descriptions; no visual screenshot",
+      "finding": "Short brand proposition is immediately clarified by a concrete product category and realistic inbox/calendar content.",
+      "relevance": "Focused product marketing and truthful interactive demonstrations",
+      "recommendation": "Pair any expressive headline with a precise sentence explaining the Mac dock.",
+      "research_group": "website"
+    },
+    {
+      "id": 47,
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html",
+      "title": "W3C: Contrast Minimum",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Normal text needs a 4.5:1 contrast ratio; large text needs 3:1, with defined exceptions.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Check secondary gray copy and button text on the intended white, gray and black backgrounds.",
+      "research_group": "website"
+    },
+    {
+      "id": 48,
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/reflow.html",
+      "title": "W3C: Reflow",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Content should preserve information and functionality at 320 CSS pixels without two-dimensional scrolling, apart from essential-layout exceptions.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Keep page copy and controls within the viewport; make the dock preview a deliberately bounded single row.",
+      "research_group": "website"
+    },
+    {
+      "id": 49,
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html",
+      "title": "W3C: Target Size Minimum",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Pointer targets should be at least 24 by 24 CSS pixels or satisfy spacing/equivalent-control exceptions.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Give paging dots, companion selectors and close controls usable click/touch areas.",
+      "research_group": "website"
+    },
+    {
+      "id": 50,
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/focus-visible.html",
+      "title": "W3C: Focus Visible",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Keyboard focus must have a visible indicator that remains visible rather than being time-limited.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Use a strong focus-visible outline on navigation, preview controls and download form fields.",
+      "research_group": "website"
+    },
+    {
+      "id": 51,
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html",
+      "title": "W3C: Focus Not Obscured",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Focused components must not become entirely hidden by author-created content.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Ensure sticky navigation and download dialogs do not hide the current focused control.",
+      "research_group": "website"
+    },
+    {
+      "id": 52,
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/keyboard.html",
+      "title": "W3C: Keyboard",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Pointer actions need keyboard equivalents unless their underlying function genuinely depends on a movement path.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Support keyboard activation for preview paging, configuration choices and token submission.",
+      "research_group": "website"
+    },
+    {
+      "id": 53,
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html",
+      "title": "W3C: Pause Stop Hide",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Automatically moving parallel content lasting more than five seconds needs a pause, stop or hide mechanism unless essential.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Avoid perpetual decorative hero movement; give long-running companion animation an accessible pause.",
+      "research_group": "website"
+    },
+    {
+      "id": 54,
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/animation-from-interactions.html",
+      "title": "W3C: Animation from Interactions",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Nonessential interaction-triggered motion can be disabled, and the guidance specifically discusses reduced-motion preferences and parallax risks.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Disable parallax, pointer zoom and nonessential motion when reduced motion is requested.",
+      "research_group": "website"
+    },
+    {
+      "id": 55,
+      "url": "https://www.w3.org/WAI/tutorials/forms/labels/",
+      "title": "W3C: Labeling Controls",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Controls need programmatic labels; visually hidden labels or aria-label are appropriate only where purpose is already visually clear.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Provide persistent Email address and Download token labels rather than placeholder-only fields.",
+      "research_group": "website"
+    },
+    {
+      "id": 56,
+      "url": "https://www.w3.org/WAI/tutorials/forms/notifications/",
+      "title": "W3C: User Notification",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "The guide explains success/error feedback via headings, titles and dialogs and recommends distinctive error summaries.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Give clear token-request success, invalid-token and network-error feedback, with accessible announcements.",
+      "research_group": "website"
+    },
+    {
+      "id": 57,
+      "url": "https://web.dev/articles/vitals",
+      "title": "web.dev: Web Vitals",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Google defines experience quality signals as a way to quantify and improve user experience.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Assess actual loading, visual stability and responsiveness; avoid claiming field performance from a local visual check.",
+      "research_group": "website"
+    },
+    {
+      "id": 58,
+      "url": "https://web.dev/articles/optimize-lcp",
+      "title": "web.dev: Optimize LCP",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "LCP measures rendering of the largest visible image/text; the guide's good target is at most 2.5 seconds for 75% of visits.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Load the main dock visual early and avoid hiding it behind a slow animation or large dependency.",
+      "research_group": "website"
+    },
+    {
+      "id": 59,
+      "url": "https://web.dev/articles/optimize-cls",
+      "title": "web.dev: Optimize CLS",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Unexpected insertion or resizing shifts visible content and can displace a click target.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Reserve dimensions for dock icons, companion art, screenshots and form status feedback.",
+      "research_group": "website"
+    },
+    {
+      "id": 60,
+      "url": "https://web.dev/articles/optimize-inp",
+      "title": "web.dev: Optimize INP",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "INP observes interaction latency across a page visit to assess responsiveness.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Keep preview pointer handlers and token-form work lightweight; verify interactions remain responsive.",
+      "research_group": "website"
+    },
+    {
+      "id": 61,
+      "url": "https://web.dev/articles/animations-guide",
+      "title": "web.dev: High-performance CSS animations",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "The animation guide identifies transform and opacity as the core recommended widely supported properties.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Prefer restrained transform/opacity transitions over repeated layout/paint-heavy animation.",
+      "research_group": "website"
+    },
+    {
+      "id": 62,
+      "url": "https://web.dev/articles/prefers-reduced-motion",
+      "title": "web.dev: Reduced motion",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "The media query detects the operating system preference and allows a motion-reduced site variant.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Implement and verify a reduced-motion path for companion animation, section entrances and hover scaling.",
+      "research_group": "website"
+    },
+    {
+      "id": 63,
+      "url": "https://web.dev/articles/responsive-images",
+      "title": "web.dev: Responsive Images",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Small-view images should not carry the same unnecessary bytes as larger displays; image proportions/cropping can use art direction.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Use correctly sized screenshots and preserve a readable single-row dock on narrow displays.",
+      "research_group": "website"
+    },
+    {
+      "id": 64,
+      "url": "https://web.dev/articles/browser-level-image-lazy-loading",
+      "title": "web.dev: Browser-level image lazy loading",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "The page presents native browser-level image lazy loading as an image/resource delivery technique.",
+      "relevance": "Accessible, calm and performant product landing page",
+      "recommendation": "Use native lazy loading for below-fold screenshots while keeping the main product preview eager.",
+      "research_group": "website"
+    },
+    {
+      "id": 65,
+      "url": "https://www.w3.org/WAI/tutorials/forms/instructions/",
+      "title": "W3C: Form Instructions",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Instructions should identify required/optional input, expected data formats and other information needed to complete controls.",
+      "relevance": "Accessible and responsive token download/product preview",
+      "recommendation": "Explain the email-to-token-to-download process before the user submits and identify required fields.",
+      "research_group": "website"
+    },
+    {
+      "id": 66,
+      "url": "https://www.w3.org/WAI/tutorials/forms/validation/",
+      "title": "W3C: Validating Input",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "HTML provides email/required validation; custom errors need accessible notification, and client-side checking does not replace server validation.",
+      "relevance": "Accessible and responsive token download/product preview",
+      "recommendation": "Use email/required input semantics, preserve backend token validation and surface actual server responses.",
+      "research_group": "website"
+    },
+    {
+      "id": 67,
+      "url": "https://www.w3.org/WAI/tutorials/images/informative/",
+      "title": "W3C: Informative Images",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Text alternatives should convey the meaning or information of an image, rather than only literal visual description.",
+      "relevance": "Accessible and responsive token download/product preview",
+      "recommendation": "Describe what the DockGrove screenshot demonstrates, such as grouped apps on one dock page.",
+      "research_group": "website"
+    },
+    {
+      "id": 68,
+      "url": "https://www.w3.org/WAI/tutorials/images/decorative/",
+      "title": "W3C: Decorative Images",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Decorative images add no information, including images whose information is already supplied by adjacent text.",
+      "relevance": "Accessible and responsive token download/product preview",
+      "recommendation": "Keep decorative gleams and repeated artwork out of the meaningful reading flow.",
+      "research_group": "website"
+    },
+    {
+      "id": 69,
+      "url": "https://www.w3.org/WAI/tutorials/page-structure/headings/",
+      "title": "W3C: Headings",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Heading levels communicate content organization and support assistive in-page navigation; skipped ranks can confuse.",
+      "relevance": "Accessible and responsive token download/product preview",
+      "recommendation": "Keep one meaningful main heading and ordered section/subsection headings even with oversized display type.",
+      "research_group": "website"
+    },
+    {
+      "id": 70,
+      "url": "https://www.w3.org/WAI/tutorials/page-structure/regions/",
+      "title": "W3C: Page Regions",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Header, nav, main and footer elements identify page regions; responsive presentation should preserve a sensible order.",
+      "relevance": "Accessible and responsive token download/product preview",
+      "recommendation": "Use native landmarks and retain a consistent reading order on mobile.",
+      "research_group": "website"
+    },
+    {
+      "id": 71,
+      "url": "https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/At-rules/@media/prefers-reduced-motion",
+      "title": "MDN: prefers-reduced-motion",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "The media feature detects device requests to minimize nonessential motion; reduce and no-preference distinguish the settings.",
+      "relevance": "Accessible and responsive token download/product preview",
+      "recommendation": "Make decorative dock magnification and companion loops static in reduced-motion mode.",
+      "research_group": "website"
+    },
+    {
+      "id": 72,
+      "url": "https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Selectors/:focus-visible",
+      "title": "MDN: focus-visible",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Focus-visible follows browser heuristics to show a focus indicator when useful, including keyboard navigation.",
+      "relevance": "Accessible and responsive token download/product preview",
+      "recommendation": "Keep polished custom focus indicators without removing the keyboard focus cue.",
+      "research_group": "website"
+    },
+    {
+      "id": 73,
+      "url": "https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Values/clamp",
+      "title": "MDN: clamp",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "The function bounds a preferred value between minimum and maximum values; examples use fluid typography.",
+      "relevance": "Accessible and responsive token download/product preview",
+      "recommendation": "Use bounded responsive headline/icon sizes so narrow screens retain readable type and a single dock row.",
+      "research_group": "website"
+    },
+    {
+      "id": 74,
+      "url": "https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/overflow-x",
+      "title": "MDN: overflow-x",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "Overflow-x controls clipping or horizontal scrolling; auto shows scrolling where content actually overflows.",
+      "relevance": "Accessible and responsive token download/product preview",
+      "recommendation": "Contain any overflow within the dock preview while preserving the whole page's responsive width; never clip meaningful actions.",
+      "research_group": "website"
+    },
+    {
+      "id": 75,
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Attributes/autocomplete",
+      "title": "MDN: autocomplete",
+      "inspection": "Opened primary documentation text; no visual screenshot",
+      "finding": "The attribute guides browser assistance for expected form information and applies to text-bearing controls and forms.",
+      "relevance": "Accessible and responsive token download/product preview",
+      "recommendation": "Use appropriate email autofill semantics to reduce friction in the free token form.",
+      "research_group": "website"
+    },
+    {
+      "id": "dock-001",
+      "url": "https://github.com/ejbills/DockDoor",
+      "title": "DockDoor repository",
+      "type": "official",
+      "finding": "Dock previews explicitly include minimized, hidden, other-desktop and other-display windows; compact title lists and large previews are supported.",
+      "relevance": [
+        "window-discovery"
+      ],
+      "recommended_dockgrove_response": "Make every relevant window findable; provide readable title fallback when thumbnails are unavailable.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-002",
+      "url": "https://ubarapp.com/",
+      "title": "uBar product",
+      "type": "official",
+      "finding": "Offers per-screen bars with screen-local windows or a mirrored all-window bar; app grouping can be disabled.",
+      "relevance": [
+        "multi-monitor"
+      ],
+      "recommended_dockgrove_response": "Offer explicit current-display versus all-display scope with a clear active window indicator.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-003",
+      "url": "https://ubarapp.com/documentation",
+      "title": "uBar documentation",
+      "type": "official",
+      "finding": "Documents separate window-control and preview permissions, position shortcuts, app states, automatic grouping and native-Dock restoration commands.",
+      "relevance": [
+        "permissions",
+        "safety",
+        "keyboard"
+      ],
+      "recommended_dockgrove_response": "Explain each permission by benefit and provide visible recovery and native-Dock restoration.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-004",
+      "url": "https://github.com/lwouis/alt-tab-macos/releases",
+      "title": "AltTab releases",
+      "type": "official",
+      "finding": "Recent releases address missing windows, fast-switch focus races, stale titles, display changes and idle battery consumption.",
+      "relevance": [
+        "reliability",
+        "performance"
+      ],
+      "recommended_dockgrove_response": "Prioritize accurate window lifecycle tracking and quiet idle behavior before decorative features.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-005",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/2883",
+      "title": "AltTab #2883: Selected window fails to focus",
+      "type": "first-person issue",
+      "finding": "Reporter says clicking dismisses the switcher but leaves the previous window focused; repeating succeeds. Closed as unreproducible/unactionable.",
+      "relevance": [
+        "focus"
+      ],
+      "recommended_dockgrove_response": "Do not treat overlay dismissal as proof of successful focus; validate target activation.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-006",
+      "url": "https://www.reddit.com/r/macapps/comments/1dnfnj8/dockdoor_a_free_and_open_source_dock_peeking/",
+      "title": "DockDoor launch feedback",
+      "type": "first-person discussion",
+      "finding": "Users praise cleaner previews but report hard-to-find settings, lingering competing previews, missing windows with larger window counts and memory growth. Historical reports, not current benchmarks.",
+      "relevance": [
+        "onboarding",
+        "reliability"
+      ],
+      "recommended_dockgrove_response": "Keep settings reachable, dismiss previews predictably, and test many-window sessions.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-007",
+      "url": "https://contexts.co/",
+      "title": "Contexts product",
+      "type": "official",
+      "finding": "Search supports non-consecutive title characters, acronym ranking and learned query shortcuts; multiple display and Space workflows are core selling points.",
+      "relevance": [
+        "keyboard",
+        "search"
+      ],
+      "recommended_dockgrove_response": "Provide dependable keyboard access and title search with predictable ordering.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-008",
+      "url": "https://contexts.co/whats-new/",
+      "title": "Contexts release history",
+      "type": "official",
+      "finding": "Describes individual-window recency rather than reordering every window of an activated app; minimized/windowless-app initial selection is handled specially.",
+      "relevance": [
+        "ordering"
+      ],
+      "recommended_dockgrove_response": "Track recency per actual window and define minimized-window selection explicitly.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-009",
+      "url": "https://contexts.co/whats-next/",
+      "title": "Contexts roadmap",
+      "type": "official roadmap",
+      "finding": "Lists app launching through search, display-specific sidebars, file drops and hover previews as planned items. Roadmap is not proof these shipped.",
+      "relevance": [
+        "discovery",
+        "multi-monitor"
+      ],
+      "recommended_dockgrove_response": "Make launch/search scope and per-display behavior explicit; do not represent planned capabilities as delivered.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-010",
+      "url": "https://contexts.co/whats-in-beta/",
+      "title": "Contexts beta history",
+      "type": "official",
+      "finding": "Documents crashes when changing display configuration and when searching with nonstandard apps; beta history also covers individual-window recency.",
+      "relevance": [
+        "display-lifecycle"
+      ],
+      "recommended_dockgrove_response": "Test display attach/detach and unusual applications; preserve usable fallback lists.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-011",
+      "url": "https://manytricks.com/witch/",
+      "title": "Witch product",
+      "type": "official",
+      "finding": "Switches apps, windows and supported tabs; offers horizontal, vertical and menu-bar layouts plus searchable targets.",
+      "relevance": [
+        "keyboard",
+        "layout"
+      ],
+      "recommended_dockgrove_response": "Offer compact readable access without requiring mouse hovering or a huge preview grid.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-012",
+      "url": "https://manytricks.com/witch/releasenotes/",
+      "title": "Witch release notes",
+      "type": "official",
+      "finding": "Includes repeated cross-Space focus fixes, browser compatibility work and hotkey support for mixed keyboard types.",
+      "relevance": [
+        "focus",
+        "keyboard"
+      ],
+      "recommended_dockgrove_response": "Test cross-Space activation and external keyboards using real app windows.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-013",
+      "url": "https://sidebarapp.net/",
+      "title": "Sidebar product",
+      "type": "official",
+      "finding": "Supports one, some or all displays with individual customization, reserved screen area, previews and a searchable window switcher.",
+      "relevance": [
+        "multi-monitor",
+        "layout"
+      ],
+      "recommended_dockgrove_response": "Keep scope and display placement simple; respect usable screen area.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-014",
+      "url": "https://sidebarapp.net/changelog/",
+      "title": "Sidebar changelog",
+      "type": "official",
+      "finding": "Recent fixes include higher CPU use, input focus interrupted by previews, permissions blocked by incomplete onboarding and native-Dock hiding conflicts.",
+      "relevance": [
+        "performance",
+        "focus",
+        "permissions"
+      ],
+      "recommended_dockgrove_response": "Do not let previews steal typing; let granted capabilities work before onboarding completion.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-015",
+      "url": "https://www.macenhance.com/dockmate.html",
+      "title": "DockMate product",
+      "type": "official",
+      "finding": "Offers configurable preview size/layout, single-window focus and controls plus calendar/music views. Page lists its latest version as March 2021.",
+      "relevance": [
+        "previews",
+        "maintenance"
+      ],
+      "recommended_dockgrove_response": "Deliver precise window controls and communicate actual current compatibility rather than assuming legacy support.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-016",
+      "url": "https://pro.dockdoor.net/CHANGELOG",
+      "title": "DockDoor Pro changelog",
+      "type": "official",
+      "finding": "Latest fixes prevent Mission Control from restoring minimized windows and address stale dock items/file drags; profiles can be assigned per display and desktop.",
+      "relevance": [
+        "safety",
+        "lifecycle"
+      ],
+      "recommended_dockgrove_response": "Preserve minimized state across Mission Control and keep display-specific content fresh.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-017",
+      "url": "https://dockdoor.net/CHANGELOG.html",
+      "title": "DockDoor changelog",
+      "type": "official",
+      "finding": "Recent changes preserve windowless apps, target real apps instead of helpers, support alternate filter shortcuts and prevent re-focusing a just-minimized window.",
+      "relevance": [
+        "identity",
+        "keyboard"
+      ],
+      "recommended_dockgrove_response": "Distinguish helpers from user apps and suppress unintended activation after minimize/hide actions.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-018",
+      "url": "https://github.com/ejbills/DockDoor/issues/828",
+      "title": "DockDoor #828: Click-to-hide conflicts with minimized windows",
+      "type": "first-person issue",
+      "finding": "Manually minimized or closed windows could restore then minimize again; discussion also reports unexpectedly restoring all minimized sibling windows. Historical closed bug.",
+      "relevance": [
+        "minimized",
+        "focus"
+      ],
+      "recommended_dockgrove_response": "Make click behavior state-aware; restore only the intended window and avoid immediate toggle-back.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-019",
+      "url": "https://github.com/ejbills/DockDoor/issues/1674",
+      "title": "DockDoor #1674: Native-tab collapse fails when minimized",
+      "type": "first-person issue",
+      "finding": "Reporter expects one preview for a minimized multi-tab Finder window but sees a separate preview for every tab.",
+      "relevance": [
+        "minimized",
+        "tabs"
+      ],
+      "recommended_dockgrove_response": "Keep tab/window grouping stable through minimization.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-020",
+      "url": "https://github.com/ejbills/DockDoor/issues/1666",
+      "title": "DockDoor #1666: Wrong duplicate app instance targeted",
+      "type": "first-person issue",
+      "finding": "Separate ChatGPT instances can highlight or activate the wrong icon; click-to-minimize can minimize an unintended instance.",
+      "relevance": [
+        "identity",
+        "safety"
+      ],
+      "recommended_dockgrove_response": "Key running instances by process identity in addition to bundle identity; test duplicate instances.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-021",
+      "url": "https://github.com/ejbills/DockDoor/issues/1656",
+      "title": "DockDoor #1656: Screen Recording appears granted but thumbnails unavailable",
+      "type": "first-person issue",
+      "finding": "Titles render while compact mode stays locked despite the system permission being enabled and a manual reset/relaunch.",
+      "relevance": [
+        "permission-recovery"
+      ],
+      "recommended_dockgrove_response": "Show actual capability state and a recheck action; avoid permanently locking fallback mode after an earlier denial.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-022",
+      "url": "https://github.com/ejbills/DockDoor/issues/1593",
+      "title": "DockDoor #1593: Choose window before raising app",
+      "type": "first-person request",
+      "finding": "User accidentally clicks an app icon instead of hovering and brings all sibling windows forward, disrupting their arrangement.",
+      "relevance": [
+        "focus"
+      ],
+      "recommended_dockgrove_response": "Offer a click-accessible window chooser and focus exactly the chosen window.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-023",
+      "url": "https://github.com/ejbills/DockDoor/issues/1677",
+      "title": "DockDoor #1677: Active-app-only cycling shortcut",
+      "type": "first-person request",
+      "finding": "User wants a shortcut that cycles only the active application's windows rather than every app.",
+      "relevance": [
+        "keyboard"
+      ],
+      "recommended_dockgrove_response": "Provide a clear active-app window scope or accessible chooser.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-024",
+      "url": "https://github.com/ejbills/DockDoor/issues/1649",
+      "title": "DockDoor #1649: Search in Cmd-Tab mode",
+      "type": "first-person request",
+      "finding": "User asks for window/app search inside the familiar Cmd-Tab experience instead of a separate switcher mode.",
+      "relevance": [
+        "keyboard",
+        "search"
+      ],
+      "recommended_dockgrove_response": "Keep search available where users already navigate windows; avoid mode-specific surprises.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-025",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/5439",
+      "title": "AltTab #5439: Restoring minimized window raises siblings",
+      "type": "first-person issue",
+      "finding": "Restoring a minimized target also raises non-minimized windows of the same app over the previously frontmost app; report includes clear z-order reproduction.",
+      "relevance": [
+        "minimized",
+        "focus"
+      ],
+      "recommended_dockgrove_response": "Restore the selected target while preserving unrelated sibling stacking.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-026",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/5381",
+      "title": "AltTab #5381: Fullscreen focus causes unintended corner action",
+      "type": "first-person issue",
+      "finding": "Switching to certain fullscreen apps triggers an action at the top-left pixel. Reporter suspects synthetic-click focus behavior; suspicion is not independently verified here.",
+      "relevance": [
+        "focus",
+        "safety"
+      ],
+      "recommended_dockgrove_response": "Avoid synthetic clicks as a focus workaround; test fullscreen apps with actionable controls near corners.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-027",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/4507",
+      "title": "AltTab #4507: Focus changes in workspace left behind",
+      "type": "first-person issue",
+      "finding": "Switching to Chrome on another Space alters Chrome/Code stacking on the originating Space; maintainer reproduced the side effect.",
+      "relevance": [
+        "spaces",
+        "focus"
+      ],
+      "recommended_dockgrove_response": "Preserve the source Space's stacking when focusing a target elsewhere.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-028",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/5723",
+      "title": "AltTab #5723: Gesture stops after time or sleep",
+      "type": "first-person issue",
+      "finding": "Four-finger gesture eventually stops while the keyboard shortcut keeps working; restarting recovers it.",
+      "relevance": [
+        "wake",
+        "keyboard"
+      ],
+      "recommended_dockgrove_response": "Retain a reliable keyboard route and recover event observation after wake.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-029",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/5739",
+      "title": "AltTab #5739: Skipped permission remains sticky",
+      "type": "first-person issue",
+      "finding": "Skipping capture permission during setup leaves a stored flag that prevents thumbnails even after permission is granted later.",
+      "relevance": [
+        "permission-recovery"
+      ],
+      "recommended_dockgrove_response": "Recheck live permission state and clear obsolete skip state when access becomes available.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-030",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/6027",
+      "title": "AltTab #6027: Hidden/minimized ordering confusion",
+      "type": "first-person question",
+      "finding": "User expects a hidden app to remain near the front in recent order but finds it further down despite changing minimized-window ordering. User conflates hide and minimize.",
+      "relevance": [
+        "ordering",
+        "clarity"
+      ],
+      "recommended_dockgrove_response": "Label hidden and minimized separately and explain ordering controls in plain language.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-031",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/6051",
+      "title": "AltTab #6051: High idle CPU",
+      "type": "first-person issue",
+      "finding": "Reporter sees high CPU. Maintainer follow-up identifies thumbnail watchdog timers surviving dismissal and recurring permission checks among fixes. This is product-specific evidence, not a DockGrove measurement.",
+      "relevance": [
+        "idle-performance"
+      ],
+      "recommended_dockgrove_response": "Stop preview refresh when hidden; avoid perpetual high-frequency permission checks.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-032",
+      "url": "https://github.com/lwouis/alt-tab-macos/pull/6036",
+      "title": "AltTab PR #6036: Device Hub focus",
+      "type": "primary implementation discussion",
+      "finding": "Device Hub can take keyboard focus without being raised; reopening via LaunchServices was described as slow and flickering. PR explores a specific app fix.",
+      "relevance": [
+        "focus",
+        "compatibility"
+      ],
+      "recommended_dockgrove_response": "Verify both front window and keyboard focus; document or handle unusual windows deliberately.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-033",
+      "url": "https://www.reddit.com/r/macapps/comments/1upxwfd/sidebar_a_modern_highly_customizable_dock/",
+      "title": "Sidebar 2.1 user feedback",
+      "type": "first-person discussion",
+      "finding": "Users praise comprehensive customization and responsive support but call onboarding/settings overwhelming, with all options competing equally.",
+      "relevance": [
+        "onboarding"
+      ],
+      "recommended_dockgrove_response": "Lead with a small set of essentials and practical presets; reveal advanced choices progressively.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-034",
+      "url": "https://www.reddit.com/r/macapps/comments/1ka9fft/taskbar_for_macos_multimonitor_support_is_here/",
+      "title": "Taskbar multi-monitor release feedback",
+      "type": "first-person discussion",
+      "finding": "Users value stable window recognition, individually labeled windows and automatic width compression; requests include drag-to-pin and per-display behavior.",
+      "relevance": [
+        "window-visibility",
+        "multi-monitor"
+      ],
+      "recommended_dockgrove_response": "Keep windows readable and directly accessible under overflow; make pinning natural.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-035",
+      "url": "https://alt-tab.app/faq",
+      "title": "AltTab FAQ",
+      "type": "official",
+      "finding": "Explains required Accessibility versus optional preview capture permission and says switching still works without thumbnails.",
+      "relevance": [
+        "permissions"
+      ],
+      "recommended_dockgrove_response": "Make preview permission optional and preserve useful title/icon navigation.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-036",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/127",
+      "title": "AltTab #127: Better permission onboarding",
+      "type": "primary maintainer issue",
+      "finding": "Original design did not observe permission changes during app lifetime and could not easily repeat the screen-capture prompt.",
+      "relevance": [
+        "permission-recovery"
+      ],
+      "recommended_dockgrove_response": "Provide live recheck and direct settings guidance; handle later grants without a dead end.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-037",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/535",
+      "title": "AltTab #535: Switcher on every monitor",
+      "type": "first-person request",
+      "finding": "User asks to show a switcher on all displays beyond active/mouse/menu-bar display choices; maintainer details complexity.",
+      "relevance": [
+        "multi-monitor"
+      ],
+      "recommended_dockgrove_response": "Choose a deliberate display policy and make it visible rather than assuming one placement suits everyone.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-038",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/6147",
+      "title": "AltTab #6147: Rejected windows rediscovered on every move",
+      "type": "primary diagnostic issue",
+      "finding": "Untracked nonactivating hover panels trigger repeated accessibility window-list reads on move events; issue supplies a reproduction and proposed negative caching rationale.",
+      "relevance": [
+        "performance"
+      ],
+      "recommended_dockgrove_response": "Coalesce discovery events and remember ineligible windows until a meaningful lifecycle change.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-039",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/6148",
+      "title": "AltTab #6148: Game mouse confinement lost",
+      "type": "first-person issue",
+      "finding": "Minecraft dual-monitor user reports pointer escaping after AltTab switching but not native switching. Open report is app/version-specific.",
+      "relevance": [
+        "focus",
+        "safety"
+      ],
+      "recommended_dockgrove_response": "Test fullscreen games and avoid pointer repositioning or focus tricks that disturb capture.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-040",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/6142",
+      "title": "AltTab #6142: Invisible menu item blocks Apple menu",
+      "type": "primary diagnostic issue",
+      "finding": "Reporter traces an invisible still-hit-testable status item at the screen origin after hiding the icon.",
+      "relevance": [
+        "overlay-safety"
+      ],
+      "recommended_dockgrove_response": "Remove inactive overlay/status-item windows fully; test clicks reaching underlying system UI.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-041",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/6134",
+      "title": "AltTab #6134: Thumbnail memory pressure",
+      "type": "primary diagnostic issue",
+      "finding": "Long-session report distinguishes RSS from dirty footprint and suspects image retention. Measurements are one user's session, not general benchmarks.",
+      "relevance": [
+        "memory"
+      ],
+      "recommended_dockgrove_response": "Bound preview caches, discard obsolete captures and respond to memory pressure.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-042",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/6116",
+      "title": "AltTab #6116: Permission prompts despite grants",
+      "type": "first-person issue",
+      "finding": "Reporter sees permission UI around display changes; maintainer explains app appears to transiently detect lost permission then regain it.",
+      "relevance": [
+        "permissions",
+        "display-lifecycle"
+      ],
+      "recommended_dockgrove_response": "Debounce transient permission failures and avoid repeated disruptive permission windows.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-043",
+      "url": "https://sidebarapp.net/manual/",
+      "title": "Sidebar manual",
+      "type": "official",
+      "finding": "Written manual is marked forthcoming and guidance is primarily videos covering settings, styling, folders and context menus.",
+      "relevance": [
+        "onboarding",
+        "help"
+      ],
+      "recommended_dockgrove_response": "Provide concise searchable written help for core recovery and window controls.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-044",
+      "url": "https://sidebarapp.net/faq/",
+      "title": "Sidebar FAQ topic index",
+      "type": "official topic index",
+      "finding": "FAQ explicitly lists recovery of the native Dock, settings access without menu icon, preview delays, multi-monitor options and permission failures. Page extraction exposes questions, not their answers.",
+      "relevance": [
+        "support-discoverability"
+      ],
+      "recommended_dockgrove_response": "Make these recovery actions easy to find; do not infer technical answers from this index.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-045",
+      "url": "https://lawand.io/taskbar/",
+      "title": "Taskbar product",
+      "type": "official",
+      "finding": "Each open window receives an individually reorderable button; active Space filtering, pinning and click-to-minimize are emphasized.",
+      "relevance": [
+        "windows",
+        "pinning"
+      ],
+      "recommended_dockgrove_response": "Keep per-window access and pin/running state distinct and understandable.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-046",
+      "url": "https://dockdoor.net/",
+      "title": "DockDoor product",
+      "type": "official",
+      "finding": "Offers previews on all Spaces/displays, compact lists for many windows, keyboard switching, and optional controls without leaving the current app.",
+      "relevance": [
+        "window-discovery",
+        "keyboard"
+      ],
+      "recommended_dockgrove_response": "Provide clear title-based access and efficient keyboard navigation alongside previews.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-047",
+      "url": "https://alt-tab.app/",
+      "title": "AltTab product",
+      "type": "official",
+      "finding": "Highlights minimized/hidden/other-Space windows, location badges, preview-before-switch and no telemetry. Claims are vendor descriptions.",
+      "relevance": [
+        "window-state",
+        "privacy"
+      ],
+      "recommended_dockgrove_response": "Use explicit state/location indicators and state only privacy behavior the implementation actually meets.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-048",
+      "url": "https://github.com/sergio-farfan/alttab-macos",
+      "title": "Minimal AltTab alternative repository",
+      "type": "official source",
+      "finding": "Defaults to titles/icons without capture permission, optional live previews, mouse-display placement and resilient recency. Warns about ad-hoc identity changing grants.",
+      "relevance": [
+        "permissions",
+        "signing",
+        "performance"
+      ],
+      "recommended_dockgrove_response": "Keep captures optional, cache icons and use a stable signed identity for permission continuity.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-049",
+      "url": "https://github.com/ejbills/DockDoor/issues/1591",
+      "title": "DockDoor #1591: Dock locking blocks hot corners",
+      "type": "first-person issue",
+      "finding": "Bottom hot corners fail on a secondary screen while Dock locking is active; a bypass modifier restores them.",
+      "relevance": [
+        "multi-monitor",
+        "overlay-safety"
+      ],
+      "recommended_dockgrove_response": "Ensure edge reveal/locking surfaces do not intercept native hot corners.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-050",
+      "url": "https://manytricks.com/witch/help/",
+      "title": "Witch introduction and keyboard help",
+      "type": "official",
+      "finding": "Explains permission authorization, Option-Tab activation, tab drill-down, vertical mode and menu-bar access.",
+      "relevance": [
+        "keyboard",
+        "onboarding"
+      ],
+      "recommended_dockgrove_response": "Teach the basic keyboard path with a short visible guide and preserve menu access.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-051",
+      "url": "https://ubarapp.com/release-notes",
+      "title": "uBar release notes",
+      "type": "official",
+      "finding": "Recent fixes address slow launch caused by stuck Finder, permission granted to the wrong copy, rapid clicks and CPU/memory leaks.",
+      "relevance": [
+        "reliability",
+        "permissions"
+      ],
+      "recommended_dockgrove_response": "Do not block the dock on one unresponsive app; validate the running copy's permission.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-052",
+      "url": "https://lawand.io/taskbar/release-notes/",
+      "title": "Taskbar release notes",
+      "type": "official",
+      "finding": "Documents display-local/all-window options, startup invisibility, focus failures, popup filtering and restoring native Dock on quit/reset.",
+      "relevance": [
+        "recovery",
+        "window-lifecycle"
+      ],
+      "recommended_dockgrove_response": "Test startup, quit/reset restoration and transient window exclusion.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-053",
+      "url": "https://github.com/lwouis/alt-tab-macos/pull/6016",
+      "title": "AltTab PR #6016: Fast-switch focus race",
+      "type": "primary implementation discussion",
+      "finding": "Concurrent focus operations can complete out of order, leaving one app's menu bar with another window on top; PR discusses serializing focus commands.",
+      "relevance": [
+        "focus-race"
+      ],
+      "recommended_dockgrove_response": "Serialize or cancel superseded activation requests so rapid clicks cannot apply stale focus.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-054",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/6021",
+      "title": "AltTab #6021: Window list stale after wake",
+      "type": "first-person issue",
+      "finding": "After sleep, list sometimes shows only the current window or takes seconds to refresh; fixed in the linked release.",
+      "relevance": [
+        "wake",
+        "window-lifecycle"
+      ],
+      "recommended_dockgrove_response": "Refresh discovery on wake and reconnect observers while preserving a responsive UI.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-055",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/5803",
+      "title": "AltTab #5803: Post-sleep switcher consistency",
+      "type": "first-person issue",
+      "finding": "User reports previews becoming app icons and recency no longer updating after longer sleep; minimized windows were involved.",
+      "relevance": [
+        "wake",
+        "ordering"
+      ],
+      "recommended_dockgrove_response": "Test long sleep with minimized windows and ensure fallback does not silently change sorting semantics.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-056",
+      "url": "https://github.com/lwouis/alt-tab-macos/issues/5981",
+      "title": "AltTab #5981: Search lag complaint",
+      "type": "first-person issue",
+      "finding": "User complains of search becoming slow and paid-feature friction; no reproduction and tagged unclear/unreproducible.",
+      "relevance": [
+        "performance",
+        "trust"
+      ],
+      "recommended_dockgrove_response": "Keep search responsive and make feature availability unsurprising; treat this as sentiment, not measured performance.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-057",
+      "url": "https://github.com/lawand-dot-io/taskbar/issues/164",
+      "title": "Taskbar #164: Fullscreen transition loses item order",
+      "type": "first-person issue",
+      "finding": "Window returns at the end of the bar after fullscreen despite user drag ordering; separate Spaces enabled.",
+      "relevance": [
+        "ordering",
+        "fullscreen"
+      ],
+      "recommended_dockgrove_response": "Preserve stable item identity/order through fullscreen and Space transitions.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-058",
+      "url": "https://github.com/lawand-dot-io/taskbar/discussions/186",
+      "title": "Taskbar #186: Main-display-only option",
+      "type": "first-person discussion",
+      "finding": "User wants the old single-display behavior after an update; maintainer acknowledges hidden bars may reappear due to a bug.",
+      "relevance": [
+        "multi-monitor",
+        "persistence"
+      ],
+      "recommended_dockgrove_response": "Persist per-display visibility and preserve existing preferences during upgrades.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-059",
+      "url": "https://github.com/lawand-dot-io/taskbar/issues/214",
+      "title": "Taskbar #214: Fusion popups counted as windows",
+      "type": "first-person issue",
+      "finding": "Dimension-entry popups appear as extra taskbar windows; desired count corresponds to actual open files.",
+      "relevance": [
+        "window-filtering"
+      ],
+      "recommended_dockgrove_response": "Filter transient utility panels without hiding real document windows.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-060",
+      "url": "https://github.com/lawand-dot-io/taskbar/issues/163",
+      "title": "Taskbar #163: Running app but invisible bar",
+      "type": "first-person issue",
+      "finding": "After update, settings remain accessible but bar is completely invisible despite restart and option changes.",
+      "relevance": [
+        "recovery"
+      ],
+      "recommended_dockgrove_response": "Provide an always-reachable reset-position/show-dock action and validate offscreen geometry.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-061",
+      "url": "https://github.com/lawand-dot-io/taskbar/discussions/72",
+      "title": "Taskbar #72: Uninstall leaves native Dock hidden",
+      "type": "first-person discussion",
+      "finding": "User deletes app and reboots but original Dock remains hidden; maintainer acknowledges reset also failed to restore it. Historical behavior.",
+      "relevance": [
+        "safety",
+        "recovery"
+      ],
+      "recommended_dockgrove_response": "Snapshot only changed native settings and reliably restore them on quit/reset, with recovery instructions.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-062",
+      "url": "https://github.com/lawand-dot-io/taskbar/issues/78",
+      "title": "Taskbar #78: Clicking tasks stops switching",
+      "type": "first-person issue",
+      "finding": "Clicking task buttons sometimes does nothing; expected selected window never opens. Historical closed issue.",
+      "relevance": [
+        "focus"
+      ],
+      "recommended_dockgrove_response": "Test activation after long sessions and surface recoverable failure instead of silently ignoring clicks.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-063",
+      "url": "https://github.com/lawand-dot-io/taskbar/issues/85",
+      "title": "Taskbar #85: Language popup ghost windows",
+      "type": "first-person issue",
+      "finding": "Blank duplicate windows appear intermittently across apps and disappear after restart; issue later titled for language popups.",
+      "relevance": [
+        "window-filtering"
+      ],
+      "recommended_dockgrove_response": "Exclude transient input/system panels and remove obsolete window records.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-064",
+      "url": "https://github.com/lawand-dot-io/taskbar/discussions/65",
+      "title": "Taskbar #65: Drag app to pin",
+      "type": "first-person request",
+      "finding": "User requests dragging apps onto the bar like the native Dock instead of finding a context-menu keep command.",
+      "relevance": [
+        "pinning",
+        "drag-drop"
+      ],
+      "recommended_dockgrove_response": "Support natural app drag-to-pin with a clear insertion indicator.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-065",
+      "url": "https://dockdoor.net/docs.html",
+      "title": "DockDoor automation documentation",
+      "type": "official",
+      "finding": "Commands address apps by bundle or process ID and windows by window ID; exposes focus/minimize/close and JSON window queries.",
+      "relevance": [
+        "identity",
+        "automation"
+      ],
+      "recommended_dockgrove_response": "Use stable process/window identity internally; add automation only after reliable core control.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-066",
+      "url": "https://bahoom.com/hyperswitch",
+      "title": "HyperSwitch known issues",
+      "type": "official",
+      "finding": "Official known-issues list says previews may be delayed, some preferences do not work, and minimized windows lack an option.",
+      "relevance": [
+        "minimized",
+        "reliability"
+      ],
+      "recommended_dockgrove_response": "Keep minimized windows available and verify that every exposed preference actually works.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-067",
+      "url": "https://noteifyapp.com/activedock/",
+      "title": "ActiveDock product",
+      "type": "official",
+      "finding": "Groups apps/documents, offers window preview controls and customizable start menu while aiming for familiar native Dock behavior.",
+      "relevance": [
+        "grouping",
+        "window-controls"
+      ],
+      "recommended_dockgrove_response": "Make groups useful for organization without losing direct individual-window access.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-068",
+      "url": "https://www.dockfix.app/",
+      "title": "DockFix product",
+      "type": "official",
+      "finding": "Promotes customizable native-feeling Dock, previews, widgets, one-time pricing and low average CPU. CPU is an unverified vendor claim.",
+      "relevance": [
+        "design",
+        "performance"
+      ],
+      "recommended_dockgrove_response": "Match expected Dock interaction feel; measure and report DockGrove's own idle behavior.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-069",
+      "url": "https://www.dockfix.app/changelog",
+      "title": "DockFix changelog",
+      "type": "official",
+      "finding": "Recent features include app folders, configurable badges/click actions, file drops, open-window context menus and preview window controls.",
+      "relevance": [
+        "customization",
+        "windows"
+      ],
+      "recommended_dockgrove_response": "Keep core window controls discoverable and make customization optional.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-070",
+      "url": "https://www.reddit.com/r/macapps/comments/1warxaj/i_spent_months_rebuilding_dockfix_from_the_ground/",
+      "title": "DockFix rewrite feedback",
+      "type": "first-person discussion",
+      "finding": "Users report fullscreen onboarding/restart loops, trial email friction, persistent native-Dock changes and preview gaps that close during diagonal pointer movement. Others praise widgets/appearance.",
+      "relevance": [
+        "onboarding",
+        "safety",
+        "hover"
+      ],
+      "recommended_dockgrove_response": "Use resumable skippable setup, restore native preferences exactly, and allow pointer travel from icon to any preview.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-071",
+      "url": "https://manytricks.com/witch/help/actions.html",
+      "title": "Witch action configuration",
+      "type": "official",
+      "finding": "Supports minimized-only, non-minimized-only and frontmost-app scopes, plus separate app/window cycling layouts.",
+      "relevance": [
+        "keyboard",
+        "filtering"
+      ],
+      "recommended_dockgrove_response": "Expose a small understandable set of window scopes and sensible defaults.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-072",
+      "url": "https://manytricks.com/witch/help/advanced.html",
+      "title": "Witch advanced behavior",
+      "type": "official",
+      "finding": "Lets users select main, pointer or frontmost-window display; configurable panel delay supports fast toggling and search access.",
+      "relevance": [
+        "multi-monitor",
+        "keyboard"
+      ],
+      "recommended_dockgrove_response": "Choose coherent display placement and preserve fast keyboard switching without unnecessary overlay delay.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-073",
+      "url": "https://noteifyapp.com/command-tab-plus/",
+      "title": "Command-Tab Plus product",
+      "type": "official",
+      "finding": "Offers numeric app selection, app/window shortcuts and current-display/Space filtering by default, with configurable scope.",
+      "relevance": [
+        "keyboard",
+        "scope"
+      ],
+      "recommended_dockgrove_response": "Add direct keyboard access and communicate whether results cover current display, Space or all windows.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-074",
+      "url": "https://noteifyapp.com/dockview/",
+      "title": "DockView product",
+      "type": "official",
+      "finding": "Promotes individual-window previews including minimized Dock tiles, Stage Manager/multi-display/fullscreen support and no background polling. Performance claims are vendor claims.",
+      "relevance": [
+        "minimized",
+        "performance"
+      ],
+      "recommended_dockgrove_response": "Test minimized tiles and Stage Manager; prefer on-demand capture over background polling.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    },
+    {
+      "id": "dock-075",
+      "url": "https://bahoom.com/hyperdock/",
+      "title": "HyperDock product",
+      "type": "official",
+      "finding": "Individual window activation, minimized and other-Space previews, drag/drop and configurable Dock shortcuts are longstanding advertised functions.",
+      "relevance": [
+        "window-baseline"
+      ],
+      "recommended_dockgrove_response": "Treat precise individual-window activation and minimized-window access as baseline expectations.",
+      "review_method": "web open and inspected rendered source text",
+      "reviewed_at": "2026-11-04",
+      "research_group": "dock"
+    }
+  ]
+}

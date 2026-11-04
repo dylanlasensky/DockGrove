@@ -1,89 +1,69 @@
 "use client";
 
-import {useState, type CSSProperties, type DragEvent} from "react";
+import {useState, type DragEvent} from "react";
 import Reveal from "./Reveal";
-import {useAutoCycle} from "@/hooks/useAutoCycle";
-import {useSeen} from "@/hooks/useSectionFocus";
 import s from "./Showcase.module.css";
 
-const SLIDES = ["Home", "Widgets", "File tray", "AirDrop"] as const;
-const SAMPLE_FILES = ["Brief.pdf", "Moodboard.png", "Notes.md"];
-
-function fileLabel(count: number) {
-  return `File tray · ${count} ${count === 1 ? "file" : "files"}`;
-}
-
-/** The notch shelf plays itself like a product film: it springs open on arrival, then steps through its pages. */
-export default function NotchShowcase({playing}: {playing: boolean}) {
-  const [sectionRef, seen] = useSeen<HTMLElement>();
-  const [showRef, show] = useAutoCycle<HTMLDivElement>(SLIDES.length, 4200, playing && seen);
-  const slide = show.index;
-  const [dropped, setDropped] = useState<string[]>([]);
-  const [over, setOver] = useState(false);
-  const files = [...SAMPLE_FILES, ...dropped];
-
-  // Files dropped on the preview stay in this page: only their names are read.
-  const dragProps = {
-    onDragOver: (e: DragEvent) => { e.preventDefault(); setOver(true); },
-    onDragLeave: () => setOver(false),
-    onDrop: (e: DragEvent) => {
-      e.preventDefault(); setOver(false);
-      const names = Array.from(e.dataTransfer.files, f => f.name).filter(n => n && !files.includes(n));
-      if (names.length) { setDropped(d => [...d, ...names]); show.setIndex(2); }
-    },
-  };
-
-  return <section id="notch" ref={sectionRef} className={s.notchSection}>
+/** An illustrative preview of the native Home/Files shelf. Files never leave the browser. */
+export default function NotchShowcase() {
+  const [tab, setTab] = useState<"Home" | "Files">("Home");
+  const [widgets, setWidgets] = useState(false);
+  const [query, setQuery] = useState("");
+  const [tray, setTray] = useState(["Brief.pdf", "Moodboard.png"]);
+  const [review, setReview] = useState(false);
+  const [selection, setSelection] = useState(["Brief.pdf"]);
+  const [notice, setNotice] = useState("");
+  const [playing, setPlaying] = useState(false);
+  function drop(event: DragEvent, destination: "tray" | "airdrop") {
+    event.preventDefault();
+    const names = Array.from(event.dataTransfer.files, file => file.name).filter(Boolean);
+    if (!names.length) return;
+    if (destination === "tray") setTray(previous => [...new Set([...previous, ...names])]);
+    else { setSelection(names); setReview(true); }
+    setNotice("Only file names are used in this preview. Nothing is uploaded.");
+  }
+  const cards = ["Calendar", "Codex", "Notes"].filter(name => name.toLowerCase().includes(query.toLowerCase()));
+  return <section id="notch" className={s.notchSection}>
     <div className={s.notchInner}>
       <Reveal className={s.notchCopy}>
         <p className={s.eyebrow}>THE NOTCH, PUT TO WORK.</p>
-        <h2>A shelf that lives<br/>above your work.</h2>
-        <p>Hover your Mac’s notch to bring music, timers and files into reach. A useful little shelf, right above what you’re working on.</p>
+        <h2>A shelf above<br/>the everyday.</h2>
+        <p>Music, a focus timer, and useful widgets in Home. A place for files in Files. Open your Mac’s notch to bring the little things closer.</p>
         <ul className={s.points}>
-          {["Slides, not scrolling.|Each page fits the shelf. Pills show where you are.", "A tray for files in transit.|Park files and see the count at a glance.", "AirDrop from the top.|Drop files on the AirDrop zone to share them.", "Search widgets by name|right from the shelf."].map((line, i) => {
-            const [bold, rest] = line.split("|");
-            return <li key={bold} className={[0, 3, 1, 2][slide] === i ? s.pointActive : ""} style={{"--step": i} as CSSProperties}><b>{bold}</b> {rest}</li>;
-          })}
+          <li><b>A compact shelf.</b> Switch views without growing over your work.</li>
+          <li><b>Keep a file close.</b> Save a shortcut, open it, or reveal it in Finder.</li>
+          <li><b>Review before sharing.</b> Choose device opens Apple’s AirDrop chooser. You pick the recipient there.</li>
         </ul>
+        <p className={s.compatibility}>Opt-in on compatible Macs with a built-in notch. No camera access required.</p>
       </Reveal>
-
-      <div ref={showRef} {...show.bind} className={s.screen} aria-label="Notch shelf preview with sample data" role="group" aria-roledescription="slideshow">
-        <div className={`${s.notch} ${seen ? s.notchOpen : ""}`}>
-          {seen && <div className={s.shelf}>
-            <div className={s.slideViewport} aria-live={show.running ? "off" : "polite"}>
-              <div key={slide} className={s.slide} role="group" aria-roledescription="slide" aria-label={`Notch slide ${slide + 1} of ${SLIDES.length}: ${SLIDES[slide]}`}>
-                {slide === 0 && <div className={s.row}>
-                  <div className={`${s.card} ${s.musicCard}`}><span className={`${s.cover} ${s.spin}`} aria-hidden="true">♫</span><span><b>Quiet hours</b><small>Demo playlist</small><span className={s.eq} aria-hidden="true"><i/><i/><i/><i/><i/></span></span></div>
-                  <div className={`${s.card} ${s.timerCard}`}><b className={s.ticking}>24:59</b><small>Focusing</small><i className={s.timerBar}><em/></i></div>
-                </div>}
-                {slide === 1 && <div className={s.row}>
-                  <div className={s.card}><b>10:30</b><span>Design review</span><small>In 12 min</small></div>
-                  <div className={s.card}><b>Codex</b><span>82% remaining</span><i className={s.meter}><em/></i></div>
-                  <div className={s.card}><b>Notes</b><span>Ship the shelf</span><small>2 items left</small></div>
-                </div>}
-                {slide === 2 && <div className={s.trayWrap}>
-                  <div className={s.trayHeader}><span>{fileLabel(files.length)}</span></div>
-                  <div className={`${s.row} ${s.trayRow} ${over ? s.dropOver : ""}`} {...dragProps}>
-                    {files.map((name, i) => <span key={name} className={`${s.fileChip} ${s.flyIn}`} style={{"--step": i} as CSSProperties}><span aria-hidden="true">▤</span>{name}</span>)}
-                  </div>
-                </div>}
-                {slide === 3 && <div className={s.airDrop}>
-                  <span className={s.airDropRings} aria-hidden="true"><i/><i/><i/></span>
-                  <span className={s.airDropIcon} aria-hidden="true">◎</span>
-                  <b>AirDrop</b>
-                  <small className={s.sending}>Sending Brief.pdf to a nearby Mac…</small>
-                </div>}
-              </div>
+      <Reveal>
+        <div className={s.screen} role="group" aria-label="Notch shelf preview with sample data">
+          <div className={`${s.notch} ${s.notchOpen} ${s.nativeShelf}`}>
+            <div className={s.nativeHeader}>
+              {tab === "Home" ? <input aria-label="Find a widget in the notch preview" placeholder="Find a widget" value={query} onChange={event => { setQuery(event.target.value); setWidgets(true); }}/> : <span>{tray.length} files</span>}
+              <span className={s.cameraSpace} aria-hidden="true"/>
+              <div aria-label="Notch views">{(["Home", "Files"] as const).map(name => <button key={name} type="button" aria-pressed={tab === name} onClick={() => { setTab(name); setNotice(""); }}>{name}</button>)}</div>
             </div>
-            <div className={s.pills} aria-label="Notch slides">
-              {SLIDES.map((name, i) => <button key={name} type="button" aria-current={slide === i} aria-label={`Show notch slide ${i + 1} of ${SLIDES.length}: ${name}`} className={slide === i ? s.pillActive : ""} onClick={() => show.setIndex(i)}>
-                {slide === i && <em className={s.pillFill} style={{animationDuration: `${show.duration}ms`, animationPlayState: show.running ? "running" : "paused"}}/>}
-              </button>)}
+            <div className={s.nativeContent}>
+              {tab === "Home" ? <>
+                {!widgets && !query ? <div className={s.nativeHome}>
+                  <div className={s.nativeMusic}><span aria-hidden="true">♫</span><div><b>Quiet hours</b><small>Sample playlist</small></div><button type="button" aria-label={playing ? "Pause notch music sample" : "Play notch music sample"} onClick={() => setPlaying(!playing)}>{playing ? "Ⅱ" : "▶"}</button></div>
+                  <div className={s.nativeFocus}><small>Focus</small><b>25:00</b></div>
+                </div> : <div className={s.nativeWidgets}>{cards.length ? cards.map(name => <div key={name}><small>{name}</small><b>{name === "Calendar" ? "10:30" : name === "Codex" ? "82% left" : "Ship the idea"}</b><small>{name === "Calendar" ? "Design review" : name === "Codex" ? "Sample usage" : "Quick note"}</small></div>) : <p>No matching widgets.</p>}</div>}
+                {!query && <button type="button" className={s.shelfPage} aria-label={widgets ? "Show notch home cards" : "Show more notch widgets"} onClick={() => setWidgets(!widgets)}>{widgets ? "‹ Home cards" : "More widgets ›"}</button>}
+              </> : <div className={s.nativeFiles}>
+                <div onDragOver={event => event.preventDefault()} onDrop={event => drop(event, "tray")} className={s.trayPreview}><b>File tray</b><small>{tray.slice(0, 2).join(" · ") || "Drop files to keep shortcuts"}</small><button type="button" onClick={() => { setTray([]); setNotice("Tray cleared. Original files are unchanged."); }}>Clear tray</button></div>
+                <div onDragOver={event => event.preventDefault()} onDrop={event => drop(event, "airdrop")} className={s.airDropPreview}>
+                  {review ? <><small>{selection.length} selected · {selection[0] || "No files"}</small><button type="button" disabled={!selection.length} onClick={() => setNotice("In the Mac app, Choose device opens Apple’s AirDrop chooser. This website does not share files.")}>Choose device</button><button type="button" onClick={() => { setReview(false); setNotice(""); }}>Close review</button></> : <button type="button" onClick={() => { setReview(true); setSelection(["Brief.pdf"]); }}>AirDrop <small>Review a sample file</small></button>}
+                </div>
+              </div>}
             </div>
-          </div>}
+          </div>
+          <div className={s.desktopHint} aria-hidden="true"><span/><span/><span/></div>
+          <p className={s.screenNote}>Interactive illustration · Sample data</p>
         </div>
-        <p className={s.screenNote}>{show.running ? "Hover to pause. Drop a file here to add it to the tray — it stays on this page." : "Choose a view below the shelf. Files dropped into the tray stay on this page."}</p>
-      </div>
+        <p className={s.previewNotice} role="status">{notice || "Try Home, Files, or search for a widget."}</p>
+      </Reveal>
     </div>
   </section>;
 }

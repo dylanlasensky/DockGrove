@@ -80,7 +80,7 @@ struct AccessibilityClient {
             windows = found
             if !found.contains(where: { $0.id == selectedID }) { selectedID = found.first?.id ?? "" }
             loading = false
-            status = found.isEmpty ? "No accessible windows. Open an app window, then Refresh." : "Choose a window and a layout. Some apps enforce a minimum size."
+            status = found.isEmpty ? "No accessible windows. Open an app window, then Refresh." : "Choose a window to bring forward or arrange. Some apps enforce a minimum size."
         }
     }
     nonisolated private static func discover() -> [ManagedWindow] {
@@ -162,6 +162,8 @@ struct AccessibilityClient {
         guard trusted else { status = "Allow Accessibility to select and restore windows."; return }
         guard let selected else { status = "Select a window first."; return }
         let ax = AccessibilityClient.current
+        // A busy application must not hold the Dock's main thread for the AX default timeout.
+        ax.setTimeout(selected.element, 0.5)
         let restored = ax.set(selected.element, kAXMinimizedAttribute, kCFBooleanFalse)
         ax.activate(selected.owner)
         let raised = ax.perform(selected.element, kAXRaiseAction)
@@ -169,7 +171,12 @@ struct AccessibilityClient {
             ? "Window brought forward."
             : "This app could not restore or focus the window. Refresh and check Accessibility access."
     }
-    func minimize() { guard trusted, !loading else { status = "Allow Accessibility to minimize windows."; return }; guard let selected else { return }; if AccessibilityClient.current.set(selected.element, kAXMinimizedAttribute, kCFBooleanTrue) != .success { status = "This window cannot be minimized." } }
+    func minimize() {
+        guard trusted, !loading else { status = "Allow Accessibility to minimize windows."; return }
+        guard let selected else { return }
+        AccessibilityClient.current.setTimeout(selected.element, 0.5)
+        if AccessibilityClient.current.set(selected.element, kAXMinimizedAttribute, kCFBooleanTrue) != .success { status = "This window cannot be minimized." }
+    }
 }
 struct WindowManagerView: View {
     @ObservedObject var manager: WindowManager

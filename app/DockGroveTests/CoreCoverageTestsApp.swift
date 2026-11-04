@@ -266,9 +266,18 @@ private final class CoreOtherInstance: NSRunningApplication {
         delegate.toggleVisibility()
         XCTAssertFalse(delegate.panel.isVisible, "toggling hides the dock")
         delegate.toggleVisibility()
-        delegate.windowList = { [] }
-        delegate.sessionResigned(); delegate.sessionBecameActive()
-        delegate.screenSlept(); delegate.screenWoke()
+        var snapshotReads = 0
+        delegate.windowList = { snapshotReads += 1; return [] }
+        delegate.sessionResigned()
+        delegate.checkAutoHide()
+        XCTAssertEqual(snapshotReads, 0, "locked sessions do not inspect windows")
+        delegate.screenSlept()
+        delegate.sessionBecameActive()
+        delegate.checkAutoHide()
+        XCTAssertEqual(snapshotReads, 0, "sleeping displays do not inspect windows")
+        delegate.screenWoke()
+        delegate.checkAutoHide()
+        XCTAssertGreaterThan(snapshotReads, 0, "window inspection resumes after wake")
         delegate.spaceChanged()
         delegate.refresh()
 

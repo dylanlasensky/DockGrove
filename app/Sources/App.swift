@@ -274,7 +274,8 @@ final class DockPanel: NSPanel {
     private var visibilityWindowSnapshot: [[String: Any]]?
     func checkAutoHide() {
         guard let panel, let model else { return }
-        visibilityWindowSnapshot = windowList()
+        // Suppressed sessions need no window-server inspection; keep lock/sleep idle.
+        visibilityWindowSnapshot = sessionActive && screenAwake ? windowList() : []
         defer { visibilityWindowSnapshot = nil }
         check(panel,model:model,visibility:&visibility)
         for dock in orEmpty(workspace?.docks) { check(dock.panel,model:dock.model,visibility:&dock.visibility) }

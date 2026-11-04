@@ -9,6 +9,7 @@ import AppearanceStudio, {accentHex, signature, type Mood} from "./AppearanceStu
 import {useAutoCycle} from "@/hooks/useAutoCycle";
 import LauncherShowcase from "./LauncherShowcase";
 import NotchShowcase from "./NotchShowcase";
+import WindowShelfPreview from "./WindowShelfPreview";
 import Reveal from "./Reveal";
 import MoreSection from "./MoreSection";
 import AskSection from "./AskSection";
@@ -50,6 +51,7 @@ function DemoDock({light=false, graphite=false, accent, pet="dragon", section="a
     <div className={`${s.tile} ${s.music}`}><Image src="/assets/apps/spotify.png" alt="Spotify" width={44} height={44} unoptimized/><span><b>Deep focus</b><small>Spotify · Sample playlist</small><button className={s.musicControl} onClick={()=>setMusicPlaying(!musicPlaying)} aria-label={musicPlaying?"Pause Spotify preview":"Play Spotify preview"} aria-pressed={musicPlaying}><span aria-hidden="true">{musicPlaying?"Ⅱ":"▶"}</span> {musicPlaying?"Playing":"Paused"}</button></span></div>
     <div className={`${s.tile} ${s.cpu}`}><span className={s.usageRow}><b>CPU</b><span>18%</span></span><svg viewBox="0 0 100 28" aria-hidden="true"><path d="M0 24 L8 22 L14 23 L20 16 L26 19 L32 10 L38 16 L44 13 L50 17 L56 8 L62 14 L68 12 L74 19 L80 15 L86 20 L92 17 L100 19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg><small>System activity</small></div>
     <div key={pet} className={`${s.tile} ${s.dockPet}`} role="img" aria-label={`${pet==="dragon"?"Blue dragon":pet.replaceAll("-"," ")} in a companion widget`}><Pet name={pet}/></div>
+    <WindowShelfPreview/>
   </div>;
 }
 export default function RefinedLanding(){
@@ -74,7 +76,7 @@ export default function RefinedLanding(){
     </div><a className={s.button} href="#download">Explore the Dock</a><button className={s.menu} aria-label="Toggle navigation" aria-expanded={menu} onClick={()=>setMenu(!menu)} onKeyDown={e=>{if(e.key==="Escape")setMenu(false);}}>☰</button></nav></header>
     <main id="main">
       <section id="top" className={s.hero}>
-        <div className={s.stage} aria-label="Interactive Dock illustration with sample data"><DemoDock/><div className={s.stageCaption}><span>Apps. Widgets. A little company. <small>Sample data.</small></span><button onClick={()=>setPaused(!paused)} aria-pressed={paused}>{paused?"Play motion":"Pause motion"}</button></div></div>
+        <div className={s.stage} aria-label="Interactive Dock illustration with sample data"><DemoDock/><div className={s.stageCaption}><span>Click the cube to find a window. <small>Interactive sample data.</small></span><button onClick={()=>setPaused(!paused)} aria-pressed={paused}>{paused?"Play motion":"Pause motion"}</button></div></div>
         <div className={s.heroCopy}><p className={s.eyebrow}>A LITTLE SPACE. A BETTER EVERYDAY.</p><h1>Your Mac.<br/>Everything within reach.</h1><p className={s.lead}>Apps, live widgets, and AI usage in one beautifully personal Dock.</p><div className={s.actions}><a className={s.button} href="#download">Explore DockGrove</a><a className={s.playLink} href="#widgets"><span aria-hidden="true">▷</span>Try it in action</a></div><p className={s.fine}>For macOS 14 and later · Apple silicon &amp; Intel</p></div>
       </section>
       <section id="features" className={s.features}><Reveal className={s.sectionHeading}><p className={s.eyebrow}>LESS SEARCHING. MORE DOING.</p><h2>Less switching. More living.</h2><p className={s.sectionLead}>Your everyday essentials, together in a space that feels like you.</p></Reveal><div className={s.cards}>
@@ -82,7 +84,7 @@ export default function RefinedLanding(){
         <Reveal step={1}><article><div className={s.cardImage} inert aria-hidden="true"><DemoDock section="widgets"/></div><h3>Useful widgets, always close.</h3><p>Keep time, events, notes, and your next small task in view.</p></article></Reveal>
         <Reveal step={2}><article id="intelligence"><div className={s.cardImage} inert aria-hidden="true"><DemoDock section="usage"/></div><h3>Know what’s left.</h3><p>See supported AI usage at a glance. Preview shows sample data.</p></article></Reveal>
       </div></section>
-      <NotchShowcase playing={false}/>
+      <NotchShowcase/>
       <LauncherShowcase playing={false}/>
       <section id="widgets" className={s.workspace}><div className={s.workspaceInner}><Reveal><p className={s.eyebrow}>FEELS LIKE YOUR MAC.</p><h2>Make room for<br/>your way of working.</h2><p>A quiet look for deep work. A little color for everything else. Try your own combination.</p><div style={{"--accent":accentColor} as CSSProperties}><AppearanceStudio mood={mood} onPickMood={setMoodPick} show={look} showRef={lookRef} light={light}/></div></Reveal><Reveal step={1} className={s.workspaceDocks}><DemoDock light={light} graphite={mood==="Graphite"} accent={accentColor} pet={pet}/><p>{mood}{mood==="Automatic"?` (${light?"light":"dark"} right now)`:""} · {accent.name} · {chosen.heading}. Sample data.</p></Reveal></div></section>
       <section id="companions" className={s.companions}><div className={s.companionIntro}><Reveal><p className={s.eyebrow}>SMALL FRIENDS. BIG PERSONALITIES.</p><h2>A little company.<br/>A lot of character.</h2><p>Nine companions to make your Dock feel like yours. More room to roam, with care and details just a click away.</p><p className={s.meetAll}>Meet all nine companions <span aria-hidden="true">→</span></p></Reveal>

@@ -24,6 +24,7 @@ private final class WinFakeAX: @unchecked Sendable {
     var runningApp: NSRunningApplication?
     var activations = 0
     var pauses = 0
+    var timeouts: [Float] = []
 
     func key(_ element: AXUIElement, _ attribute: String) -> String { "\(CFHash(element)):\(attribute)" }
     func put(_ element: AXUIElement, _ attribute: String, _ value: CFTypeRef?) {
@@ -70,7 +71,7 @@ private final class WinFakeAX: @unchecked Sendable {
         c.promptForTrust = { [unowned self] in self.prompts += 1 }
         c.application = { winElement($0) }
         c.systemWide = { winElement(1) }
-        c.setTimeout = { _, _ in }
+        c.setTimeout = { [unowned self] _, value in self.timeouts.append(value) }
         c.copy = { [unowned self] in self.get($0, $1) }
         c.set = { [unowned self] in self.set($0, $1, $2) }
         c.perform = { [unowned self] _, _ in self.performResult }
@@ -344,6 +345,7 @@ private func winWakeAccessibility() async {
         manager.windows = [window]; manager.selectedID = window.id
         manager.focus()
         XCTAssertEqual(manager.status, "Window brought forward.")
+        XCTAssertEqual(fake.timeouts.last, 0.5, "busy windows have bounded Accessibility calls")
         fake.queue(kAXMinimizedAttribute, [.attributeUnsupported])
         manager.focus()
         XCTAssertEqual(manager.status, "Window brought forward.")
@@ -356,6 +358,7 @@ private func winWakeAccessibility() async {
         manager.status = ""
         manager.minimize()
         XCTAssertEqual(manager.status, "")
+        XCTAssertEqual(fake.timeouts.last, 0.5)
         fake.queue(kAXMinimizedAttribute, [.failure])
         manager.minimize()
         XCTAssertEqual(manager.status, "This window cannot be minimized.")
