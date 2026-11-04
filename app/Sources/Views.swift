@@ -260,7 +260,7 @@ struct AppTile: View {
             if hovering { model.refreshLoginItems() }
         }
         .animation(.spring(response: 0.23, dampingFraction: 0.65), value: interaction.hovered)
-        .contextMenu { AppTileMenu(app: app, model: model, windows: model.toolkit.windows, forceQuit: DockSystemEffect.modifiers().contains(.option)) }
+        .contextMenu { AppTileMenu(app: app, model: model, windows: model.toolkit.windows, utilities: model.toolkit.utilities, forceQuit: DockSystemEffect.modifiers().contains(.option)) }
     }
 }
 
@@ -271,6 +271,7 @@ struct AppTileMenu: View {
     let app: DockApp
     @ObservedObject var model: DockModel
     @ObservedObject var windows: WindowManager
+    @ObservedObject var utilities: Utilities
     let forceQuit: Bool
     var body: some View {
         let running = model.runningApplication(app), pinned = model.apps.contains(app)

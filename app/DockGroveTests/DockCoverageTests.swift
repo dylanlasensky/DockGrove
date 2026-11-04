@@ -1069,6 +1069,7 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         model.toolkit.utilities.setLoginItem = { on in loginRequests.append(on); loginState = on ? .enabled : .notRegistered }
         model.toolkit.utilities.loginStatus = { loginState }
         model.toolkit.utilities.loginEnabled = false
+        harness.spin() // Re-render after replacing the real login state with the fixture.
         XCTAssertTrue(model.isDockGrove(app))
         XCTAssertEqual(harness.menuItem(["Options", "Open at Login"], at: point)?.state, .off)
         harness.choose(["Options", "Open at Login"], inMenuAt: point)
