@@ -8,7 +8,7 @@ enum ToolKind: String, CaseIterable, Identifiable {
     case windows, googleCalendar, spotify, appleMusic, openaiUsage, anthropicUsage, cursorUsage
     var id: String { rawValue }
     var title: String { switch self {
-    case .pet: return "Companion cat"
+    case .pet: return "Companion"
     case .claudeCodeUsage: return "Claude Code limits"; case .geminiUsage: return "Gemini CLI usage"
     case .calculator: return "Calculator"; case .currency: return "Currency"; case .voiceMemo: return "Voice memo"; case .audio: return "Audio"; case .appGroups: return "App groups"; case .webSearch: return "Web search"
     case .windows: return "Windows"; case .googleCalendar: return "Google Calendar"; case .spotify: return "Spotify"; case .appleMusic: return "Apple Music"; case .openaiUsage: return "OpenAI API usage"; case .anthropicUsage: return "Claude API usage"; case .cursorUsage: return "Cursor team usage"
