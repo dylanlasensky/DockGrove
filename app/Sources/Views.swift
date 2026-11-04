@@ -61,6 +61,7 @@ struct DockView: View {
                     }
                 Text("\(current + 1)/\(pages.count)").font(.system(size: 9)).monospacedDigit().foregroundStyle(.secondary)
             }.frame(width: 32)
+            WindowShelfButton(manager: model.toolkit.windows, enabled: model.canUseFeatures)
             Button { model.settingsAction?() } label: { Image(systemName: "slider.horizontal.3").frame(width: 26, height: 46) }
                 .help("DockGrove settings").accessibilityLabel("DockGrove settings")
         }
@@ -277,7 +278,7 @@ struct AppTileMenu: View {
         let running = model.runningApplication(app), pinned = model.apps.contains(app)
         if running != nil {
             let open = windows.windows.filter { $0.owner.bundleURL?.standardizedFileURL.path == app.id }
-            ForEach(open) { window in Button(window.menuTitle) { windows.selectedID = window.id; windows.focus() } }
+            ForEach(open) { window in Button(window.menuTitle + (window.isMinimized ? " — Minimized" : "")) { windows.selectedID = window.id; windows.focus() } }
             if !open.isEmpty { Divider() }
         }
         Menu("Options") {

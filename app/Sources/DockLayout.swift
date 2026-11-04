@@ -3,7 +3,7 @@ import AppKit
 /// A page contains whole tiles only. Navigation and Settings are outside the page.
 struct DockPageLayout {
     static let gap: CGFloat = 10
-    static let chrome: CGFloat = 154 // padding, previous/next, count and Settings
+    static let chrome: CGFloat = 210 // padding, previous/next, count, window shelf and Settings
     static func pages(widths: [CGFloat], available: CGFloat) -> [[Int]] {
         guard !widths.isEmpty else { return [[]] }
         let capacity = max(1, available)

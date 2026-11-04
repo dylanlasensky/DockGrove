@@ -121,3 +121,9 @@ AppsStackPopover.swift: closure #3 in AppsStackPopover.show(model:anchor:visible
 AppsStackPopover.swift: closure #6 in AppsStackPopover.show(model:anchor:visible:) # global mouse-down monitor only fires for real clicks in other apps
 AppsStackPopover.swift: closure #1 in closure #6 in AppsStackPopover.show(model:anchor:visible:) # body of that global click monitor
 AppsStackPopover.swift: closure #2 in AppsStackView.body.getter # onExitCommand only fires for a real Esc in the on-screen panel; Esc dismissal is tested through the panel's cancelOperation
+
+AppWindows.swift: closure #1 in closure #3 in WindowShelfButton.body.getter # popover dismiss binding runs only when the actual Dock popover closes; shelf dismiss is interaction-tested with an injected callback
+AppWindows.swift: variable initialization expression of WindowShelfView.clock # Combine timer publisher initialization is not attributed by this SDK; refresh behavior is tested through the panel button
+AppWindows.swift: implicit closure #1 in closure #1 in closure #2 in closure #1 in closure #1 in closure #3 in closure #1 in WindowShelfView.body.getter # real NSRunningApplication with a missing icon; fixture Finder has an icon
+AppWindows.swift: closure #1 in closure #3 in closure #1 in closure #1 in closure #3 in closure #1 in WindowShelfView.body.getter # native context-menu Bring Forward callback; underlying focus is covered and the primary row restore is interaction-tested
+AppWindows.swift: closure #2 in closure #3 in closure #1 in closure #1 in closure #3 in closure #1 in WindowShelfView.body.getter # native context-menu Minimize callback; permission guard and AX minimize writes are covered separately

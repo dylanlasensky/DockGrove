@@ -115,7 +115,7 @@ import ServiceManagement
     /// Moves a virtual pointer over `point`, driving SwiftUI hover tracking.
     func hover(_ point: CGPoint, entering: Bool) {
         var areas: [NSTrackingArea] = []
-        func collect(_ view: NSView) { areas += view.trackingAreas; view.subviews.forEach(collect) }
+        func collect(_ view: NSView) { view.layoutSubtreeIfNeeded(); view.updateTrackingAreas(); areas += view.trackingAreas; view.subviews.forEach(collect) }
         collect(host)
         let moved = NSEvent.mouseEvent(with: .mouseMoved, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 0, pressure: 0)!
         for area in areas {
@@ -1566,6 +1566,27 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
             XCTAssertTrue(bar.allSatisfy { shown.menus.last?.contains($0) == true }, "bar menu at \(point): \(shown.menus)")
         }
         XCTAssertEqual(launched, 2)
+
+        // Explicit AppKit descendants keep this guard independent of SwiftUI's SDK-specific
+        // hosting tree. Native text controls must retain their own editing menus.
+        let parent = try XCTUnwrap(host.superview)
+        let container = NSView(frame: host.convert(NSRect(x: 10, y: 10, width: 100, height: 40), to: parent))
+        let child = NSView(frame: container.bounds)
+        parent.addSubview(container, positioned: .above, relativeTo: host)
+        container.addSubview(child)
+        let controlPoint = host.convert(CGPoint(x: 30, y: 25), to: nil)
+        shown.menus = []
+        let handled = panel.openMenu(at: controlPoint, in: host)
+        XCTAssertEqual(handled, !shown.menus.isEmpty)
+        child.removeFromSuperview()
+        for control in [NSTextField(frame: container.bounds), NSTextView(frame: container.bounds)] as [NSView] {
+            container.addSubview(control)
+            shown.menus = []
+            XCTAssertFalse(panel.openMenu(at: controlPoint, in: host), "native editing controls own their context menu")
+            XCTAssertTrue(shown.menus.isEmpty)
+            control.removeFromSuperview()
+        }
+        container.removeFromSuperview()
     }
 }
 
