@@ -80,7 +80,7 @@ struct DockProfile: Codable, Identifiable {
     let windows = WindowManager()
     let claudeCodeUsage = LocalAIWidget(.claude)
     /// Usage limits refresh while the widget is on any Dock page, not only while its card is on screen.
-    func startEnabledUsage() { if enabled.contains(ToolKind.claudeCodeUsage.rawValue) || enabled.contains(ToolKind.anthropicUsage.rawValue) { claudeCodeUsage.start() } }
+    func startEnabledUsage() { if canAccess(.claudeCodeUsage) && (enabled.contains(ToolKind.claudeCodeUsage.rawValue) || enabled.contains(ToolKind.anthropicUsage.rawValue)) { claudeCodeUsage.start() } }
     let geminiUsage = LocalAIWidget(.gemini)
     let openaiUsage = AIUsageWidget(.openai)
     let anthropicUsage = AIUsageWidget(.anthropic)
