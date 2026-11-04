@@ -165,8 +165,8 @@ struct WindowShelfView: View {
                                     HStack(spacing: 10) {
                                         Image(nsImage: window.owner.icon ?? NSImage()).resizable().frame(width: 30, height: 30)
                                         VStack(alignment: .leading, spacing: 3) {
-                                            Text(window.menuTitle).lineLimit(1)
-                                            Text(window.owner.localizedName ?? "App").font(.caption).foregroundStyle(.secondary)
+                                            Text(window.title).lineLimit(2)
+                                            Text(window.isMinimized ? "Minimized" : "Open").font(.caption).foregroundStyle(.secondary)
                                         }
                                         Spacer()
                                         Image(systemName: window.isMinimized ? "minus.square" : "macwindow").foregroundStyle(.secondary)

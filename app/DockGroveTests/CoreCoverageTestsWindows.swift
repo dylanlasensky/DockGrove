@@ -113,7 +113,7 @@ private func winWakeAccessibility() async {
 
 /// Walks the accessibility tree of a hosted SwiftUI view and presses buttons matching `label`
 /// (or every button when nil). Returns the number of presses.
-@MainActor @discardableResult private func winPress(_ view: NSView, _ label: String? = nil) -> Int {
+@MainActor @discardableResult func winPress(_ view: NSView, _ label: String? = nil) -> Int {
     var presses = 0
     func visit(_ element: Any, depth: Int) {
         guard depth < 50, let object = element as? NSObject else { return }
@@ -425,16 +425,21 @@ private func winWakeAccessibility() async {
         await winSettle(0.3)
         XCTAssertFalse(manager.windows[0].isMinimized)
         XCTAssertGreaterThan(winPress(view, manager.windows[0].title + ", open. Restore window"), 0)
-        func enterQuery(_ element: Any, depth: Int = 0) {
-            guard depth < 40, let object = element as? NSObject else { return }
-            if object.responds(to: #selector(NSAccessibilityProtocol.accessibilityRole)), (object.value(forKey: "accessibilityRole") as? NSAccessibility.Role) == .textField {
-                object.setValue("fixture", forKey: "accessibilityValue")
-            }
-            if object.responds(to: #selector(NSAccessibilityProtocol.accessibilityChildren)), let children = object.perform(#selector(NSAccessibilityProtocol.accessibilityChildren))?.takeUnretainedValue() as? [Any] {
-                for child in children { enterQuery(child, depth: depth + 1) }
-            }
+        func fields(_ view: NSView) -> [NSTextField] {
+            (view as? NSTextField).map { $0.isEditable ? [$0] : [] } ?? view.subviews.flatMap(fields)
         }
-        enterQuery(view)
+        let field = try XCTUnwrap(fields(view).first)
+        func enter(_ query: String) {
+            field.stringValue = query
+            field.delegate?.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: field))
+        }
+        enter("fixture")
+        await winSettle()
+        XCTAssertGreaterThan(winPress(view, manager.windows[0].title + ", open. Restore window"), 0)
+        enter("no window matches this query")
+        await winSettle()
+        XCTAssertEqual(winPress(view, manager.windows[0].title + ", open. Restore window"), 0)
+        enter("")
         await winSettle()
     }
 

@@ -115,7 +115,7 @@ import ServiceManagement
     /// Moves a virtual pointer over `point`, driving SwiftUI hover tracking.
     func hover(_ point: CGPoint, entering: Bool) {
         var areas: [NSTrackingArea] = []
-        func collect(_ view: NSView) { areas += view.trackingAreas; view.subviews.forEach(collect) }
+        func collect(_ view: NSView) { view.layoutSubtreeIfNeeded(); view.updateTrackingAreas(); areas += view.trackingAreas; view.subviews.forEach(collect) }
         collect(host)
         let moved = NSEvent.mouseEvent(with: .mouseMoved, location: point, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 0, pressure: 0)!
         for area in areas {

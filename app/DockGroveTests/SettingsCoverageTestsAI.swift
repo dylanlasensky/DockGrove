@@ -81,7 +81,8 @@ import AppKit
         }
         guard let source, FileManager.default.isExecutableFile(atPath: source) else { throw XCTSkip("SignInFixture was not built") }
         let path = folder.appendingPathComponent(name).path
-        try FileManager.default.copyItem(atPath: source, toPath: path)
+        try Data(contentsOf: URL(fileURLWithPath: source)).write(to: URL(fileURLWithPath: path), options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: path)
         return path
     }
 
@@ -117,8 +118,12 @@ import AppKit
         clickForm(harness)
         wait { !model.codexSignIn.busy && model.codexSignIn.authenticated }
         XCTAssertTrue(model.codexSignIn.authenticated, "Sign-in ran the fixture CLI")
-        wait { fetches >= 2 }
-        XCTAssertGreaterThanOrEqual(fetches, 2, "Refresh usage and the successful sign-in each fetch usage")
+        wait { !model.fetching }
+        XCTAssertGreaterThanOrEqual(fetches, 1, "Successful sign-in fetches usage")
+        let beforeRefresh = fetches
+        XCTAssertGreaterThan(winPress(harness.host, "Refresh usage"), 0)
+        wait { fetches > beforeRefresh && !model.fetching }
+        XCTAssertGreaterThan(fetches, beforeRefresh, "An enabled Refresh usage button fetches again")
         harness.type("/no/such/codex", into: harness.textFields()[0])
         XCTAssertEqual(model.customCLI, "/no/such/codex")
         harness.settle(0.1)
