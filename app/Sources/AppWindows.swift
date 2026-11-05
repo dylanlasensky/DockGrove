@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
     var selectedID: String { get set }
     func requestAccess()
     func refresh()
-    func focus()
+    @discardableResult func focus() async -> Bool
 }
 extension WindowManager: AppWindowListing {}
 

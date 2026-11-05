@@ -117,6 +117,7 @@ struct AccessibilityClient {
         var partial: Bool
     }
     nonisolated static func discover(using ax: AccessibilityClient, appPID: pid_t? = nil) -> WindowDiscovery {
+        // Cooperative budget: an in-flight AX call can finish after this deadline.
         let deadline = ax.uptime() + 3
         var found: [ManagedWindow] = []
         func expired() -> Bool { Task.isCancelled || ax.uptime() >= deadline }
@@ -159,13 +160,24 @@ struct AccessibilityClient {
         return CGRect(x: usable.minX, y: globalTop - usable.maxY, width: usable.width, height: usable.height)
     }
     func place(_ placement: WindowPlacement, dockHeight: CGFloat = 0) {
-        guard !loading, !acting, trusted, let selected, !NSScreen.screens.isEmpty, let current = Self.bounds(selected.element) else { status = "Window unavailable. Refresh the window list."; return }
-        let full = AccessibilityClient.current.copy(selected.element, "AXFullScreen")
-        guard (full as? Bool) != true else { status = "Leave native full screen before arranging this window."; return }
+        guard !loading, !acting else { return }
+        guard trusted, let selected, !NSScreen.screens.isEmpty else { status = "Window unavailable. Refresh the window list."; return }
         let screen = NSScreen.screens[min(max(0, displayIndex), NSScreen.screens.count - 1)]
-        let target = placement.frame(in: usableFrameProvider?(screen) ?? Self.usableFrame(screen: screen, dockHeight: dockHeight), current: current)
-        undo[selected.id] = current // Preserve recovery even if the app accepts only part of the resize.
-        arrange(target, selected: selected)
+        let usable = usableFrameProvider?(screen) ?? Self.usableFrame(screen: screen, dockHeight: dockHeight)
+        let ax = AccessibilityClient.current
+        loading = true; status = "Checking window…"
+        Task {
+            let preflight = await Task.detached(priority: .userInitiated) {
+                ax.setTimeout(selected.element, 0.5)
+                return (Self.bounds(selected.element), (ax.copy(selected.element, "AXFullScreen") as? Bool) == true)
+            }.value
+            loading = false
+            guard trusted else { status = "Accessibility permission was removed."; return }
+            guard let current = preflight.0 else { status = "Window unavailable. Refresh the window list."; return }
+            guard !preflight.1 else { status = "Leave native full screen before arranging this window."; return }
+            undo[selected.id] = current // Preserve recovery even after a partially accepted resize.
+            arrange(placement.frame(in: usable, current: current), selected: selected)
+        }
     }
     func snap(_ window: ManagedWindow, target: CGRect, original: CGRect) {
         guard trusted, !loading, !acting else { return }

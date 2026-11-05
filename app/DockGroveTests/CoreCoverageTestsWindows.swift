@@ -380,7 +380,7 @@ private func winWakeAccessibility() async {
         await manager.minimize()
         manager.undoPlacement()
         XCTAssertTrue(manager.loading)
-        XCTAssertNil(fake.get(window.element, kAXMinimizedAttribute))
+        XCTAssertEqual(fake.get(window.element, kAXMinimizedAttribute) as? Bool, false)
         manager.selectedID = "another selection"
         release.signal()
         await winWait { !manager.loading }
@@ -419,6 +419,52 @@ private func winWakeAccessibility() async {
         XCTAssertEqual(fake.activations, 0)
     }
 
+    func testPlacementPreflightIsResponsiveAndPreservesOriginalWindow() async throws {
+        let manager = WindowManager(), window = try managed(70104, frame: CGRect(x: 15, y: 25, width: 350, height: 250))
+        manager.windows = [window]; manager.selectedID = window.id
+        let started = expectation(description: "Background frame read")
+        let release = DispatchSemaphore(value: 0)
+        defer { release.signal() }
+        var client = fake.client
+        let read = client.copy
+        var first = true
+        client.copy = { element, attribute in
+            XCTAssertFalse(Thread.isMainThread)
+            if first { first = false; started.fulfill(); _ = release.wait(timeout: .now() + 2) }
+            return read(element, attribute)
+        }
+        AccessibilityClient.current = client
+        manager.place(.left)
+        await fulfillment(of: [started], timeout: 2)
+        XCTAssertTrue(manager.loading)
+        manager.cancelDiscovery()
+        manager.place(.right)
+        XCTAssertTrue(manager.loading)
+        manager.selectedID = "changed while checking"
+        release.signal()
+        await winWait { !manager.loading }
+        XCTAssertEqual(manager.status, "Window arranged. Undo is available.")
+        XCTAssertEqual(manager.selectedID, "changed while checking")
+        manager.selectedID = window.id
+        manager.undoPlacement()
+        await winWait { !manager.loading }
+        AccessibilityClient.current = fake.client
+        XCTAssertEqual(WindowManager.bounds(window.element), CGRect(x: 15, y: 25, width: 350, height: 250))
+    }
+
+    func testPlacementPreflightUnavailableAndRevokedAccess() async throws {
+        let manager = WindowManager(), window = try managed(70105, frame: nil)
+        manager.windows = [window]; manager.selectedID = window.id
+        manager.place(.left)
+        await winWait { !manager.loading }
+        XCTAssertTrue(manager.status.hasPrefix("Window unavailable"))
+        fake.trustedAnswers = [true, false]
+        manager.place(.left)
+        await winWait { !manager.loading }
+        XCTAssertEqual(manager.status, "Accessibility permission was removed.")
+        XCTAssertEqual(fake.activations, 0)
+    }
+
     func testPlaceSnapUndoAndArrangeResults() async throws {
         let manager = WindowManager()
         manager.place(.left)
@@ -428,12 +474,13 @@ private func winWakeAccessibility() async {
         manager.windows = [window]; manager.selectedID = window.id
         fake.put(window.element, "AXFullScreen", kCFBooleanTrue)
         manager.place(.left)
+        await winWait { !manager.loading }
         XCTAssertTrue(manager.status.hasPrefix("Leave native full screen"))
         fake.put(window.element, "AXFullScreen", kCFBooleanFalse)
 
         manager.place(.left, dockHeight: 30)
-        XCTAssertGreaterThan(fake.activations, 0)
         await winWait { !manager.loading }
+        XCTAssertGreaterThan(fake.activations, 0)
         XCTAssertEqual(manager.status, "Window arranged. Undo is available.")
 
         manager.usableFrameProvider = { _ in CGRect(x: 0, y: 0, width: 1000, height: 800) }
@@ -516,7 +563,7 @@ private func winWakeAccessibility() async {
         manager.windows = [window]; manager.selectedID = window.id
         fake.trusted = false
         await manager.minimize()
-        XCTAssertNil(fake.get(window.element, kAXMinimizedAttribute))
+        XCTAssertEqual(fake.get(window.element, kAXMinimizedAttribute) as? Bool, false)
         XCTAssertEqual(fake.activations, 0)
         XCTAssertTrue(manager.status.contains("Allow Accessibility"))
     }

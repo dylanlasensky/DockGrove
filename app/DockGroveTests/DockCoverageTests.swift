@@ -309,7 +309,7 @@ final class DockFakeSharingService: NSSharingService {
     var calls: [String] = []
     func requestAccess() { calls.append("request") }
     func refresh() { calls.append("refresh") }
-    func focus() { calls.append("focus:" + selectedID) }
+    @discardableResult func focus() async -> Bool { calls.append("focus:" + selectedID); return true }
 }
 
 final class DockRecordingSource: NativeStudioDragSource.SourceView {
