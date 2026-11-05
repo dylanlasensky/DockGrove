@@ -563,7 +563,7 @@ private func winWakeAccessibility() async {
         manager.windows = [window]; manager.selectedID = window.id
         fake.trusted = false
         await manager.minimize()
-        XCTAssertEqual(fake.get(window.element, kAXMinimizedAttribute) as? Bool, false)
+        XCTAssertNil(fake.get(window.element, kAXMinimizedAttribute))
         XCTAssertEqual(fake.activations, 0)
         XCTAssertTrue(manager.status.contains("Allow Accessibility"))
     }
