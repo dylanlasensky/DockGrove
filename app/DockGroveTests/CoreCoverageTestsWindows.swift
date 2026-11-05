@@ -409,6 +409,25 @@ private func winWakeAccessibility() async {
         XCTAssertTrue(manager.status.hasPrefix("This app could not restore"))
     }
 
+    func testRestoreUsesCurrentMinimizedStateAfterDockAction() throws {
+        let manager = WindowManager()
+        let window = try managed(72904, frame: nil)
+        manager.windows = [window]; manager.selectedID = window.id
+        XCTAssertFalse(manager.selected!.isMinimized)
+        manager.minimize()
+        XCTAssertEqual(fake.get(window.element, kAXMinimizedAttribute) as? Bool, true)
+        fake.performResult = .cannotComplete
+        manager.focus()
+        XCTAssertEqual(fake.get(window.element, kAXMinimizedAttribute) as? Bool, false)
+        XCTAssertEqual(manager.status, "Window restored.")
+
+        // A stale 'minimized' snapshot must not claim a new restore for an already-open window.
+        var stale = window; stale.isMinimized = true
+        manager.windows = [stale]
+        manager.focus()
+        XCTAssertTrue(manager.status.hasPrefix("This app could not restore"))
+    }
+
     func testWindowShelfPermissionAndEmptyStates() async throws {
         let manager = WindowManager()
         fake.trusted = false

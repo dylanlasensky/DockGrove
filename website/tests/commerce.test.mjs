@@ -34,11 +34,13 @@ async function fixture(){
  return {env,pair,call,event,buy,sessions,email:()=>emailText,failEmail:()=>{emailFailure=true;},restoreEmail:()=>{emailFailure=false;}};
 }
 test('webhook rejects missing, forged, stale, and future signatures; supports rotation',async()=>{
- const body='{"event":true}',secret='fixture';
- await assert.rejects(verifyWebhook(body,null,secret));await assert.rejects(verifyWebhook(body,'t=1,v1='+'0'.repeat(64),secret));
- for(const stamp of [Math.floor(Date.now()/1000)-301,Math.floor(Date.now()/1000)+301])await assert.rejects(verifyWebhook(body,await signature(body,secret,stamp),secret));
- const good=await signature(body,secret);await verifyWebhook(body,good+',v1='+'0'.repeat(64),secret);
- await assert.rejects(verifyWebhook(body+' ',good,secret));
+ const body='{"event":true}',secret='fixture',time=1_800_000_000;
+ // Signing is async: a real-clock tick can move +301 seconds inside the accepted window.
+ await assert.rejects(verifyWebhook(body,null,secret,time));await assert.rejects(verifyWebhook(body,'t=1,v1='+'0'.repeat(64),secret,time));
+ for(const stamp of [time-301,time+301])await assert.rejects(verifyWebhook(body,await signature(body,secret,stamp),secret,time));
+ for(const stamp of [time-300,time+300])await verifyWebhook(body,await signature(body,secret,stamp),secret,time);
+ const good=await signature(body,secret,time);await verifyWebhook(body,good+',v1='+'0'.repeat(64),secret,time);
+ await assert.rejects(verifyWebhook(body+' ',good,secret,time));
 });
 test('strict product, amount, environment, price and quantity validation',()=>{
  const env={STRIPE_PRICE_ID:'price_test',STRIPE_PRODUCT_ID:'prod_test'};
