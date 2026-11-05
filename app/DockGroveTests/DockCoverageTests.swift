@@ -1408,13 +1408,21 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         workspace.configure = { configured.append($0.id) }
         let first = UUID().uuidString
         let preset = UUID().uuidString
-        UserDefaults(suiteName: workspace.prefix + preset)!.set("Named", forKey: "dockName")
+        let presetStore = UserDefaults(suiteName: workspace.prefix + preset)!
+        presetStore.set("Named", forKey: "dockName")
+        let unavailable = "/Volumes/Disconnected-" + UUID().uuidString + "/Saved.app"
+        presetStore.set([unavailable], forKey: "apps")
+        presetStore.set(["app:" + unavailable], forKey: "entryOrder")
+        presetStore.set(["search"], forKey: "widgets")
         for id in [first, preset, UUID().uuidString, UUID().uuidString] { suites.append(workspace.prefix + id) }
         store.set([first, first, preset, "not-a-uuid"], forKey: "additionalDocks")
         workspace.restore()
         XCTAssertEqual(workspace.docks.map(\.id), [first, preset])
         XCTAssertEqual(workspace.docks[0].model.toolkit.edge, "Top")
         XCTAssertEqual(workspace.docks[1].model.dockName, "Named")
+        XCTAssertEqual(workspace.docks[1].model.apps.map(\.id), [unavailable])
+        XCTAssertEqual(workspace.docks[1].model.entryOrder, ["app:" + unavailable])
+        XCTAssertEqual(workspace.docks[1].model.toolkit.enabled, ["search"])
         workspace.add()
         suites.append(workspace.prefix + workspace.docks[2].id)
         XCTAssertEqual(workspace.docks[2].model.toolkit.edge, "Floating")

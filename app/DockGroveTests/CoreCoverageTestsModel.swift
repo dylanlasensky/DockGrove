@@ -225,7 +225,7 @@ private func usageResponse() throws -> UsageResponse {
         XCTAssertEqual(launched, [a.url])
 
         model.move(a, by: 1)
-        XCTAssertEqual(model.apps.map(\.id), [b.id, a.id, directory.appendingPathComponent("Gone.app").path])
+        XCTAssertEqual(model.apps, [b, a])
         model.move(a, by: 5)
         XCTAssertEqual(model.apps, [b, a])
 
@@ -254,7 +254,7 @@ private func usageResponse() throws -> UsageResponse {
         var profile = DockProfile(name: "P", apps: [b.id, b.id, a.id, directory.appendingPathComponent("Gone.app").path, "/bin/ls"], widgets: ["search", "search", "bogus"], accent: "Blue", size: 99)
         profile.edge = "Top"
         model.applyProfile(profile)
-        XCTAssertEqual(model.apps, [b, a])
+        XCTAssertEqual(model.apps.map(\.id), [b.id, a.id, directory.appendingPathComponent("Gone.app").path])
         XCTAssertEqual(model.toolkit.enabled, ["search"])
         XCTAssertEqual(model.iconSize, 64)
 
