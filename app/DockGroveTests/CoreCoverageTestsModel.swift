@@ -107,7 +107,7 @@ private func usageResponse() throws -> UsageResponse {
         store.set([app.id, directory.appendingPathComponent("Missing.app").path], forKey: "apps")
         let model = model(store)
         XCTAssertEqual(model.accent, "White")
-        XCTAssertEqual(model.apps, [app])
+        XCTAssertEqual(model.apps.map(\.id), [app.id, directory.appendingPathComponent("Missing.app").path])
         XCTAssertNil(model.usage)
 
         var changes = 0
@@ -122,6 +122,34 @@ private func usageResponse() throws -> UsageResponse {
         model.usageEnabled = false
         model.timer?.fire(); await settle(0.05)
         XCTAssertFalse(model.fetching)
+    }
+
+    func testUnavailablePinsSurviveProfilesEditsAndRestart() throws {
+        let a = try makeApp("Present"), replacement = try makeApp("Replacement")
+        let missing = DockApp(url: directory.appendingPathComponent("Disconnected.app"))
+        let store = defaults()
+        let dock = model(store, purchases: false)
+        var profile = DockProfile(name: "Saved", apps: [a.id, missing.id, missing.id, "relative.app", "https://example.com/Fake.app", "/bin/ls", "/bad\0.app", "/bad\n.app"], widgets: ["search"], accent: "Blue", size: 48)
+        profile.entryOrder = ["app:" + missing.id, "app:" + a.id]
+        dock.applyProfile(profile)
+        XCTAssertEqual(dock.apps, [a, missing])
+        XCTAssertFalse(missing.isAvailable)
+        XCTAssertTrue(a.isAvailable)
+        dock.persistApps()
+        let restarted = model(store, purchases: false)
+        XCTAssertEqual(restarted.apps, [a, missing])
+        XCTAssertEqual(restarted.entryOrder, profile.entryOrder)
+        XCTAssertEqual(restarted.toolkit.enabled, ["search"])
+        XCTAssertTrue(restarted.chooseApp(replacement, replacing: missing))
+        XCTAssertEqual(restarted.apps, [a, replacement])
+        XCTAssertEqual(restarted.entryOrder.first, "app:" + replacement.id)
+        restarted.undoAppChange()
+        XCTAssertEqual(restarted.apps, [a, missing])
+        XCTAssertEqual(restarted.entryOrder, profile.entryOrder)
+        restarted.remove(a)
+        XCTAssertEqual(model(store, purchases: false).apps, [missing])
+        restarted.remove(missing)
+        XCTAssertTrue(model(store, purchases: false).apps.isEmpty)
     }
 
     func testPurchaseChangesRefreshAndClearUsage() async throws {
@@ -197,7 +225,7 @@ private func usageResponse() throws -> UsageResponse {
         XCTAssertEqual(launched, [a.url])
 
         model.move(a, by: 1)
-        XCTAssertEqual(model.apps, [b, a])
+        XCTAssertEqual(model.apps.map(\.id), [b.id, a.id, directory.appendingPathComponent("Gone.app").path])
         model.move(a, by: 5)
         XCTAssertEqual(model.apps, [b, a])
 

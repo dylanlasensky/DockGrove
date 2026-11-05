@@ -246,9 +246,18 @@ struct AppTile: View {
     var body: some View {
         VStack(spacing: 4) {
             Button { model.open(app) } label: {
-                Image(nsImage: app.icon).resizable().interpolation(.high).frame(width: model.iconSize, height: model.iconSize)
-                    .scaleEffect(interaction.hovered ? 1.13 : 1).offset(y: interaction.hovered ? -4 : 0)
-            }.buttonStyle(.plain).help(app.name)
+                Group {
+                    if app.isAvailable {
+                        Image(nsImage: app.icon).resizable().interpolation(.high)
+                    } else {
+                        Image(systemName: "questionmark.app").resizable().scaledToFit().foregroundStyle(.secondary)
+                    }
+                }
+                .frame(width: model.iconSize, height: model.iconSize)
+                .scaleEffect(interaction.hovered ? 1.13 : 1).offset(y: interaction.hovered ? -4 : 0)
+            }.buttonStyle(.plain)
+                .accessibilityLabel(app.isAvailable ? app.name : "\(app.name), unavailable")
+                .help(app.isAvailable ? app.name : "\(app.name) is unavailable. Right-click to replace it or remove it from the Dock.")
             Circle().fill(app.isRunning ? model.color : .clear).frame(width: 4, height: 4)
         }
         .onDrop(of: [UTType.fileURL.identifier], isTargeted: $dropTarget) { providers in

@@ -1037,6 +1037,15 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         activate.close()
     }
 
+    func testUnavailableAppTileHasAccessiblePlaceholder() {
+        let model = dockModel(widgets: [])
+        let missing = DockApp(url: URL(fileURLWithPath: "/Volumes/Disconnected-" + UUID().uuidString + "/Missing.app"))
+        let harness = DockHarness(AppTile(app: missing, model: model), size: CGSize(width: 80, height: 80))
+        defer { harness.close() }
+        harness.spin()
+        XCTAssertTrue(harness.has("Missing, unavailable"))
+    }
+
     func testAppTileActions() throws {
         let model = dockModel(widgets: [])
         var launched: [URL] = []
