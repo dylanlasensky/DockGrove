@@ -124,6 +124,31 @@ private func usageResponse() throws -> UsageResponse {
         XCTAssertFalse(model.fetching)
     }
 
+    func testVolumeChangesRefreshUnavailablePinsWithoutChangingLayout() async throws {
+        let store = defaults()
+        let app = DockApp(url: directory.appendingPathComponent("Removable.app"))
+        store.set([app.id], forKey: "apps")
+        let dock = model(store, purchases: false)
+        var changes = 0
+        let observation = dock.objectWillChange.sink { changes += 1 }
+        defer { observation.cancel() }
+        XCTAssertFalse(app.isAvailable)
+        for notification in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification, NSWorkspace.didRenameVolumeNotification] {
+            if notification == NSWorkspace.didMountNotification {
+                try FileManager.default.createDirectory(at: app.url, withIntermediateDirectories: true)
+            } else if notification == NSWorkspace.didUnmountNotification {
+                try FileManager.default.removeItem(at: app.url)
+            }
+            let before = changes
+            NSWorkspace.shared.notificationCenter.post(name: notification, object: nil)
+            await waitUntil { changes > before }
+            XCTAssertGreaterThan(changes, before)
+            XCTAssertEqual(app.isAvailable, notification == NSWorkspace.didMountNotification)
+            XCTAssertEqual(dock.apps, [app])
+            XCTAssertEqual(store.stringArray(forKey: "apps"), [app.id])
+        }
+    }
+
     func testUnavailablePinsSurviveProfilesEditsAndRestart() throws {
         let a = try makeApp("Present"), replacement = try makeApp("Replacement")
         let missing = DockApp(url: directory.appendingPathComponent("Disconnected.app"))

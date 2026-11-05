@@ -184,7 +184,7 @@ struct DockApp: Identifiable, Equatable {
             let paths = ["/System/Library/CoreServices/Finder.app", "/Applications/Safari.app", "/System/Applications/Messages.app", "/Applications/Spotify.app", "/Applications/ChatGPT.app", "/System/Applications/System Settings.app"]
             apps = paths.filter { FileManager.default.fileExists(atPath: $0) }.map { DockApp(url: URL(fileURLWithPath: $0)) }
         }
-        for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification] {
+        for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification, NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification, NSWorkspace.didRenameVolumeNotification] {
             observations.append(NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 Task { @MainActor [weak self] in self?.objectWillChange.send() }
             })
