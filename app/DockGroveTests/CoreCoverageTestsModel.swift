@@ -63,7 +63,7 @@ private func usageResponse() throws -> UsageResponse {
     private func model(_ store: UserDefaults? = nil, purchases: Bool = true) -> DockModel {
         let model = DockModel(defaults: store ?? defaults(), purchasesEnabled: purchases)
         model.fetchUsage = { _ in throw ModelTestError() }
-        model.openApplication = { _ in XCTFail("Unexpected app launch") }
+        model.openApplication = { _, _ in XCTFail("Unexpected app launch") }
         model.chooseExportURL = { nil }
         model.chooseImportURL = { nil }
         return model
@@ -192,7 +192,7 @@ private func usageResponse() throws -> UsageResponse {
         let a = try makeApp("Alpha"), b = try makeApp("Beta"), c = try makeApp("Gamma")
         model.apps = [a, b]
         var launched: [URL] = []
-        model.openApplication = { launched.append($0) }
+        model.openApplication = { url, completion in launched.append(url); completion(nil) }
         model.open(a)
         XCTAssertEqual(launched, [a.url])
 
@@ -399,10 +399,65 @@ private func usageResponse() throws -> UsageResponse {
         XCTAssertEqual(model.apps.count, 3)
     }
 
-    func testLiveLaunchOfMissingApplicationFailsHarmlessly() async {
-        // A path that does not exist exercises the production launcher without starting anything.
-        DockModel.launch(directory.appendingPathComponent("Missing.app"))
-        await settle(0.5)
+    func testLiveLaunchOfMissingApplicationReportsFailure() async {
+        // Exercise the production callback without starting an app or showing a prompt.
+        let error: Error? = await withCheckedContinuation { continuation in
+            DockModel.launch(directory.appendingPathComponent("Missing.app")) { error in
+                continuation.resume(returning: error)
+            }
+        }
+        XCTAssertNotNil(error)
+    }
+
+    func testLaunchFailureExplainsRecoveryAndPreservesLayout() async throws {
+        let model = model()
+        let app = try makeApp("Unavailable")
+        model.apps = [app]
+        model.entryOrder = ["app:" + app.id]
+        model.systemError = "An unrelated recovery message"
+        var reports: [String] = []
+        model.reportApplicationError = { message in
+            XCTAssertTrue(Thread.isMainThread)
+            reports.append(message)
+        }
+        model.openApplication = { _, completion in
+            DispatchQueue.global().async { completion(ModelTestError()) }
+        }
+        model.open(app)
+        await waitUntil { !reports.isEmpty }
+        XCTAssertEqual(reports.count, 1)
+        XCTAssertTrue(reports[0].contains("Unavailable"))
+        XCTAssertTrue(reports[0].contains("Finder"))
+        XCTAssertTrue(reports[0].contains("app chooser"))
+        XCTAssertEqual(model.apps, [app])
+        XCTAssertEqual(model.entryOrder, ["app:" + app.id])
+        XCTAssertEqual(model.systemError, "An unrelated recovery message")
+
+        model.openApplication = { _, completion in completion(nil) }
+        model.open(app)
+        await settle(0.05)
+        XCTAssertEqual(reports.count, 1, "successful launches do not show an error")
+        XCTAssertEqual(model.systemError, "An unrelated recovery message")
+    }
+
+    func testLateLaunchFailureDoesNotKeepAClosedDockAlive() async throws {
+        var dock: DockModel? = model()
+        weak var released = dock
+        var completion: ((Error?) -> Void)?
+        var reports = 0
+        dock?.openApplication = { _, callback in completion = callback }
+        dock?.reportApplicationError = { _ in reports += 1 }
+        dock?.open(try makeApp("Late"))
+        dock = nil
+        XCTAssertNil(released)
+        completion?(ModelTestError())
+        await settle(0.05)
+        XCTAssertEqual(reports, 0)
+    }
+
+    func testLaunchFailureAlertCanBeDismissed() {
+        RunLoop.main.perform(inModes: [.modalPanel]) { NSApp.abortModal() }
+        DockModel.showApplicationError("The selected test application is unavailable.")
     }
 
     func testLivePanelsReturnNothingWhenCancelled() {

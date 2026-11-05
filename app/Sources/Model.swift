@@ -99,11 +99,22 @@ struct DockApp: Identifiable, Equatable {
     var restoreAppleDockAction: (() -> Void)?
     var visibilityAction: (() -> Void)?
     /// System side effects, replaceable so tests never launch apps, show panels or run the Codex CLI.
-    var openApplication: (URL) -> Void = DockModel.launch
+    var openApplication: (URL, @escaping (Error?) -> Void) -> Void = DockModel.launch
+    var reportApplicationError: (String) -> Void = DockModel.showApplicationError
     var chooseExportURL: () -> URL? = DockModel.runSavePanel
     var chooseImportURL: () -> URL? = DockModel.runOpenPanel
     var fetchUsage: (String) throws -> UsageResponse = UsageClient.fetch(custom:)
-    static func launch(_ url: URL) { NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, _ in } }
+    static func launch(_ url: URL, completion: @escaping (Error?) -> Void) {
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, error in completion(error) }
+    }
+    static func showApplicationError(_ message: String) {
+        let alert = NSAlert()
+        alert.messageText = "Couldn’t open application"
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
+    }
     static func runSavePanel() -> URL? {
         let panel = NSSavePanel(); panel.nameFieldStringValue = "DockGrove-layouts.json"
         return panel.runModal() == .OK ? panel.url : nil
@@ -202,7 +213,13 @@ struct DockApp: Identifiable, Equatable {
     func persistApps() { defaults.set(apps.map(\.id), forKey: "apps") }
     func open(_ app: DockApp) {
         guard canUseFeatures else { settingsAction?(); return }
-        openApplication(app.url)
+        let name = app.name
+        openApplication(app.url) { [weak self] error in
+            guard error != nil else { return }
+            Task { @MainActor [weak self] in
+                self?.reportApplicationError("“\(name)” couldn’t be opened. Try opening it in Finder. If it moved or was removed, use DockGrove’s app chooser to select an installed application.")
+            }
+        }
     }
     func addApps() { showAppPicker() }
     func remove(_ app: DockApp) { rememberApps(); apps.removeAll { $0.id == app.id }; entryOrder.removeAll { $0 == "app:" + app.id }; persistApps() }
