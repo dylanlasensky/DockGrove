@@ -19,6 +19,8 @@ Compatible Macs can enable **Notch quick access** in Settings → Appearance. Th
 
 Toolbar dimensions are available in Settings → Appearance → Toolbar size. Drag a number badge left or right, or use its −/+ buttons, to adjust width, height, and icon size. Compact, Balanced, and Spacious previews apply presets; Fit width to content chooses between a content-sized bar and your chosen width. Changes save automatically and support Undo layout. Widget and display choices expand into searchable inline panels, and on/off settings use switches.
 
+Unavailable pinned apps keep their saved position, including when restoring a layout. A question-mark icon identifies a missing app or disconnected volume; right-click to replace or remove the pin.
+
 ## Refined desktop preview
 
 A permanent cube button at the side of every Dock page opens **Your windows**: search open and minimized app windows, filter by state, and click to restore. Accessibility permission is required; no Screen Recording permission is needed. Browser tabs are represented by their containing windows.

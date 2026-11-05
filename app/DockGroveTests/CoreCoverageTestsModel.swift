@@ -107,7 +107,7 @@ private func usageResponse() throws -> UsageResponse {
         store.set([app.id, directory.appendingPathComponent("Missing.app").path], forKey: "apps")
         let model = model(store)
         XCTAssertEqual(model.accent, "White")
-        XCTAssertEqual(model.apps, [app])
+        XCTAssertEqual(model.apps.map(\.id), [app.id, directory.appendingPathComponent("Missing.app").path])
         XCTAssertNil(model.usage)
 
         var changes = 0
@@ -122,6 +122,72 @@ private func usageResponse() throws -> UsageResponse {
         model.usageEnabled = false
         model.timer?.fire(); await settle(0.05)
         XCTAssertFalse(model.fetching)
+    }
+
+    func testSavedPinsPreserveValidUnusualFilenames() throws {
+        let app = try makeApp("Valid\nName")
+        let store = defaults()
+        store.set([app.id], forKey: "apps")
+        XCTAssertEqual(model(store, purchases: false).apps, [app])
+        try FileManager.default.removeItem(at: app.url)
+        let dock = model(store, purchases: false)
+        XCTAssertEqual(dock.apps, [app])
+        dock.applyProfile(DockProfile(name: "Saved", apps: [app.id], widgets: [], accent: "Blue", size: 48))
+        XCTAssertEqual(dock.apps, [app])
+        XCTAssertEqual(store.stringArray(forKey: "apps"), [app.id])
+    }
+
+    func testVolumeChangesRefreshUnavailablePinsWithoutChangingLayout() async throws {
+        let store = defaults()
+        let app = DockApp(url: directory.appendingPathComponent("Removable.app"))
+        store.set([app.id], forKey: "apps")
+        let dock = model(store, purchases: false)
+        var changes = 0
+        let observation = dock.objectWillChange.sink { changes += 1 }
+        defer { observation.cancel() }
+        XCTAssertFalse(app.isAvailable)
+        for notification in [NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification, NSWorkspace.didRenameVolumeNotification] {
+            if notification == NSWorkspace.didMountNotification {
+                try FileManager.default.createDirectory(at: app.url, withIntermediateDirectories: true)
+            } else if notification == NSWorkspace.didUnmountNotification {
+                try FileManager.default.removeItem(at: app.url)
+            }
+            let before = changes
+            NSWorkspace.shared.notificationCenter.post(name: notification, object: nil)
+            await waitUntil { changes > before }
+            XCTAssertGreaterThan(changes, before)
+            XCTAssertEqual(app.isAvailable, notification == NSWorkspace.didMountNotification)
+            XCTAssertEqual(dock.apps, [app])
+            XCTAssertEqual(store.stringArray(forKey: "apps"), [app.id])
+        }
+    }
+
+    func testUnavailablePinsSurviveProfilesEditsAndRestart() throws {
+        let a = try makeApp("Present"), replacement = try makeApp("Replacement")
+        let missing = DockApp(url: directory.appendingPathComponent("Disconnected.app"))
+        let store = defaults()
+        let dock = model(store, purchases: false)
+        var profile = DockProfile(name: "Saved", apps: [a.id, missing.id, missing.id, "relative.app", "https://example.com/Fake.app", "/bin/ls", "/bad\0.app"], widgets: ["search"], accent: "Blue", size: 48)
+        profile.entryOrder = ["app:" + missing.id, "app:" + a.id]
+        dock.applyProfile(profile)
+        XCTAssertEqual(dock.apps, [a, missing])
+        XCTAssertFalse(missing.isAvailable)
+        XCTAssertTrue(a.isAvailable)
+        dock.persistApps()
+        let restarted = model(store, purchases: false)
+        XCTAssertEqual(restarted.apps, [a, missing])
+        XCTAssertEqual(restarted.entryOrder, profile.entryOrder)
+        XCTAssertEqual(restarted.toolkit.enabled, ["search"])
+        XCTAssertTrue(restarted.chooseApp(replacement, replacing: missing))
+        XCTAssertEqual(restarted.apps, [a, replacement])
+        XCTAssertEqual(restarted.entryOrder.first, "app:" + replacement.id)
+        restarted.undoAppChange()
+        XCTAssertEqual(restarted.apps, [a, missing])
+        XCTAssertEqual(restarted.entryOrder, profile.entryOrder)
+        restarted.remove(a)
+        XCTAssertEqual(model(store, purchases: false).apps, [missing])
+        restarted.remove(missing)
+        XCTAssertTrue(model(store, purchases: false).apps.isEmpty)
     }
 
     func testPurchaseChangesRefreshAndClearUsage() async throws {
@@ -226,7 +292,7 @@ private func usageResponse() throws -> UsageResponse {
         var profile = DockProfile(name: "P", apps: [b.id, b.id, a.id, directory.appendingPathComponent("Gone.app").path, "/bin/ls"], widgets: ["search", "search", "bogus"], accent: "Blue", size: 99)
         profile.edge = "Top"
         model.applyProfile(profile)
-        XCTAssertEqual(model.apps, [b, a])
+        XCTAssertEqual(model.apps.map(\.id), [b.id, a.id, directory.appendingPathComponent("Gone.app").path])
         XCTAssertEqual(model.toolkit.enabled, ["search"])
         XCTAssertEqual(model.iconSize, 64)
 

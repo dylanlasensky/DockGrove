@@ -7,6 +7,17 @@ struct DockApp: Identifiable, Equatable {
     var id: String { url.standardizedFileURL.path }
     static func == (lhs: DockApp, rhs: DockApp) -> Bool { lhs.id == rhs.id }
     var name: String { FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "") }
+    var isAvailable: Bool { FileManager.default.fileExists(atPath: id) }
+    /// Retain explicit pins even when their volume is disconnected; reject malformed imported paths.
+    static func savedApps(_ paths: [String]) -> [DockApp] {
+        var seen = Set<String>()
+        return paths.compactMap { path in
+            guard path.hasPrefix("/"), !path.contains("\0") else { return nil }
+            let url = URL(fileURLWithPath: path).standardizedFileURL
+            guard url.pathExtension.lowercased() == "app", seen.insert(url.path).inserted else { return nil }
+            return DockApp(url: url)
+        }
+    }
     var icon: NSImage { NSWorkspace.shared.icon(forFile: url.path) }
     var isRunning: Bool { NSWorkspace.shared.runningApplications.contains { $0.bundleURL?.standardizedFileURL.path == id } }
 }
@@ -168,12 +179,12 @@ struct DockApp: Identifiable, Equatable {
         customCLI = defaults.string(forKey: "customCLI") ?? ""
         selectedBucket = defaults.string(forKey: "selectedBucket") ?? "codex"
         if let paths = defaults.stringArray(forKey: "apps") {
-            apps = paths.map { DockApp(url: URL(fileURLWithPath: $0)) }.filter { FileManager.default.fileExists(atPath: $0.id) }
+            apps = DockApp.savedApps(paths)
         } else {
             let paths = ["/System/Library/CoreServices/Finder.app", "/Applications/Safari.app", "/System/Applications/Messages.app", "/Applications/Spotify.app", "/Applications/ChatGPT.app", "/System/Applications/System Settings.app"]
             apps = paths.filter { FileManager.default.fileExists(atPath: $0) }.map { DockApp(url: URL(fileURLWithPath: $0)) }
         }
-        for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification] {
+        for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification, NSWorkspace.didMountNotification, NSWorkspace.didUnmountNotification, NSWorkspace.didRenameVolumeNotification] {
             observations.append(NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 Task { @MainActor [weak self] in self?.objectWillChange.send() }
             })
@@ -276,7 +287,7 @@ struct DockApp: Identifiable, Equatable {
         if let value=profile.albumColors { albumColors=value }
         if let rich = profile.richWidgets { toolkit.richWidgets = rich }
         var seen = Set<String>()
-        apps = profile.apps.filter { seen.insert($0).inserted && FileManager.default.fileExists(atPath: $0) && $0.hasSuffix(".app") }.map { DockApp(url: URL(fileURLWithPath: $0)) }
+        apps = DockApp.savedApps(profile.apps)
         seen.removeAll()
         toolkit.enabled = profile.widgets.filter { ToolKind(rawValue: $0) != nil && seen.insert($0).inserted }; accent = profile.accent; iconSize = max(32, min(64, profile.size)); persistApps()
     }
