@@ -38,6 +38,7 @@ function Pet({name}: {name:string}) {
   return <span ref={ref} data-active={active} aria-hidden="true" className={`${s.pet} ${name==="dragon"?s.dragon:""}`} style={{backgroundImage:`url(/assets/companions/${name}.png)`}}/>;
 }
 function DemoDock({light=false, graphite=false, accent, pet="dragon", section="all"}: {light?:boolean;graphite?:boolean;accent?:string;pet?:string;section?:string}) {
+  const petName=COMPANIONS.find(companion=>companion.file===pet)?.ariaName??"Companion";
   const [musicPlaying,setMusicPlaying]=useState(true);
   const [seconds,setSeconds]=useState(1500);
   const [running,setRunning]=useState(false);
@@ -60,7 +61,7 @@ function DemoDock({light=false, graphite=false, accent, pet="dragon", section="a
     <div className={`${s.tile} ${s.usage}`}><b>Codex</b><span className={s.usageRow}>5h <span>82% left</span></span><i><em/></i><span className={s.usageRow}>Week <span>64% left</span></span><i><em style={{width:"64%"}}/></i></div>
     <div className={`${s.tile} ${s.music}`}><Image src="/assets/apps/spotify.png" alt="Spotify" width={44} height={44} unoptimized/><span><b>Deep focus</b><small>Spotify · Sample playlist</small><button className={s.musicControl} onClick={()=>setMusicPlaying(!musicPlaying)} aria-label={musicPlaying?"Pause Spotify preview":"Play Spotify preview"} aria-pressed={musicPlaying}><span aria-hidden="true">{musicPlaying?"Ⅱ":"▶"}</span> {musicPlaying?"Playing":"Paused"}</button></span></div>
     <div className={`${s.tile} ${s.cpu}`}><span className={s.usageRow}><b>CPU</b><span>18%</span></span><svg viewBox="0 0 100 28" aria-hidden="true"><path d="M0 24 L8 22 L14 23 L20 16 L26 19 L32 10 L38 16 L44 13 L50 17 L56 8 L62 14 L68 12 L74 19 L80 15 L86 20 L92 17 L100 19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg><small>System activity</small></div>
-    <div key={pet} className={`${s.tile} ${s.dockPet}`} role="img" aria-label={`${pet==="dragon"?"Blue dragon":pet.replaceAll("-"," ")} in a companion widget`}><Pet name={pet}/></div>
+    <div key={pet} className={`${s.tile} ${s.dockPet}`} role="img" aria-label={`${petName} in a companion widget`}><Pet name={pet}/></div>
     <WindowShelfPreview/>
   </div>;
 }
