@@ -479,6 +479,37 @@ private let corePlus = AccessTier.plus.productID!, coreFull = AccessTier.full.pr
             "Connect to the internet to refresh your license.", "DockGrove could not save activation securely in Keychain.", "custom"])
     }
 
+    func testEnvironmentIsolation() throws {
+        let testNamespace = LicenseConfiguration.storageNamespace
+        info["DockGroveLicenseEnvironment"] = "production"
+        info["DockGroveLicenseKeyID"] = "production-fixture"
+        XCTAssertEqual(LicenseConfiguration.environment, "production")
+        XCTAssertNotEqual(LicenseConfiguration.storageNamespace, testNamespace)
+        let device = UUID().uuidString
+        let testClaims = LicenseClaims(iss: "dockgrove", aud: "com.dylan.wavedock", licenseId: "fixture", deviceHash: LicenseVerifier.deviceHash(device), majorVersion: 1, environment: "test", iat: Date().timeIntervalSince1970, exp: Date().timeIntervalSince1970 + 3600)
+        func sign(_ claims: LicenseClaims, id: String) throws -> SignedLicense {
+            let payload = try JSONEncoder().encode(claims).base64EncodedString()
+            return SignedLicense(payload: payload, signature: try signer.signature(for: Data(payload.utf8)).rawRepresentation.base64EncodedString(), keyId: id)
+        }
+        func verify(_ signed: SignedLicense, id: String) throws {
+            _ = try LicenseVerifier.verify(signed, publicKey: signer.publicKey.x963Representation, keyID: id, device: device)
+        }
+        let testSigned = try sign(testClaims, id: "production-fixture")
+        XCTAssertThrowsError(try verify(testSigned, id: "production-fixture"))
+        var productionClaims = testClaims; productionClaims.environment = "production"
+        let productionSigned = try sign(productionClaims, id: "production-fixture")
+        XCTAssertNoThrow(try verify(productionSigned, id: "production-fixture"))
+        XCTAssertThrowsError(try verify(try sign(productionClaims, id: "test-1"), id: "test-1"))
+        info["DockGroveLicenseEnvironment"] = "test"
+        XCTAssertThrowsError(try verify(productionSigned, id: "production-fixture"))
+        info["DockGroveLicenseEnvironment"] = "unknown"
+        XCTAssertEqual(LicenseConfiguration.environment, "disabled")
+        XCTAssertThrowsError(try verify(testSigned, id: "production-fixture"))
+        info["DockGroveLicenseEnvironment"] = "production"
+        info["DockGroveLicenseKeyID"] = ""
+        XCTAssertEqual(LicenseConfiguration.keyID, "")
+    }
+
     func testVaultWritesUpdatesAndFailures() throws {
         try LicenseVault.write(Data("one".utf8), "key")
         try LicenseVault.write(Data("two".utf8), "key")

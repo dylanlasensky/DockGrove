@@ -58,7 +58,7 @@ test('page titles and metadata',()=>{
 
 test('purchase page copy, ids and server-authority notice',()=>{
  for(const id of ['purchase-offer','checkout-button','checkout-status','purchase-status'])assert(purchase.includes(`id="${id}"`),id);
- assert(purchase.includes('Your next little upgrade.')&&purchase.includes('Checking test checkout…')&&purchase.includes('No live payments are being accepted.'));
+ assert(purchase.includes('Your next little upgrade.')&&purchase.includes('Checking checkout…')&&purchase.includes('No live payments are being accepted.'));
  assert(purchase.includes('Checking server-confirmed purchase status…'),'status is server-verified, not read from the URL');
  assert(purchase.includes('not proof of payment'));
  assert(/<button[^>]*id="checkout-button"[^>]*\bdisabled\b/.test(purchase),'checkout disabled until the product policy loads');

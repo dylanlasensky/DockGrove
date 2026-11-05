@@ -82,7 +82,7 @@ test('success URL cannot create a license; only a paid server record does',async
 test('default purchase offer makes no API call and is shown without a status query',()=>{
  assert.equal(commerce.returnMode(''),'offer');
  assert.equal(commerce.returnMode('?status=cancelled'),'cancelled');
- assert.match(commerce.PURCHASE_DEFAULT_MESSAGE,/Choose test checkout/);
+ assert.match(commerce.PURCHASE_DEFAULT_MESSAGE,/Choose checkout/);
 });
 
 test('recovery token is read from the fragment and completed server-side',async()=>{
@@ -108,4 +108,23 @@ test('download posts the license and reports unavailability without losing it',a
  await assert.rejects(commerce.downloadApp('fixture-license',mockFetch().fetch),{message:'Unavailable'});
  const silent={fetch:async()=>({ok:false,json:async()=>{throw new Error('no body');}})};
  await assert.rejects(commerce.downloadApp('x',silent.fetch),{message:commerce.DOWNLOAD_UNAVAILABLE_MESSAGE});
+});
+
+ test('production UI requires availability and never falls back from an unknown mode',()=>{
+  assert.equal(commerce.checkoutButtonState(product({mode:'production',available:false})).disabled,true);
+  const state=commerce.checkoutButtonState(product({mode:'production',available:true}),false,'production');
+  assert.equal(commerce.checkoutButtonState(product({mode:'production',available:true})).disabled,true);
+  assert.equal(commerce.checkoutButtonState(product({mode:'test',available:true}),false,'production').disabled,true);
+  assert.equal(state.disabled,false);assert.equal(state.label,'Buy DockGrove');assert.doesNotMatch(state.status,/test mode/i);
+  for(const mode of ['',undefined,'live','PRODUCTION'])assert.equal(commerce.checkoutButtonState(product({mode,available:true})).disabled,true);
+  assert.equal(commerce.checkoutButtonState(product({mode:'production',available:true}),true).disabled,true);
+ });
+
+test('homepage gate also requires an exact build environment match',async()=>{
+ const {checkoutState}=await import('../src/lib/home/product.ts');
+ assert.equal(checkoutState(product({available:true}),false,'test').disabled,false);
+ assert.equal(checkoutState(product({available:true,mode:'production'}),false,'test').disabled,true);
+ assert.equal(checkoutState(product({available:true,mode:'production'}),false,'production').label,'Buy DockGrove');
+ assert.equal(checkoutState(product({available:true,mode:'production'}),true,'production').disabled,true);
+ assert.equal(checkoutState(product({available:true,mode:'unknown'}),false,'unknown').disabled,true);
 });

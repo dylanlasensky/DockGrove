@@ -26,7 +26,7 @@ import { cardButton, fine, formCard, full, h2, link, p, statusMessage } from "./
 
 const INITIAL_BUTTON: CheckoutButtonState = {
   disabled: true,
-  label: "Checking test checkout…",
+  label: "Checking checkout…",
   status: "No live payments are being accepted.",
 };
 
@@ -106,7 +106,7 @@ export default function PurchaseFlow({ comingSoon = false }: { comingSoon?: bool
 
   async function onCheckout() {
     if (comingSoon) return;
-    setCheckout((s) => ({ ...s, disabled: true, status: "Opening secure test checkout…" }));
+    setCheckout((s) => ({ ...s, disabled: true, status: "Opening secure checkout…" }));
     try {
       window.location.assign(await startCheckout());
     } catch (error) {

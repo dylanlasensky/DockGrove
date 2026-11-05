@@ -1,3 +1,5 @@
+export const COMMERCE_ENVIRONMENT = process.env.NEXT_PUBLIC_DOCKGROVE_COMMERCE_ENVIRONMENT ?? "test";
+
 // Typed port of website/public/app.js: every /api call the purchase and recovery
 // pages make, with the same methods, bodies, credentials and error handling.
 // Pure helpers (button state, status copy, URL allowlist) live here too so the
@@ -9,7 +11,7 @@ export interface Product {
   currency: string;
   majorVersion: number;
   deviceLimit: number;
-  mode: "test" | "live" | string;
+  mode: "test" | "production" | string;
   offlineDays: number;
   available: boolean;
 }
@@ -103,18 +105,19 @@ export const CHECKOUT_COMING_SOON: CheckoutButtonState = {
   status: "The commercial release is in preparation. No payment is collected.",
 };
 
-/** The candidate only ever enables checkout when the product is available in test mode. */
+/** Only recognized environments with server-confirmed availability enable checkout. */
 export function checkoutButtonState(
   product: Pick<Product, "available" | "mode">,
   comingSoon = false,
+  environment = COMMERCE_ENVIRONMENT,
 ): CheckoutButtonState {
   if (comingSoon) return CHECKOUT_COMING_SOON;
-  const enabled = product.available === true && product.mode === "test";
+  const enabled = product.available === true && ["test", "production"].includes(environment) && product.mode === environment;
   return {
     disabled: !enabled,
-    label: enabled ? "Try test checkout" : "Test checkout not configured",
+    label: enabled ? (product.mode === "production" ? "Buy DockGrove" : "Try test checkout") : "Checkout unavailable",
     status: enabled
-      ? "Test mode only. Use Stripe test payment details. No real payment is collected."
+      ? (product.mode === "production" ? "One-time purchase. Secure checkout with Stripe." : "Test mode only. Use Stripe test payment details. No real payment is collected.")
       : "Checkout is waiting for secure payment configuration. Live sales are not enabled.",
   };
 }
@@ -159,7 +162,7 @@ export function purchaseStatusMessage(status: PurchaseStatus): string {
 }
 
 export const PURCHASE_DEFAULT_MESSAGE =
-  "Choose test checkout to buy a test license, or restore a previous purchase below.";
+  "Choose checkout when available, or restore a previous purchase below.";
 export const PURCHASE_CANCELLED_MESSAGE =
   "Checkout was cancelled. No purchase has been confirmed. You can return to pricing whenever you’re ready.";
 export const PURCHASE_CHECKING_MESSAGE =
@@ -197,7 +200,7 @@ export function requestRecovery(
 export const RECOVERY_REQUESTED_MESSAGE =
   "If an eligible purchase matches that address, recovery instructions will be sent. Check your inbox and spam folder.";
 export const RECOVERY_DEFAULT_MESSAGE =
-  "Recovery email must be configured by the owner before this test service can send instructions.";
+  "Enter the email address used for your purchase to request recovery instructions.";
 export const RECOVERY_VERIFYING_MESSAGE = "Verifying your recovery link…";
 export const RECOVERY_RESTORED_MESSAGE =
   "License restored. Save it before leaving this page.";

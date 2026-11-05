@@ -12,6 +12,7 @@ configs:
 settings:
   base:
     SWIFT_VERSION: "5.0"
+    DOCKGROVE_LICENSE_ENVIRONMENT: test
     CODE_SIGN_IDENTITY: Apple Development
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: G563Q4D3XW

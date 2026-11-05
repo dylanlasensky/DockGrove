@@ -6,6 +6,8 @@
 	<string>$(PRODUCT_DISPLAY_NAME)</string>
 	<key>CFBundleExecutable</key>
 	<string>DockGrove</string>
+	<key>DockGroveLicenseEnvironment</key>
+	<string>$(DOCKGROVE_LICENSE_ENVIRONMENT)</string>
 	<key>DockGroveLicenseKeyID</key>
 	<string>$(DOCKGROVE_LICENSE_KEY_ID)</string>
 	<key>DockGroveLicensePublicKeyBase64</key>

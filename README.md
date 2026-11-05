@@ -11,9 +11,9 @@ DockGrove is a native Mac app. It gives you a customizable glass Dock with app l
 
 Built with Swift, SwiftUI, and AppKit. The 1.0 commercial candidate adds purchase and activation services while keeping notes, tasks, recordings and companion progress local.
 
-> **Planned direct purchase:** US **$9.99 once**, covering major version 1 and its maintenance updates on three personal Macs, with a license token for activation. Checkout remains unavailable while production payments, customer terms, signing and notarization are unfinished. See [commerce setup and release blockers](docs/COMMERCE.md). The earlier [StoreKit experiment](docs/IN-APP-PURCHASES.md) is retained for reference; it is not the selected release route. Development builds are for source testing and must not be sold as the commercial artifact. The repository retains its MIT license and existing notices. DockGrove is independent and not affiliated with Apple, CoolDock or OpenAI.
+> **Planned direct purchase:** US **$9.99 once**, covering major version 1 and its maintenance updates on three personal Macs, with a license token for activation. Checkout remains unavailable while production payments, customer terms, signing and notarization are unfinished. See [commerce setup](docs/COMMERCE.md) and [production preparation and remaining release gates](docs/PRODUCTION-READINESS.md). The earlier [StoreKit experiment](docs/IN-APP-PURCHASES.md) is retained for reference; it is not the selected release route. Development builds are for source testing and must not be sold as the commercial artifact. The repository retains its MIT license and existing notices. DockGrove is independent and not affiliated with Apple, CoolDock or OpenAI.
 
-[DockGrove website](https://dockgrove.com/) · Website source and the test-commerce implementation are under `website/`. Fixture tests do not establish a production purchase or activation flow.
+[DockGrove website](https://dockgrove.com/) · Website source and the environment-isolated commerce implementation are under `website/`. Fixture tests do not establish a production purchase or activation flow.
 
 Compatible Macs can enable **Notch quick access** in Settings → Appearance. The resting notch matches the system camera housing. Hover or click to open a short horizontal strip. Home contains controls and searchable widgets; the second Files tab holds the file tray. Use the page controls to explore without growing the shelf. Appearance settings control the notch width, and Files has separate Tray and AirDrop drop zones. See [notch behavior and validation](docs/NOTCH.md).
 
@@ -54,7 +54,7 @@ Nine distinct SpriteKit pixel-art companions use shared GPU textures and complet
 
 ### Download a build
 
-The 1.0 candidate is not yet a public commercial release. Development CI artifacts are for review, not paid fulfillment. A configured commercial build will activate with a test license issued by the test backend; its private release artifact is served only through the license-checked download endpoint.
+The 1.0 candidate is not yet a public commercial release. Development CI artifacts are for review, not paid fulfillment. A configured commercial build accepts only licenses from its selected test or production environment; its private release artifact is served only through the license-checked download endpoint.
 
 Do not replace an installed working Dock during review. The development build uses a separate bundle identity. Legacy public downloads remain historical artifacts with their original license.
 
@@ -70,7 +70,7 @@ xcodebuild -project DockGrove.xcodeproj -scheme DockGrove -configuration Develop
 open .build/xcode/Build/Products/Development/DockGrove.app
 ```
 
-The **Development** configuration builds a universal, ad-hoc-signed app with a separate development bundle identifier. The **Commercial** configuration (scheme **DockGrove Commercial**) enforces activation; first run `swift Scripts/ValidateLicenseConfig.swift`, then pass only the public license-server URL, verification public key and key ID as build settings (`DOCKGROVE_LICENSE_SERVER_URL`, `DOCKGROVE_LICENSE_PUBLIC_KEY`, `DOCKGROVE_LICENSE_KEY_ID`) — see [commerce setup](docs/COMMERCE.md). **CommercialQA** builds the locked state under its own bundle identifier. An unconfigured commercial build fails closed. It packages the exact owner-supplied icon into standard macOS icon sizes. Build outputs are excluded from version control. Ad-hoc rebuilds may require you to re-enable macOS privacy permissions; stable distribution requires a consistent Developer ID signature.
+The **Development** configuration builds a universal, ad-hoc-signed app with a separate development bundle identifier. The **Commercial** configuration (scheme **DockGrove Commercial**) enforces activation; first run `swift Scripts/ValidateLicenseConfig.swift`, then pass only the public license-server URL, verification public key, key ID and environment as build settings (`DOCKGROVE_LICENSE_SERVER_URL`, `DOCKGROVE_LICENSE_PUBLIC_KEY`, `DOCKGROVE_LICENSE_KEY_ID`, `DOCKGROVE_LICENSE_ENVIRONMENT`) — see [commerce setup](docs/COMMERCE.md). **CommercialQA** builds the locked state under its own bundle identifier. An unconfigured commercial build fails closed. It packages the exact owner-supplied icon into standard macOS icon sizes. Build outputs are excluded from version control. Ad-hoc rebuilds may require you to re-enable macOS privacy permissions; stable distribution requires a consistent Developer ID signature.
 
 ## First setup
 
