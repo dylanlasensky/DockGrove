@@ -78,13 +78,14 @@ export default function RefinedLanding(){
   const light=mood==="Pearl"||(mood==="Automatic"&&!prefersDark);
   const accentColor=accentHex(accent,light);
   const [menu,setMenu]=useState(false);
+  const menuButton=useRef<HTMLButtonElement>(null);
   const chosen=COMPANIONS[pets.index];
   const pet=chosen.file;
   return <div className={`home-theme ${s.page}`} data-motion={moving?"on":"off"} style={{"--blue":"#3478f6"} as CSSProperties}>
     <a href="#main" className={s.skip}>Skip to content</a>
-    <header className={s.header}><nav aria-label="Main navigation"><Brand href="#top"/><div className={`${s.navLinks} ${menu?s.open:""}`}>
+    <header className={s.header}><nav aria-label="Main navigation" onKeyDown={event=>{if(menu&&event.key==="Escape"){event.preventDefault();setMenu(false);menuButton.current?.focus();}}}><Brand href="#top"/><div id="main-navigation-links" className={`${s.navLinks} ${menu?s.open:""}`}>
       {NAV.map(n=><a key={n.id} href={`#${n.id}`} className={focus===n.id?s.navActive:""} aria-current={focus===n.id?"location":undefined} onClick={()=>setMenu(false)}>{n.label}</a>)}
-    </div><a className={s.button} href="#download">Explore the Dock</a><button className={s.menu} aria-label="Toggle navigation" aria-expanded={menu} onClick={()=>setMenu(!menu)} onKeyDown={e=>{if(e.key==="Escape")setMenu(false);}}>☰</button></nav></header>
+    </div><a className={s.button} href="#download">Explore the Dock</a><button ref={menuButton} className={s.menu} aria-label="Toggle navigation" aria-expanded={menu} aria-controls="main-navigation-links" onClick={()=>setMenu(!menu)}>☰</button></nav></header>
     <main id="main">
       <section id="top" className={s.hero}>
         <div className={s.stage} aria-label="Interactive Dock illustration with sample data"><DemoDock/><div className={s.stageCaption}><span>Click the cube to find a window. <small>Interactive sample data.</small></span><button onClick={()=>setPaused(!paused)} aria-pressed={paused}>{paused?"Play motion":"Pause motion"}</button></div></div>
