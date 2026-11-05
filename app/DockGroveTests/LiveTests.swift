@@ -19,8 +19,8 @@ import XCTest
         do {
             let usage = try await Task.detached { try UsageClient.fetch(custom: "") }.value
             XCTAssertFalse(usage.buckets.isEmpty)
-        } catch {
-            throw XCTSkip("Codex is not signed in on this Mac: \(error.localizedDescription)")
+        } catch UsageError.missingCLI {
+            throw XCTSkip("Codex CLI is not installed on this Mac.")
         }
     }
 

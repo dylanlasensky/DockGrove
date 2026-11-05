@@ -239,6 +239,7 @@ struct DockActivateButton: View {
 }
 
 struct AppTile: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let app: DockApp
     @ObservedObject var model: DockModel
     @State private var dropTarget = false
@@ -254,7 +255,7 @@ struct AppTile: View {
                     }
                 }
                 .frame(width: model.iconSize, height: model.iconSize)
-                .scaleEffect(interaction.hovered ? 1.13 : 1).offset(y: interaction.hovered ? -4 : 0)
+                .scaleEffect(interaction.hovered && !reduceMotion ? 1.13 : 1).offset(y: interaction.hovered && !reduceMotion ? -4 : 0)
             }.buttonStyle(.plain)
                 .accessibilityLabel(app.isAvailable ? app.name : "\(app.name), unavailable")
                 .help(app.isAvailable ? app.name : "\(app.name) is unavailable. Right-click to replace it or remove it from the Dock.")
@@ -269,7 +270,7 @@ struct AppTile: View {
             if hovering, let running = model.runningApplication(app), model.toolkit.windows.trusted { model.toolkit.windows.refreshIfNeeded(for: running) }
             if hovering { model.refreshLoginItems() }
         }
-        .animation(.spring(response: 0.23, dampingFraction: 0.65), value: interaction.hovered)
+        .animation(reduceMotion ? nil : .spring(response: 0.23, dampingFraction: 0.65), value: interaction.hovered)
         .contextMenu { AppTileMenu(app: app, model: model, windows: model.toolkit.windows, utilities: model.toolkit.utilities, forceQuit: DockSystemEffect.modifiers().contains(.option)) }
     }
 }
@@ -324,7 +325,7 @@ struct UsageTile: View {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 6) {
                     Image(systemName: "sparkle").foregroundStyle(model.color)
-                    Text(model.activeBucket?.title ?? "ChatGPT plan").fontWeight(.semibold)
+                    Text(model.activeBucket?.title ?? "Codex usage").fontWeight(.semibold)
                     Spacer()
                     if model.fetching { ProgressView().controlSize(.mini) }
                     else if model.usageError != nil { Image(systemName: "exclamationmark.circle").foregroundStyle(.orange) }

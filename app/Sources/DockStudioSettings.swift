@@ -18,8 +18,8 @@ enum StudioSection: String, CaseIterable {
 }
 
 extension SettingsView where Store == PurchaseManager {
-    init(model: DockModel, section: StudioSection = .library) {
-        self.init(model: model, section: section, purchases: .shared, terminate: NSApplication.shared.terminate)
+    init(model: DockModel, section: StudioSection = .library, showQuickStart: Bool = false) {
+        self.init(model: model, section: section, purchases: .shared, terminate: NSApplication.shared.terminate, showQuickStart: showQuickStart)
     }
 }
 
@@ -28,11 +28,15 @@ struct SettingsView<Store: PurchaseStore>: View {
     @ObservedObject private var purchases: Store
     @Environment(\.studioAccess) private var access
     @State private var section: StudioSection = .library
+    @State private var showLayoutEditor = true
+    @State private var showQuickStart: Bool
     private let terminate: (Any?) -> Void
-    init(model: DockModel, section: StudioSection, purchases: Store, terminate: @escaping (Any?) -> Void) {
+    init(model: DockModel, section: StudioSection, purchases: Store, terminate: @escaping (Any?) -> Void, showQuickStart: Bool = false) {
         self.model = model
         self.purchases = purchases
         _section = State(initialValue: section)
+        _showLayoutEditor = State(initialValue: section == .library)
+        _showQuickStart = State(initialValue: showQuickStart)
         self.terminate = terminate
     }
     var body: some View {
@@ -48,14 +52,34 @@ struct SettingsView<Store: PurchaseStore>: View {
                     Spacer()
                     Button("Done") { model.closeSettingsAction?() }.keyboardShortcut(.cancelAction)
                 }
+                ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                if showQuickStart {
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text("Make yourself at home").font(.headline)
+                            Spacer()
+                            Button("Skip guide") { showQuickStart = false }.controlSize(.small)
+                        }
+                        Text("Start alongside Apple's Dock. Add your everyday apps, then try widgets and the Windows cube. You can choose replacement mode later in Behavior.")
+                            .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        Text("Window controls ask for Accessibility access when you choose to enable them. Account connections are optional.")
+                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        HStack {
+                            Button("Choose apps and widgets") { section = .library; showQuickStart = false }
+                            Button("Review Dock behavior") { section = .behavior; showQuickStart = false }
+                        }
+                    }.padding(16).background(Color.accentColor.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
+                }
                 if access.canUseFeatures(model) && section != .purchases && section != .connections {
-                    DockStudioPreview(model: model)
+                    DisclosureGroup("Dock layout editor", isExpanded: $showLayoutEditor) {
+                        DockStudioPreview(model: model)
+                    }
                     HStack(spacing: 5) {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                        Text("Layout changes save immediately. Preview cards use sample content.")
+                        Text("Changes save immediately. Editor pages fit this window; the Dock fits your display.")
                     }.font(.caption).foregroundStyle(.secondary)
                 }
-                ScrollView {
                     Group {
                         switch section {
                         case .library:
@@ -72,12 +96,14 @@ struct SettingsView<Store: PurchaseStore>: View {
                             else { LicenseSettingsView() }
                         }
                     }.frame(maxWidth: .infinity, alignment: .topLeading).padding(.bottom, 16)
+                }
                 }.scrollIndicators(.visible)
             }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(minWidth: 960, idealWidth: 1080, minHeight: 690, idealHeight: 780)
         .background(Color(nsColor: .windowBackgroundColor)).preferredColorScheme(model.scheme)
         .toggleStyle(.switch)
+        .onChange(of: section) { _, value in showLayoutEditor = value == .library }
         .onReceive(model.$codexConnectionSelected) { if $0 { section = .connections } }
         .onReceive(model.$connectionSettingsKind) { kind in if kind != nil { section = .connections } }
     }
@@ -103,6 +129,7 @@ struct SettingsView<Store: PurchaseStore>: View {
                     Label(purchases.tier.title, systemImage: purchases.tier == .free ? "leaf" : "checkmark.seal.fill").font(.caption.weight(.medium)).foregroundStyle(.secondary)
                 }
                 if !model.isAdditionalDock { Button("Manage docks…") { model.manageDocksAction?() }.buttonStyle(.link) }
+                Button("Quick start guide") { showQuickStart = true }.buttonStyle(.link)
                 Button("Restore Apple Dock…") { model.restoreAppleDockAction?() }.buttonStyle(.link)
                 Button("Quit DockGrove") { terminate(nil) }.buttonStyle(.link)
                 Text("Thoughtfully at hand.").font(.system(size: 10)).foregroundStyle(.tertiary).padding(.top, 10)
@@ -131,7 +158,7 @@ private struct StudioLibrary: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 16) {
-                Picker("Library", selection: $library) { Text("Widgets").tag("Widgets"); Text("Apps").tag("Apps") }.pickerStyle(.segmented).frame(width: 190)
+                Picker("Library", selection: $library) { Text("Widgets").tag("Widgets"); Text("Apps").tag("Apps") }.pickerStyle(.segmented).labelsHidden().frame(width: 190)
                 HStack { Image(systemName: "magnifyingglass").foregroundStyle(.secondary); TextField(library == "Widgets" ? "Find a widget" : "Find an app", text: $query).textFieldStyle(.plain) }
                     .padding(9).background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 9))
                 if library == "Apps" { Button { kit.scanApplications(force: true) } label: { Image(systemName: "arrow.clockwise") }.disabled(kit.scanningApps).help("Refresh installed apps") }
@@ -163,19 +190,20 @@ private struct StudioLibrary: View {
                             let item = DockStudioItem(kind: .app, value: app.id)
                             if pinned { _ = model.removeStudioItem(item) } else { _ = model.placeStudioItem(item) }
                         }
-                        Button(action: toggle) {
+                        VStack(spacing: 9) {
                             VStack(spacing: 9) {
                                 Image(nsImage: app.icon).resizable().frame(width: 44, height: 44)
                                 Text(app.name).font(.system(size: 11, weight: .medium)).lineLimit(1)
-                                Text(pinned ? "In your Dock" : "Drag to add").font(.system(size: 9)).foregroundStyle(pinned ? Color.accentColor : .secondary)
-                            }.frame(maxWidth: .infinity).padding(14)
-                                .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 14))
-                                .overlay(RoundedRectangle(cornerRadius: 14).stroke(pinned ? Color.accentColor.opacity(0.6) : Color.primary.opacity(0.06)))
-                        }.buttonStyle(.plain)
-                            .overlay {
-                                NativeStudioDragSource(item: DockStudioItem(kind: .app, value: app.id), clicked: toggle)
-                            }
-                            .accessibilityLabel((pinned ? "Remove " : "Add ") + app.name + " from Dock library")
+                                Text(pinned ? "In your Dock" : "Drag to add").font(.system(size: 9)).foregroundStyle(.secondary)
+                            }.frame(maxWidth: .infinity).padding(.top, 14)
+                                .overlay { NativeStudioDragSource(item: DockStudioItem(kind: .app, value: app.id), clicked: {}) }
+                            Button(pinned ? "Remove from Dock" : "Add to Dock", action: toggle)
+                                .controlSize(.small)
+                                .accessibilityLabel((pinned ? "Remove " : "Add ") + app.name + " from Dock library")
+                        }.padding(12)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 14))
+                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(pinned ? Color.accentColor.opacity(0.6) : Color.primary.opacity(0.06)))
                     }
                 }
             }
@@ -195,12 +223,7 @@ private struct StudioWidgetCard: View {
         if enabled { _ = model.removeStudioItem(item) } else { _ = model.placeStudioItem(item) }
     }
     var body: some View {
-        if access.canAccess(model, kind) {
-            card.overlay { NativeStudioDragSource(item: model.studioItem(.tool(kind))!, clicked: activate) }
-        } else { card }
-    }
-    private var card: some View {
-        Button(action: activate) {
+        VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 12) {
                 Group {
                     if model.toolkit.shape(for: kind) == .rounded { WidgetShowcase(kind: kind) }
@@ -210,20 +233,20 @@ private struct StudioWidgetCard: View {
                             .frame(maxWidth: .infinity)
                     }
                 }.frame(height: 72).allowsHitTesting(false)
-                HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(kind.title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
-                        Text(enabled ? "In your Dock" : access.canAccess(model, kind) ? "Drag or click to add" : kind.requiredAccess.title)
-                            .font(.system(size: 10)).foregroundStyle(enabled ? Color.accentColor : .secondary)
-                    }
-                    Spacer(minLength: 3)
-                    Image(systemName: enabled ? "checkmark.circle.fill" : access.canAccess(model, kind) ? "plus.circle" : "lock.fill")
-                        .foregroundStyle(enabled ? Color.accentColor : .secondary).font(.system(size: 14))
+                Text(kind.title).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+                Text(enabled ? "In your Dock" : access.canAccess(model, kind) ? "Drag to add" : kind.requiredAccess.title)
+                    .font(.system(size: 10)).foregroundStyle(.secondary)
+            }.overlay {
+                if access.canAccess(model, kind) {
+                    NativeStudioDragSource(item: model.studioItem(.tool(kind))!, clicked: {})
                 }
-            }.padding(12).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 17))
-                .overlay(RoundedRectangle(cornerRadius: 17).stroke(enabled ? Color.accentColor.opacity(0.6) : Color.primary.opacity(0.08), lineWidth: 1))
-        }.buttonStyle(.plain)
-            .accessibilityLabel(kind.title + (enabled ? ", in your Dock, click to remove" : access.canAccess(model, kind) ? ", drag or click to add" : ", requires " + kind.requiredAccess.title))
+            }
+            Button(enabled ? "Remove from Dock" : access.canAccess(model, kind) ? "Add to Dock" : "View access options", action: activate)
+                .controlSize(.small)
+                .accessibilityLabel(kind.title + (enabled ? ", remove from Dock" : access.canAccess(model, kind) ? ", add to Dock" : ", view access options"))
+        }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 17))
+            .overlay(RoundedRectangle(cornerRadius: 17).stroke(enabled ? Color.accentColor.opacity(0.6) : Color.primary.opacity(0.08), lineWidth: 1))
     }
 }
 

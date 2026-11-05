@@ -26,7 +26,14 @@ struct CompanionState: Codable, Equatable {
 @MainActor final class Companion: ObservableObject {
     @Published var animal: String { didSet { defaults.set(animal, forKey: "companionAnimal") } }
     static let animals = ["Miso", "Black cat", "Orange cat", "Golden dog", "Husky", "Dragon", "Cow", "Rabbit", "Fox"]
-    static func displayName(_ animal: String) -> String { animal == "Miso" ? "Cream cat" : animal }
+    static func displayName(_ animal: String) -> String {
+        switch animal {
+        case "Miso": return "Cream cat"
+        case "Black cat": return "Tuxedo cat"
+        case "Golden dog": return "Golden retriever"
+        default: return animal
+        }
+    }
     var displayName: String { state.name == "Miso" ? "Cream cat" : state.name }
     @Published var state: CompanionState { didSet { save() } }
     @Published private(set) var playRequest = 0

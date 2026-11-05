@@ -364,6 +364,7 @@ struct NotchTrayHeader: View {
 }
 
 struct NotchShelfView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     enum Item: Hashable { case home, widget(ToolKind), noMatches, tray(NotchTrayItem) }
     @ObservedObject var model: DockModel
     @ObservedObject var controller: NotchController
@@ -439,7 +440,7 @@ struct NotchShelfView: View {
     }
     private func show(_ slide: Int) {
         forward = slide >= page
-        withAnimation(.snappy(duration: 0.28)) { page = slide }
+        withAnimation(reduceMotion ? nil : .snappy(duration: 0.28)) { page = slide }
     }
     /// Slide pills: the current slide is a wide pill, the others are dots; each one jumps to its slide.
     private func pills(count: Int, current: Int) -> some View {
@@ -448,10 +449,28 @@ struct NotchShelfView: View {
                 Button { show(index) } label: {
                     Capsule().fill(.white.opacity(index == current ? 0.9 : 0.3))
                         .frame(width: index == current ? 18 : 6, height: 6).padding(.vertical, 4).padding(.horizontal, 1).contentShape(Rectangle())
-                }.accessibilityLabel("Notch slide \(index + 1) of \(count)")
+                }.accessibilityLabel("Notch slide \(index + 1) of \(count): \(slideTitle(index))")
+                    .help(slideTitle(index))
                     .accessibilityAddTraits(index == current ? .isSelected : [])
             }
         }.frame(height: 14).opacity(count > 1 ? 1 : 0).accessibilityHidden(count < 2)
+    }
+    private func slideTitle(_ index: Int) -> String {
+        guard pages.indices.contains(index) else { return "Notch" }
+        return items[pages[index]].map { item in
+            switch item {
+            case .home: return "Music and Focus"
+            case .widget(let kind): return kind.title
+            case .noMatches: return "No matching widgets"
+            case .tray(let tray):
+                switch tray {
+                case .locked: return "File tray access"
+                case .tray: return "File tray"
+                case .airDrop: return "AirDrop"
+                case .file(let path): return URL(fileURLWithPath: path).lastPathComponent
+                }
+            }
+        }.joined(separator: ", ")
     }
     @ViewBuilder private func item(_ item: Item) -> some View {
         switch item {

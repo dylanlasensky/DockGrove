@@ -35,6 +35,7 @@ export default function ReleaseSection() {
     </div>
     <Reveal step={2} className={s.releaseCta}>
       <button id="checkout-button" data-coming-soon="true" className={s.cta} disabled>Coming soon</button>
+      <p className={s.fine}><a href="https://github.com/dylanlasensky/DockGrove/releases">Follow release updates</a> · <a href="#questions">Read the FAQ</a></p>
       <p className={s.fine}>Planned one-time price · Commercial release in preparation. Checkout is not enabled.<br/>Signing, notarization and customer terms are still being finished.</p>
     </Reveal>
   </section>;

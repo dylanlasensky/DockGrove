@@ -185,7 +185,7 @@ final class DockPanel: NSPanel {
         panel.contentView = NSHostingView(rootView: DockView(model: model))
         settings = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1080, height: 780), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         settings.title = "DockGrove"; settings.isReleasedWhenClosed = false
-        settings.contentView = NSHostingView(rootView: SettingsView(model: model))
+        settings.contentView = NSHostingView(rootView: SettingsView(model: model, showQuickStart: !model.defaults.bool(forKey: "hasLaunched02")))
         settings.center()
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         status.button?.image = BrandIcon.menuImage

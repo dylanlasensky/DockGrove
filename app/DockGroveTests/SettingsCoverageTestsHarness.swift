@@ -129,6 +129,20 @@ import AppKit
         }
     }
 
+    func press(_ label: String, file: StaticString = #filePath, line: UInt = #line) {
+        var match: NSObject?
+        func walk(_ value: Any, _ depth: Int) {
+            guard match == nil, depth < 40, let node = value as? NSObject else { return }
+            let title = (DockHarness.get(node, "accessibilityLabel") as? String) ?? (DockHarness.get(node, "accessibilityTitle") as? String)
+            if title == label { match = node; return }
+            for child in (DockHarness.get(node, "accessibilityChildren") as? [Any]) ?? [] { walk(child, depth + 1) }
+        }
+        walk(host, 0)
+        guard let match else { XCTFail("Missing control: \(label)", file: file, line: line); return }
+        _ = match.perform(NSSelectorFromString("accessibilityPerformPress"))
+        settle()
+    }
+
     func textFields() -> [NSTextField] { views(NSTextField.self).filter { $0.isEditable } }
     /// Edits a field the way AppKit reports typing to SwiftUI, without making it first
     /// responder (which would summon password AutoFill for secure fields).
