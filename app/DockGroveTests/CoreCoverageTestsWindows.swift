@@ -283,6 +283,142 @@ private func winWakeAccessibility() async {
         XCTAssertTrue(manager.status.contains("removed"))
     }
 
+    func testDiscoveryBudgetsAndScopedHoverCache() async throws {
+        let finder = try XCTUnwrap(winFinder)
+        fake.apps = [finder]
+        let app = winElement(finder.processIdentifier), element = winElement(70100)
+        fake.put(app, kAXWindowsAttribute, [element] as CFArray)
+        fake.put(element, kAXSubroleAttribute, kAXStandardWindowSubrole as CFString)
+        fake.put(element, kAXTitleAttribute, "Budget" as CFString)
+        // Expiration is checked before each potentially slow attribute request.
+        for values in [[0.0, 4], [0, 0, 4], [0, 0, 0, 4], [0, 0, 0, 0, 4]] {
+            var times = values
+            var client = fake.client
+            client.uptime = { times.count > 1 ? times.removeFirst() : times[0] }
+            let result = WindowManager.discover(using: client)
+            XCTAssertTrue(result.partial)
+        }
+        var now = 0.0
+        var client = fake.client; client.uptime = { now }
+        AccessibilityClient.current = client
+        let manager = WindowManager()
+        let other = ManagedWindow(id: "other", owner: .current, element: winElement(70101), title: "Other")
+        manager.windows = [other]
+        manager.refreshIfNeeded(for: finder)
+        manager.refreshIfNeeded(for: finder) // one scan per app, even during the same hover
+        await winWait { !manager.loading }
+        XCTAssertEqual(manager.windows.count, 2)
+        XCTAssertTrue(manager.windows.contains { $0.id == "other" })
+        manager.refreshIfNeeded(for: finder)
+        XCTAssertFalse(manager.loading)
+        now = 4
+        manager.refreshIfNeeded(for: finder)
+        XCTAssertTrue(manager.loading)
+        await winWait { !manager.loading }
+        XCTAssertEqual(manager.windows.count, 2)
+        var times = [0.0, 4]
+        client.uptime = { times.count > 1 ? times.removeFirst() : times[0] }
+        AccessibilityClient.current = client
+        manager.refresh()
+        await winWait { !manager.loading }
+        XCTAssertTrue(manager.status.contains("took too long"))
+        XCTAssertEqual(manager.windows.count, 2, "Partial scans retain known windows")
+    }
+
+    func testCancelledDiscoveryCannotOverwriteNewerState() async throws {
+        let finder = try XCTUnwrap(winFinder)
+        fake.apps = [finder]
+        let started = expectation(description: "Background discovery started")
+        let release = DispatchSemaphore(value: 0)
+        defer { release.signal() }
+        var client = fake.client
+        client.copy = { _, _ in
+            XCTAssertFalse(Thread.isMainThread)
+            started.fulfill()
+            _ = release.wait(timeout: .now() + 2)
+            return nil
+        }
+        AccessibilityClient.current = client
+        let manager = WindowManager()
+        manager.refresh()
+        await fulfillment(of: [started], timeout: 2)
+        manager.cancelDiscovery()
+        manager.status = "Newer action"
+        release.signal()
+        await winSettle()
+        XCTAssertFalse(manager.loading)
+        XCTAssertEqual(manager.status, "Newer action")
+        // A cancelled worker also stops before issuing any new AX calls.
+        let task = Task.detached { () -> WindowManager.WindowDiscovery in
+            while !Task.isCancelled { Thread.sleep(forTimeInterval: 0.001) }
+            return WindowManager.discover(using: client)
+        }
+        task.cancel()
+        let result = await task.value
+        XCTAssertTrue(result.partial)
+    }
+
+    func testScanCancellationCannotUnlockAnArrangement() async throws {
+        let manager = WindowManager(), window = try managed(70103, frame: CGRect(x: 10, y: 20, width: 300, height: 300))
+        manager.windows = [window]; manager.selectedID = window.id
+        fake.storeFrames = false
+        let started = expectation(description: "Arrangement settling")
+        let release = DispatchSemaphore(value: 0)
+        defer { release.signal() }
+        var first = true
+        var client = fake.client
+        client.pause = { _ in
+            if first { first = false; started.fulfill(); _ = release.wait(timeout: .now() + 2) }
+        }
+        AccessibilityClient.current = client
+        manager.place(.left)
+        await fulfillment(of: [started], timeout: 2)
+        manager.cancelDiscovery() // shelf dismissal only cancels discovery
+        XCTAssertTrue(manager.loading)
+        let focused = await manager.focus()
+        XCTAssertFalse(focused)
+        await manager.minimize()
+        manager.undoPlacement()
+        XCTAssertTrue(manager.loading)
+        XCTAssertNil(fake.get(window.element, kAXMinimizedAttribute))
+        manager.selectedID = "another selection"
+        release.signal()
+        await winWait { !manager.loading }
+        XCTAssertEqual(manager.selectedID, "another selection")
+    }
+
+    func testFocusLeavesMainActorResponsiveAndRechecksPermission() async throws {
+        let manager = WindowManager(), window = try managed(70102, frame: nil)
+        manager.windows = [window]; manager.selectedID = window.id
+        let started = expectation(description: "Background focus started")
+        let release = DispatchSemaphore(value: 0)
+        defer { release.signal() }
+        var client = fake.client
+        client.copy = { _, _ in
+            XCTAssertFalse(Thread.isMainThread)
+            started.fulfill()
+            _ = release.wait(timeout: .now() + 2)
+            return kCFBooleanFalse
+        }
+        AccessibilityClient.current = client
+        let action = Task { await manager.focus() }
+        await fulfillment(of: [started], timeout: 2)
+        XCTAssertTrue(manager.acting)
+        let duplicate = await manager.focus()
+        XCTAssertFalse(duplicate)
+        await manager.minimize()
+        manager.refresh()
+        manager.refreshIfNeeded(for: window.owner)
+        XCTAssertFalse(manager.loading)
+        fake.trusted = false
+        release.signal()
+        let result = await action.value
+        XCTAssertFalse(result)
+        XCTAssertFalse(manager.acting)
+        XCTAssertTrue(manager.status.contains("removed"))
+        XCTAssertEqual(fake.activations, 0)
+    }
+
     func testPlaceSnapUndoAndArrangeResults() async throws {
         let manager = WindowManager()
         manager.place(.left)
@@ -334,39 +470,39 @@ private func winWakeAccessibility() async {
         XCTAssertEqual(manager.windows.count, 2)
     }
 
-    func testFocusAndMinimize() throws {
+    func testFocusAndMinimize() async throws {
         let manager = WindowManager()
-        manager.minimize()
-        manager.focus()
+        await manager.minimize()
+        await manager.focus()
         XCTAssertEqual(manager.status, "Select a window first.")
         fake.trusted = false
-        manager.focus()
+        await manager.focus()
         XCTAssertTrue(manager.status.hasPrefix("Allow Accessibility"))
         fake.trusted = true
         let window = try managed(72001, frame: nil)
         manager.windows = [window]; manager.selectedID = window.id
-        manager.focus()
+        await manager.focus()
         XCTAssertEqual(manager.status, "Window brought forward.")
         XCTAssertEqual(fake.timeouts.last, 0.5, "busy windows have bounded Accessibility calls")
         fake.queue(kAXMinimizedAttribute, [.attributeUnsupported])
-        manager.focus()
+        await manager.focus()
         XCTAssertEqual(manager.status, "Window brought forward.")
         fake.queue(kAXMinimizedAttribute, [.failure])
-        manager.focus()
+        await manager.focus()
         XCTAssertTrue(manager.status.hasPrefix("This app could not restore"))
         fake.performResult = .failure
-        manager.focus()
+        await manager.focus()
         XCTAssertTrue(manager.status.hasPrefix("This app could not restore"))
         manager.status = ""
-        manager.minimize()
-        XCTAssertEqual(manager.status, "")
+        await manager.minimize()
+        XCTAssertEqual(manager.status, "Window minimized.")
         XCTAssertEqual(fake.timeouts.last, 0.5)
         fake.queue(kAXMinimizedAttribute, [.failure])
-        manager.minimize()
+        await manager.minimize()
         XCTAssertEqual(manager.status, "This window cannot be minimized.")
     }
 
-    func testWindowShelfFiltersAndPermissionRevocation() throws {
+    func testWindowShelfFiltersAndPermissionRevocation() async throws {
         XCTAssertEqual(AppIndexYAML.decode("apps:\n  - name: \"Unterminated\n    path: /Apps/U.app\n").first?.name, "")
         let window = try managed(72901, frame: nil)
         var minimized = window
@@ -379,52 +515,52 @@ private func winWakeAccessibility() async {
         let manager = WindowManager()
         manager.windows = [window]; manager.selectedID = window.id
         fake.trusted = false
-        manager.minimize()
+        await manager.minimize()
         XCTAssertNil(fake.get(window.element, kAXMinimizedAttribute))
         XCTAssertEqual(fake.activations, 0)
         XCTAssertTrue(manager.status.contains("Allow Accessibility"))
     }
 
-    func testRestoreConfirmsStateWhenRaiseFails() throws {
+    func testRestoreConfirmsStateWhenRaiseFails() async throws {
         let manager = WindowManager()
         var window = try managed(72903, frame: nil)
         window.isMinimized = true
         manager.windows = [window]; manager.selectedID = window.id
         fake.performResult = .cannotComplete
         fake.put(window.element, kAXMinimizedAttribute, kCFBooleanTrue)
-        manager.focus()
+        await manager.focus()
         XCTAssertEqual(fake.get(window.element, kAXMinimizedAttribute) as? Bool, false)
         XCTAssertEqual(manager.status, "Window restored.")
 
         // An app can acknowledge a write without changing its state. Do not claim success.
         fake.storeMinimized = false
         fake.put(window.element, kAXMinimizedAttribute, kCFBooleanTrue)
-        manager.focus()
+        await manager.focus()
         XCTAssertTrue(manager.status.hasPrefix("This app could not restore"))
         fake.put(window.element, kAXMinimizedAttribute, nil)
-        manager.focus()
+        await manager.focus()
         XCTAssertTrue(manager.status.hasPrefix("This app could not restore"))
         fake.queue(kAXMinimizedAttribute, [.cannotComplete])
-        manager.focus()
+        await manager.focus()
         XCTAssertTrue(manager.status.hasPrefix("This app could not restore"))
     }
 
-    func testRestoreUsesCurrentMinimizedStateAfterDockAction() throws {
+    func testRestoreUsesCurrentMinimizedStateAfterDockAction() async throws {
         let manager = WindowManager()
         let window = try managed(72904, frame: nil)
         manager.windows = [window]; manager.selectedID = window.id
         XCTAssertFalse(manager.selected!.isMinimized)
-        manager.minimize()
+        await manager.minimize()
         XCTAssertEqual(fake.get(window.element, kAXMinimizedAttribute) as? Bool, true)
         fake.performResult = .cannotComplete
-        manager.focus()
+        await manager.focus()
         XCTAssertEqual(fake.get(window.element, kAXMinimizedAttribute) as? Bool, false)
         XCTAssertEqual(manager.status, "Window restored.")
 
         // A stale 'minimized' snapshot must not claim a new restore for an already-open window.
         var stale = window; stale.isMinimized = true
         manager.windows = [stale]
-        manager.focus()
+        await manager.focus()
         XCTAssertTrue(manager.status.hasPrefix("This app could not restore"))
     }
 
@@ -466,6 +602,7 @@ private func winWakeAccessibility() async {
         XCTAssertEqual(manager.windows.count, 1)
         let label = manager.windows[0].title + ", minimized. Restore window"
         XCTAssertGreaterThan(winPress(view, label), 0)
+        await winWait { dismissed == 1 }
         XCTAssertEqual(dismissed, 1)
         XCTAssertEqual(manager.status, "Window restored.")
         XCTAssertEqual(fake.get(element, kAXMinimizedAttribute) as? Bool, false)
@@ -476,6 +613,7 @@ private func winWakeAccessibility() async {
         await winSettle(0.3)
         XCTAssertFalse(manager.windows[0].isMinimized)
         XCTAssertGreaterThan(winPress(view, manager.windows[0].title + ", open. Restore window"), 0)
+        await winSettle()
         func fields(_ view: NSView) -> [NSTextField] {
             (view as? NSTextField).map { $0.isEditable ? [$0] : [] } ?? view.subviews.flatMap(fields)
         }
@@ -488,6 +626,7 @@ private func winWakeAccessibility() async {
             enter(query)
             await winSettle()
             XCTAssertGreaterThan(winPress(view, manager.windows[0].title + ", open. Restore window"), 0, query)
+            await winSettle()
         }
         enter("no window matches this query")
         await winSettle()

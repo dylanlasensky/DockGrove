@@ -52,7 +52,7 @@ struct AppWindowsView<Manager: AppWindowListing>: View {
             if !manager.trusted { Button("Allow Accessibility", action: manager.requestAccess) }
             Button("Refresh", action: manager.refresh)
             List(manager.windows.filter { $0.owner.bundleURL?.standardizedFileURL.path == app.id }) { window in
-                Button(window.title + (window.isMinimized ? " — Minimized" : "")) { manager.selectedID = window.id; manager.focus() }
+                Button(window.title + (window.isMinimized ? " — Minimized" : "")) { manager.selectedID = window.id; Task { await manager.focus() } }
             }.frame(height: 240)
             Text("Choose a window to restore and bring it forward.").font(.caption).foregroundStyle(.secondary)
         }.padding(20).frame(width: 440).onAppear { manager.refresh() }
@@ -160,8 +160,7 @@ struct WindowShelfView: View {
                             ForEach(matches) { window in
                                 Button {
                                     manager.selectedID = window.id
-                                    manager.focus()
-                                    if manager.status == "Window brought forward." || manager.status == "Window restored." { dismiss() }
+                                    Task { if await manager.focus() { dismiss() } }
                                 } label: {
                                     HStack(spacing: 10) {
                                         Image(nsImage: window.owner.icon ?? NSImage()).resizable().frame(width: 30, height: 30)
@@ -173,10 +172,10 @@ struct WindowShelfView: View {
                                         Text(window.isMinimized ? "Minimized" : "Open").font(.caption).foregroundStyle(.secondary)
                                     }.padding(10).frame(maxWidth: .infinity, alignment: .leading)
                                         .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
-                                }.buttonStyle(.plain)
+                                }.buttonStyle(.plain).disabled(manager.acting)
                                 .contextMenu {
-                                    Button(window.isMinimized ? "Restore window" : "Bring forward") { manager.selectedID = window.id; manager.focus() }
-                                    if !window.isMinimized { Button("Minimize window") { manager.selectedID = window.id; manager.minimize(); manager.refresh() } }
+                                    Button(window.isMinimized ? "Restore window" : "Bring forward") { manager.selectedID = window.id; Task { await manager.focus() } }
+                                    if !window.isMinimized { Button("Minimize window") { manager.selectedID = window.id; Task { await manager.minimize() } } }
                                 }.accessibilityLabel("\(window.title), \(window.isMinimized ? "minimized" : "open"). Restore window")
                             }
                         }
@@ -188,5 +187,6 @@ struct WindowShelfView: View {
         }.padding(18).frame(width: 420)
         .onAppear { manager.refresh() }
         .onReceive(clock) { _ in manager.refresh() }
+        .onDisappear { manager.cancelDiscovery() }
     }
 }

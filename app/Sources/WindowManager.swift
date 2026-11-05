@@ -54,6 +54,7 @@ struct AccessibilityClient {
     var runningApplications: () -> [NSRunningApplication] = { NSWorkspace.shared.runningApplications }
     var runningApplication: (pid_t) -> NSRunningApplication? = { NSRunningApplication(processIdentifier: $0) }
     var activate: (NSRunningApplication) -> Void = { $0.unhide(); $0.activate(options: []) }
+    var uptime: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
     var pause: (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) }
     static var current = AccessibilityClient()
 }
@@ -61,6 +62,10 @@ struct AccessibilityClient {
     @Published var windows: [ManagedWindow] = []
     @Published var status = "Allow Accessibility to list, move and resize app windows."
     @Published var loading = false
+    @Published private(set) var acting = false
+    private var discovery: Task<WindowDiscovery, Never>?
+    private var discoveryGeneration = 0
+    private var appRefreshTimes: [pid_t: TimeInterval] = [:]
     @Published var selectedID = ""
     @Published var displayIndex = 0
     private var undo: [String: CGRect] = [:]
@@ -71,33 +76,67 @@ struct AccessibilityClient {
         AccessibilityClient.current.promptForTrust()
         status = "Enable DockGrove in Privacy & Security > Accessibility (Device Control and Data Access on newer macOS), then Refresh."
     }
-    func refresh() {
-        guard trusted else { windows = []; status = "Accessibility access is required. Use Allow Accessibility, then Refresh."; return }
-        guard !loading else { return }; loading = true
+    func refresh() { refresh(appPID: nil) }
+    func refreshIfNeeded(for app: NSRunningApplication) {
+        let now = AccessibilityClient.current.uptime()
+        guard now - (appRefreshTimes[app.processIdentifier] ?? -.infinity) >= 3 else { return }
+        guard !loading, !acting else { return }
+        appRefreshTimes[app.processIdentifier] = now
+        refresh(appPID: app.processIdentifier)
+    }
+    func cancelDiscovery() {
+        discoveryGeneration += 1
+        if discovery != nil { discovery?.cancel(); discovery = nil; loading = false }
+    }
+    private func refresh(appPID: pid_t?) {
+        guard trusted else { cancelDiscovery(); windows = []; status = "Accessibility access is required. Use Allow Accessibility, then Refresh."; return }
+        guard !loading, !acting else { return }
+        loading = true
+        discoveryGeneration += 1
+        let generation = discoveryGeneration, ax = AccessibilityClient.current
+        let worker = Task.detached(priority: .userInitiated) { Self.discover(using: ax, appPID: appPID) }
+        discovery = worker
         Task {
-            let found = await Task.detached(priority: .userInitiated) { Self.discover() }.value
-            guard trusted else { windows = []; loading = false; status = "Accessibility permission was removed."; return }
-            windows = found
-            if !found.contains(where: { $0.id == selectedID }) { selectedID = found.first?.id ?? "" }
-            loading = false
-            status = found.isEmpty ? "No accessible windows. Open an app window, then Refresh." : "Choose a window to bring forward or arrange. Some apps enforce a minimum size."
+            let result = await worker.value
+            guard generation == discoveryGeneration else { return }
+            discovery = nil; loading = false
+            guard trusted else { windows = []; status = "Accessibility permission was removed."; return }
+            if result.partial {
+                let updated = Set(result.windows.map(\.id))
+                windows.removeAll { updated.contains($0.id) }
+                windows += result.windows
+            } else if let appPID { windows.removeAll { $0.owner.processIdentifier == appPID }; windows += result.windows }
+            else { windows = result.windows }
+            windows.sort { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            if !windows.contains(where: { $0.id == selectedID }) { selectedID = windows.first?.id ?? "" }
+            status = result.partial ? "Some apps took too long to respond. Cached windows may be outdated; Refresh to try again." : windows.isEmpty ? "No accessible windows. Open an app window, then Refresh." : "Choose a window to bring forward or arrange. Some apps enforce a minimum size."
         }
     }
-    nonisolated private static func discover() -> [ManagedWindow] {
-        let ax = AccessibilityClient.current
+    struct WindowDiscovery {
+        var windows: [ManagedWindow]
+        var partial: Bool
+    }
+    nonisolated static func discover(using ax: AccessibilityClient, appPID: pid_t? = nil) -> WindowDiscovery {
+        let deadline = ax.uptime() + 3
         var found: [ManagedWindow] = []
-        for app in ax.runningApplications() where app.activationPolicy != .prohibited && app.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+        func expired() -> Bool { Task.isCancelled || ax.uptime() >= deadline }
+        for app in ax.runningApplications() where app.activationPolicy != .prohibited && app.processIdentifier != ProcessInfo.processInfo.processIdentifier && (appPID == nil || app.processIdentifier == appPID) {
+            guard !expired() else { return WindowDiscovery(windows: found, partial: true) }
             let element = ax.application(app.processIdentifier)
-            ax.setTimeout(element, 2)
+            ax.setTimeout(element, 0.25)
             guard let list = ax.copy(element, kAXWindowsAttribute) as? [AXUIElement] else { continue }
             for window in list {
+                guard !expired() else { return WindowDiscovery(windows: found, partial: true) }
+                ax.setTimeout(window, 0.25)
                 let role = ax.copy(window, kAXSubroleAttribute)
                 guard [kAXStandardWindowSubrole, kAXDialogSubrole].contains(role as? String ?? "") else { continue }
+                guard !expired() else { return WindowDiscovery(windows: found, partial: true) }
                 let name = (ax.copy(window, kAXTitleAttribute) as? String).flatMap { $0.isEmpty ? nil : $0 }
+                guard !expired() else { return WindowDiscovery(windows: found, partial: true) }
                 found.append(ManagedWindow(id: "\(app.processIdentifier):\(CFHash(window))", owner: app, element: window, title: windowTitle(app: app.localizedName, window: name, fallback: "Untitled window"), isMinimized: (ax.copy(window, kAXMinimizedAttribute) as? Bool) == true))
             }
         }
-        return found.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        return WindowDiscovery(windows: found, partial: false)
     }
     nonisolated static func windowTitle(app: String?, window: String?, fallback: String) -> String {
         (app ?? "App") + " · " + (window ?? fallback)
@@ -120,7 +159,7 @@ struct AccessibilityClient {
         return CGRect(x: usable.minX, y: globalTop - usable.maxY, width: usable.width, height: usable.height)
     }
     func place(_ placement: WindowPlacement, dockHeight: CGFloat = 0) {
-        guard !loading, trusted, let selected, !NSScreen.screens.isEmpty, let current = Self.bounds(selected.element) else { status = "Window unavailable. Refresh the window list."; return }
+        guard !loading, !acting, trusted, let selected, !NSScreen.screens.isEmpty, let current = Self.bounds(selected.element) else { status = "Window unavailable. Refresh the window list."; return }
         let full = AccessibilityClient.current.copy(selected.element, "AXFullScreen")
         guard (full as? Bool) != true else { status = "Leave native full screen before arranging this window."; return }
         let screen = NSScreen.screens[min(max(0, displayIndex), NSScreen.screens.count - 1)]
@@ -129,12 +168,12 @@ struct AccessibilityClient {
         arrange(target, selected: selected)
     }
     func snap(_ window: ManagedWindow, target: CGRect, original: CGRect) {
-        guard trusted, !loading else { return }
+        guard trusted, !loading, !acting else { return }
         if !windows.contains(where: { $0.id == window.id }) { windows.append(window) }
         selectedID=window.id; undo[window.id]=original; arrange(target,selected:window)
     }
     private func arrange(_ frame: CGRect, selected: ManagedWindow, undoing: Bool = false) {
-        guard !loading else { return }
+        guard !loading, !acting else { return }
         loading = true; status = "Arranging window…"
         AccessibilityClient.current.activate(selected.owner)
         let element = selected.element, id = selected.id, pid = selected.owner.processIdentifier
@@ -155,37 +194,49 @@ struct AccessibilityClient {
         }
     }
     func undoPlacement() {
-        guard !loading, let selected, let frame = undo[selected.id] else { status = "No previous layout for this window."; return }
+        guard !loading, !acting, let selected, let frame = undo[selected.id] else { status = "No previous layout for this window."; return }
         arrange(frame, selected: selected, undoing: true)
     }
-    func focus() {
-        guard trusted else { status = "Allow Accessibility to select and restore windows."; return }
-        guard let selected else { status = "Select a window first."; return }
+    @discardableResult func focus() async -> Bool {
+        guard trusted else { status = "Allow Accessibility to select and restore windows."; return false }
+        guard !acting, !loading || discovery != nil else { return false }
+        guard let selected else { status = "Select a window first."; return false }
+        cancelDiscovery(); acting = true; status = "Restoring window…"
+        defer { acting = false }
         let ax = AccessibilityClient.current
-        // A busy application must not hold the Dock's main thread for the AX default timeout.
-        ax.setTimeout(selected.element, 0.5)
-        // The cached list can predate a minimize action in DockGrove or another app.
-        let wasMinimized = (ax.copy(selected.element, kAXMinimizedAttribute) as? Bool) ?? selected.isMinimized
-        let restored = ax.set(selected.element, kAXMinimizedAttribute, kCFBooleanFalse)
+        let restored = await Task.detached(priority: .userInitiated) {
+            ax.setTimeout(selected.element, 0.5)
+            let wasMinimized = (ax.copy(selected.element, kAXMinimizedAttribute) as? Bool) ?? selected.isMinimized
+            return (wasMinimized, ax.set(selected.element, kAXMinimizedAttribute, kCFBooleanFalse))
+        }.value
+        guard trusted else { windows = []; status = "Accessibility permission was removed."; return false }
         ax.activate(selected.owner)
-        let raised = ax.perform(selected.element, kAXRaiseAction)
-        if raised == .success && (restored == .success || restored == .attributeUnsupported) {
-            status = "Window brought forward."
-        } else if wasMinimized, restored == .success,
-                  (ax.copy(selected.element, kAXMinimizedAttribute) as? Bool) == false {
-            // Finder can restore the window while rejecting the separate raise request.
-            // Confirm the state before reporting restoration; an acknowledgement alone is insufficient.
-            status = "Window restored."
-        } else {
-            status = "This app could not restore or focus the window. Refresh and check Accessibility access."
-        }
+        let result = await Task.detached(priority: .userInitiated) { () -> String? in
+            let raised = ax.perform(selected.element, kAXRaiseAction)
+            if raised == .success && (restored.1 == .success || restored.1 == .attributeUnsupported) { return "Window brought forward." }
+            if restored.0, restored.1 == .success, (ax.copy(selected.element, kAXMinimizedAttribute) as? Bool) == false { return "Window restored." }
+            return nil
+        }.value
+        guard trusted else { windows = []; status = "Accessibility permission was removed."; return false }
+        status = result ?? "This app could not restore or focus the window. Refresh and check Accessibility access."
+        if result != nil, let index = windows.firstIndex(where: { $0.id == selected.id }) { windows[index].isMinimized = false }
+        return result != nil
     }
-    func minimize() {
-        guard trusted, !loading else { status = "Allow Accessibility to minimize windows."; return }
-        guard let selected else { return }
-        AccessibilityClient.current.setTimeout(selected.element, 0.5)
-        if AccessibilityClient.current.set(selected.element, kAXMinimizedAttribute, kCFBooleanTrue) != .success { status = "This window cannot be minimized." }
+    func minimize() async {
+        guard trusted else { status = "Allow Accessibility to minimize windows."; return }
+        guard !acting, !loading || discovery != nil, let selected else { return }
+        cancelDiscovery(); acting = true; status = "Minimizing window…"
+        defer { acting = false }
+        let ax = AccessibilityClient.current
+        let minimized = await Task.detached(priority: .userInitiated) {
+            ax.setTimeout(selected.element, 0.5)
+            return ax.set(selected.element, kAXMinimizedAttribute, kCFBooleanTrue) == .success && (ax.copy(selected.element, kAXMinimizedAttribute) as? Bool) == true
+        }.value
+        guard trusted else { windows = []; status = "Accessibility permission was removed."; return }
+        status = minimized ? "Window minimized." : "This window cannot be minimized."
+        if minimized, let index = windows.firstIndex(where: { $0.id == selected.id }) { windows[index].isMinimized = true }
     }
+
 }
 struct WindowManagerView: View {
     @ObservedObject var manager: WindowManager
@@ -199,8 +250,8 @@ struct WindowManagerView: View {
             Picker("Move to display", selection: $manager.displayIndex) { ForEach(Array(NSScreen.screens.enumerated()), id: \.offset) { i, screen in Text(screen.localizedName).tag(i) } }
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())]) {
                 ForEach(WindowPlacement.allCases) { placement in Button(placement.rawValue) { manager.place(placement, dockHeight: model.replacingDock && !model.toolkit.autoHide && manager.displayIndex == min(max(0, model.toolkit.screenIndex), max(0, NSScreen.screens.count - 1)) ? model.dockHeight : 0) }.frame(maxWidth: .infinity) }
-            }.disabled(manager.selected == nil || manager.loading)
-            HStack { Button("Focus", action: manager.focus); Button("Minimize", action: manager.minimize); Button("Undo layout", action: manager.undoPlacement) }.disabled(manager.selected == nil || manager.loading)
+            }.disabled(manager.selected == nil || manager.loading || manager.acting)
+            HStack { Button("Focus") { Task { await manager.focus() } }; Button("Minimize") { Task { await manager.minimize() } }; Button("Undo layout", action: manager.undoPlacement) }.disabled(manager.selected == nil || manager.loading || manager.acting)
         }.onAppear { if manager.trusted { manager.refresh() } }
     }
 }
