@@ -97,7 +97,7 @@ struct DockView: View {
                     if let index = moved.firstIndex(where: { $0.id == source }), let destinationPage = updated.firstIndex(where: { $0.contains(index) }) { page = destinationPage }
                 }
             })
-        .onReceive(dragClock) { date in
+        .onReceive(draggedID != nil && dragging ? dragClock.eraseToAnyPublisher() : Empty<Date, Never>().eraseToAnyPublisher()) { date in
             guard draggedID != nil, dragging else { return }
             let direction = arrowFrames.first(where: { $0.value.insetBy(dx:-5,dy:-8).contains(dragPoint) })?.key ?? 0
             if let next = dwell.update(direction:direction,page:current,count:pages.count,now:date.timeIntervalSinceReferenceDate) {
