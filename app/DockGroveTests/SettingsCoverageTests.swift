@@ -145,8 +145,7 @@ import AppKit
         harness.type("Beta", into: harness.textFields()[0])
         harness.type("nothing-matches", into: harness.textFields()[0])
         // Refresh scans only the temporary application root.
-        let refresh = harness.controls().filter { $0.minX > 200 && $0.width < 40 }.first { $0.maxY > 2000 }
-        if let refresh { harness.click(refresh) }
+        harness.press("Refresh installed apps")
         harness.settle(0.3)
         harness.select(0, in: harness.segments()[0])
     }

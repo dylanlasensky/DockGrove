@@ -134,7 +134,7 @@ import AppKit
         func walk(_ value: Any, _ depth: Int) {
             guard match == nil, depth < 40, let node = value as? NSObject else { return }
             let title = (DockHarness.get(node, "accessibilityLabel") as? String) ?? (DockHarness.get(node, "accessibilityTitle") as? String)
-            if title == label { match = node; return }
+            if title == label || (DockHarness.get(node, "accessibilityIdentifier") as? String) == label { match = node; return }
             for child in (DockHarness.get(node, "accessibilityChildren") as? [Any]) ?? [] { walk(child, depth + 1) }
         }
         walk(host, 0)

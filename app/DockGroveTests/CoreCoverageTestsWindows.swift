@@ -323,6 +323,16 @@ private func winWakeAccessibility() async {
         await winWait { !manager.loading }
         XCTAssertTrue(manager.status.contains("took too long"))
         XCTAssertEqual(manager.windows.count, 2, "Partial scans retain known windows")
+
+        // A partial scan can contain fresh results: replace matching IDs, retain others.
+        fake.put(app, kAXWindowsAttribute, [element, winElement(70106)] as CFArray)
+        fake.put(element, kAXTitleAttribute, "Updated budget" as CFString)
+        times = [0, 0, 0, 0, 0, 4]
+        manager.refresh()
+        await winWait { !manager.loading }
+        XCTAssertEqual(manager.windows.count, 2)
+        XCTAssertEqual(manager.windows.filter { $0.title.contains("Updated budget") }.count, 1)
+        XCTAssertTrue(manager.windows.contains { $0.id == "other" })
     }
 
     func testCancelledDiscoveryCannotOverwriteNewerState() async throws {
@@ -680,6 +690,27 @@ private func winWakeAccessibility() async {
         XCTAssertEqual(winPress(view, manager.windows[0].title + ", open. Restore window"), 0)
         enter("")
         await winSettle()
+    }
+
+    func testWindowShelfContextActionsMinimizeAndRestore() async throws {
+        let manager = WindowManager(), window = try managed(72905, frame: nil)
+        manager.windows = [window]
+        let menu = host(WindowShelfActions(manager: manager, window: window))
+        await winSettle()
+        XCTAssertGreaterThan(winPress(menu, "Minimize window"), 0)
+        await winWait { fake.get(window.element, kAXMinimizedAttribute) as? Bool == true && !manager.acting }
+        XCTAssertEqual(manager.status, "Window minimized.")
+        XCTAssertGreaterThan(winPress(menu, "Bring forward"), 0)
+        await winWait { fake.get(window.element, kAXMinimizedAttribute) as? Bool == false && !manager.acting }
+        XCTAssertEqual(manager.status, "Window brought forward.")
+        var minimized = window; minimized.isMinimized = true
+        fake.put(window.element, kAXMinimizedAttribute, kCFBooleanTrue)
+        let restore = host(WindowShelfActions(manager: manager, window: minimized))
+        await winSettle()
+        XCTAssertEqual(winPress(restore, "Minimize window"), 0)
+        XCTAssertGreaterThan(winPress(restore, "Restore window"), 0)
+        await winWait { fake.get(window.element, kAXMinimizedAttribute) as? Bool == false && !manager.acting }
+        XCTAssertEqual(manager.selectedID, window.id)
     }
 
     func testFrameWriterApply() {

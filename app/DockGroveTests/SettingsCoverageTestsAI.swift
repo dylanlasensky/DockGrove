@@ -287,9 +287,9 @@ import AppKit
         model.codexConnectionSelected = true
         let harness = connections(model, ai)
         defer { harness.close() }
-        for index in (0..<StudioAIProvider.allCases.count).reversed() { harness.click(harness.controls()[index]) }
+        for provider in StudioAIProvider.allCases.reversed() { harness.press("connection." + provider.rawValue) }
         XCTAssertTrue(model.codexConnectionSelected)
-        harness.click(harness.controls()[2])
+        harness.press("connection.gemini")
         XCTAssertEqual(model.connectionSettingsKind, .geminiUsage)
         XCTAssertFalse(model.codexConnectionSelected)
         model.connectionSettingsKind = .openaiUsage

@@ -161,7 +161,7 @@ private struct StudioLibrary: View {
                 Picker("Library", selection: $library) { Text("Widgets").tag("Widgets"); Text("Apps").tag("Apps") }.pickerStyle(.segmented).labelsHidden().frame(width: 190)
                 HStack { Image(systemName: "magnifyingglass").foregroundStyle(.secondary); TextField(library == "Widgets" ? "Find a widget" : "Find an app", text: $query).textFieldStyle(.plain) }
                     .padding(9).background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 9))
-                if library == "Apps" { Button { kit.scanApplications(force: true) } label: { Image(systemName: "arrow.clockwise") }.disabled(kit.scanningApps).help("Refresh installed apps") }
+                if library == "Apps" { Button { kit.scanApplications(force: true) } label: { Image(systemName: "arrow.clockwise") }.disabled(kit.scanningApps).help("Refresh installed apps").accessibilityLabel("Refresh installed apps") }
             }
             if library == "Widgets" {
                 ScrollView(.horizontal) {

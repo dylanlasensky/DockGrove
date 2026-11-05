@@ -88,7 +88,7 @@ struct StudioConnections: View {
                             }
                                 .frame(maxWidth: .infinity, alignment: .leading).padding(14)
                                 .background(selectedAI == provider ? Color.primary.opacity(0.10) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
-                        }.buttonStyle(.plain).accessibilityAddTraits(selectedAI == provider ? .isSelected : [])
+                        }.buttonStyle(.plain).accessibilityIdentifier("connection." + provider.rawValue).accessibilityAddTraits(selectedAI == provider ? .isSelected : [])
                     }
                 }
                 ForEach(available) { kind in
@@ -102,7 +102,7 @@ struct StudioConnections: View {
                         }
                             .frame(maxWidth: .infinity, alignment: .leading).padding(14)
                             .background(selected == kind ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
-                    }.buttonStyle(.plain).accessibilityAddTraits(selected == kind ? .isSelected : [])
+                    }.buttonStyle(.plain).accessibilityIdentifier("connection." + kind.rawValue).accessibilityAddTraits(selected == kind ? .isSelected : [])
                 }
             }
             if let provider = selectedAI {
