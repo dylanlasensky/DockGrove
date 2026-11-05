@@ -164,12 +164,14 @@ struct AccessibilityClient {
         let ax = AccessibilityClient.current
         // A busy application must not hold the Dock's main thread for the AX default timeout.
         ax.setTimeout(selected.element, 0.5)
+        // The cached list can predate a minimize action in DockGrove or another app.
+        let wasMinimized = (ax.copy(selected.element, kAXMinimizedAttribute) as? Bool) ?? selected.isMinimized
         let restored = ax.set(selected.element, kAXMinimizedAttribute, kCFBooleanFalse)
         ax.activate(selected.owner)
         let raised = ax.perform(selected.element, kAXRaiseAction)
         if raised == .success && (restored == .success || restored == .attributeUnsupported) {
             status = "Window brought forward."
-        } else if selected.isMinimized, restored == .success,
+        } else if wasMinimized, restored == .success,
                   (ax.copy(selected.element, kAXMinimizedAttribute) as? Bool) == false {
             // Finder can restore the window while rejecting the separate raise request.
             // Confirm the state before reporting restoration; an acknowledgement alone is insufficient.
