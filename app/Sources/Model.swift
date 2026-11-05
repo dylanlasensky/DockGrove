@@ -12,7 +12,7 @@ struct DockApp: Identifiable, Equatable {
     static func savedApps(_ paths: [String]) -> [DockApp] {
         var seen = Set<String>()
         return paths.compactMap { path in
-            guard path.hasPrefix("/"), !path.contains("\0"), !path.contains("\n") else { return nil }
+            guard path.hasPrefix("/"), !path.contains("\0") else { return nil }
             let url = URL(fileURLWithPath: path).standardizedFileURL
             guard url.pathExtension.lowercased() == "app", seen.insert(url.path).inserted else { return nil }
             return DockApp(url: url)

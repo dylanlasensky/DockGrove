@@ -124,6 +124,19 @@ private func usageResponse() throws -> UsageResponse {
         XCTAssertFalse(model.fetching)
     }
 
+    func testSavedPinsPreserveValidUnusualFilenames() throws {
+        let app = try makeApp("Valid\nName")
+        let store = defaults()
+        store.set([app.id], forKey: "apps")
+        XCTAssertEqual(model(store, purchases: false).apps, [app])
+        try FileManager.default.removeItem(at: app.url)
+        let dock = model(store, purchases: false)
+        XCTAssertEqual(dock.apps, [app])
+        dock.applyProfile(DockProfile(name: "Saved", apps: [app.id], widgets: [], accent: "Blue", size: 48))
+        XCTAssertEqual(dock.apps, [app])
+        XCTAssertEqual(store.stringArray(forKey: "apps"), [app.id])
+    }
+
     func testVolumeChangesRefreshUnavailablePinsWithoutChangingLayout() async throws {
         let store = defaults()
         let app = DockApp(url: directory.appendingPathComponent("Removable.app"))
@@ -154,7 +167,7 @@ private func usageResponse() throws -> UsageResponse {
         let missing = DockApp(url: directory.appendingPathComponent("Disconnected.app"))
         let store = defaults()
         let dock = model(store, purchases: false)
-        var profile = DockProfile(name: "Saved", apps: [a.id, missing.id, missing.id, "relative.app", "https://example.com/Fake.app", "/bin/ls", "/bad\0.app", "/bad\n.app"], widgets: ["search"], accent: "Blue", size: 48)
+        var profile = DockProfile(name: "Saved", apps: [a.id, missing.id, missing.id, "relative.app", "https://example.com/Fake.app", "/bin/ls", "/bad\0.app"], widgets: ["search"], accent: "Blue", size: 48)
         profile.entryOrder = ["app:" + missing.id, "app:" + a.id]
         dock.applyProfile(profile)
         XCTAssertEqual(dock.apps, [a, missing])
