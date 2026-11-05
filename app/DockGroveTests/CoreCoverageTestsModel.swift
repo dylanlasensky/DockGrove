@@ -456,8 +456,22 @@ private func usageResponse() throws -> UsageResponse {
     }
 
     func testLaunchFailureAlertCanBeDismissed() {
-        RunLoop.main.perform(inModes: [.modalPanel]) { NSApp.abortModal() }
+        var inspected = false
+        RunLoop.main.perform(inModes: [.modalPanel]) {
+            inspected = true
+            let window = NSApp.modalWindow
+            XCTAssertTrue(window?.isVisible == true, "failure feedback must be visible without Settings")
+            func text(in view: NSView) -> [String] {
+                (view as? NSTextField).map { [$0.stringValue] } ?? view.subviews.flatMap { text(in: $0) }
+            }
+            let labels = window?.contentView.map { text(in: $0) } ?? []
+            XCTAssertTrue(labels.contains("Couldn’t open application"))
+            XCTAssertTrue(labels.contains("The selected test application is unavailable."))
+            NSApp.abortModal()
+        }
         DockModel.showApplicationError("The selected test application is unavailable.")
+        XCTAssertTrue(inspected)
+        XCTAssertNil(NSApp.modalWindow)
     }
 
     func testLivePanelsReturnNothingWhenCancelled() {
