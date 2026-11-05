@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Combine
 import ApplicationServices
 
 enum SnapZone {
@@ -38,6 +39,7 @@ struct SnapInput {
     private let input: SnapInput
     private(set) var timer: Timer?
     private var keyMonitor: Any?
+    private var enabledSubscription: AnyCancellable?
     private var pressed=false
     private var cancelled=false
     private var generation=0
@@ -51,6 +53,19 @@ struct SnapInput {
     private(set) var preview: NSPanel?
     init(model:DockModel, input: SnapInput = SnapInput()) { self.model=model; self.input=input }
     func start() {
+        guard enabledSubscription == nil else { return }
+        enabledSubscription = model?.$snappingEnabled.removeDuplicates().sink { [weak self] enabled in
+            self?.updatePolling(enabled: enabled)
+        }
+    }
+    private func updatePolling(enabled: Bool) {
+        guard enabled else {
+            timer?.invalidate(); timer = nil
+            if let keyMonitor { input.removeMonitor(keyMonitor); self.keyMonitor = nil }
+            cancel(); pressed = false
+            return
+        }
+        guard timer == nil else { return }
         timer=Timer.scheduledTimer(withTimeInterval:0.1,repeats:true) { [weak self] _ in Task { @MainActor in self?.tick() } }
         keyMonitor=input.addKeyMonitor { [weak self] event in
             if event.keyCode == 53 { Task { @MainActor in self?.cancel(); self?.cancelled=true } }

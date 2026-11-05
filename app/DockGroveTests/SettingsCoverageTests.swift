@@ -26,6 +26,25 @@ import AppKit
         return app
     }
 
+    func testQuickStartCanBeSkippedAndReopenedAtMinimumSize() {
+        let model = makeSettingsModel(self)
+        let originalApps = model.apps.map(\.id), originalWidgets = model.toolkit.enabled
+        let harness = settings(model, .library, height: 690)
+        defer { harness.close() }
+        harness.press("Quick start guide")
+        harness.press("Skip guide")
+        harness.press("Quick start guide")
+        harness.press("Choose apps and widgets")
+        harness.press("Quick start guide")
+        harness.press("Review Dock behavior")
+        XCTAssertEqual(model.apps.map(\.id), originalApps)
+        XCTAssertEqual(model.toolkit.enabled, originalWidgets)
+        XCTAssertEqual(Companion.displayName("Black cat"), "Tuxedo cat")
+        XCTAssertEqual(Companion.displayName("Golden dog"), "Golden retriever")
+        XCTAssertEqual(Companion.displayName("Miso"), "Cream cat")
+        XCTAssertEqual(Companion.displayName("Fox"), "Fox")
+    }
+
     func testSectionMetadata() {
         XCTAssertEqual(StudioSection.allCases.map(\.icon).count, 5)
         XCTAssertEqual(Set(StudioSection.allCases.map(\.subtitle)).count, 5)
@@ -79,9 +98,13 @@ import AppKit
         XCTAssertNil(harness.source("focus"))
         harness.type("focus", into: harness.textFields()[0])
         harness.source("focus")?.clicked?()
+        XCTAssertFalse(model.toolkit.enabled.contains("focus"), "Browsing does not change the layout")
+        harness.press("Focus, add to Dock")
         XCTAssertTrue(model.toolkit.enabled.contains("focus"), "\(model.toolkit.enabled)")
         harness.settle()
         harness.source("focus")?.clicked?()
+        XCTAssertTrue(model.toolkit.enabled.contains("focus"), "Browsing cannot remove a widget")
+        harness.press("Focus, remove from Dock")
         XCTAssertFalse(model.toolkit.enabled.contains("focus"))
         harness.type("", into: harness.textFields()[0])
         model.setWidgetShape(.circle, for: .focus)
@@ -94,8 +117,7 @@ import AppKit
         defer { harness.close() }
         harness.type("Weather", into: harness.textFields()[0])
         XCTAssertNil(harness.source("weather"), "Locked cards cannot be dragged")
-        let card = harness.controls().filter { $0.minX > 200 && $0.height > 80 }.min { $0.maxY < $1.maxY }!
-        harness.click(CGPoint(x: card.midX, y: card.minY + 18))
+        harness.press("Weather, view access options")
         harness.settle(0.1)
         XCTAssertEqual(store.calls.first, "load", "A locked card opens Purchases")
     }
@@ -112,15 +134,18 @@ import AppKit
         let sources = harness.views(NativeStudioDragSource.SourceView.self)
         XCTAssertEqual(sources.count, 2)
         sources[0].clicked?()
+        XCTAssertTrue(model.apps.isEmpty)
+        harness.press("Add Alpha from Dock library")
         XCTAssertEqual(model.apps.map(\.id), [first.standardizedFileURL.path])
         harness.settle()
         harness.views(NativeStudioDragSource.SourceView.self)[0].clicked?()
+        XCTAssertEqual(model.apps.count, 1)
+        harness.press("Remove Alpha from Dock library")
         XCTAssertTrue(model.apps.isEmpty)
         harness.type("Beta", into: harness.textFields()[0])
         harness.type("nothing-matches", into: harness.textFields()[0])
         // Refresh scans only the temporary application root.
-        let refresh = harness.controls().filter { $0.minX > 200 && $0.width < 40 }.first { $0.maxY > 2000 }
-        if let refresh { harness.click(refresh) }
+        harness.press("Refresh installed apps")
         harness.settle(0.3)
         harness.select(0, in: harness.segments()[0])
     }

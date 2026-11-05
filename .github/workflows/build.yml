@@ -132,7 +132,7 @@ jobs:
           path: app/.build/artifacts/DockGrove-Commercial-*
           retention-days: 7
   native:
-    if: github.event_name == 'workflow_dispatch' && inputs.native
+    if: github.event_name == 'pull_request' || startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.native)
     timeout-minutes: 30
     runs-on: macos-26
     steps:

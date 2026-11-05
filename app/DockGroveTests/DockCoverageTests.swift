@@ -711,11 +711,11 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         let slides = harness.labels().filter { $0.hasPrefix("Notch slide ") }.count
         XCTAssertGreaterThan(slides, 1, "\(harness.labels())")
         XCTAssertFalse(harness.has("Open \(model.notchWidgets.last!.title) from notch"))
-        harness.press("Notch slide \(slides) of \(slides)")
+        harness.press(try XCTUnwrap(harness.labels().first { $0.hasPrefix("Notch slide \(slides) of \(slides):") }))
         harness.spin(0.4)
         XCTAssertTrue(harness.has("Open \(model.notchWidgets.last!.title) from notch"), "\(harness.labels())")
         XCTAssertFalse(harness.has("Open Focus from notch"))
-        harness.press("Notch slide 1 of \(slides)")
+        harness.press(try XCTUnwrap(harness.labels().first { $0.hasPrefix("Notch slide 1 of \(slides):") }))
         harness.spin(0.4)
         XCTAssertTrue(harness.has("Open Focus from notch"))
         controller.selectedWidget = model.notchWidgets.last

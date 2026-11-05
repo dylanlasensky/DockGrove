@@ -1,5 +1,13 @@
 # DockGrove validation
 
+## Current release gates
+
+Every pull request runs the native rendering/window-state suite as well as the two independent build, unit-test, coverage and bundle-validation passes. Release tags run the native suite too. These checks use isolated fixtures; they do not grant permission to control personal windows or prove physical hardware compatibility.
+
+Before a public commercial release, record the exact shipped commit and artifact hash, Developer ID signing and notarization, a clean-install and signed-upgrade check, user-layout preservation, quit/crash Dock recovery, window restore and resize with permission granted and revoked, and real supported Intel/macOS and multi-display checks. Unavailable hardware or credentials remain open gates rather than implied passes. Payment configuration and Apple signing remain owner-managed.
+
+Performance changes require a before/after comparison under the same visible widgets, display, idle and active conditions. CPU observations are not battery-life claims.
+
 ## Version 1.0 non-pet publication — October 29, 2026
 
 This publication excludes the local pet redesign. `app/Sources/Companion.swift`, `app/Sources/WidgetCards.swift`, and `app/Sources/WorkspaceTests.swift` remain unchanged from baseline `97c9fed`; no new companion motion/drawing modules or generated rigs are included. The unused prompt documentation formerly in `app/Assets/` was subsequently removed. The existing six-pose companions remain in the native app. The public website omits the pet gallery and new pet artwork.

@@ -834,14 +834,23 @@ private func winWakeAccessibility() async {
         let model = DockModel(defaults: UserDefaults(suiteName: "core.snap." + UUID().uuidString)!)
         var snapper: WindowSnapper? = WindowSnapper(model: model, input: input)
         snapper?.start()
+        XCTAssertNil(snapper?.timer, "Disabled snapping does not poll the pointer")
+        XCTAssertNil(keyHandler)
+        snapper?.start() // idempotent
+        model.snappingEnabled = true
+        XCTAssertNotNil(snapper?.timer)
         XCTAssertNotNil(keyHandler)
         snapper?.timer?.fire()
         keyHandler?(key(0))
         keyHandler?(key(53))
         await winSettle()
-        snapper?.timer?.invalidate()
-        snapper = nil
+        model.snappingEnabled = false
+        XCTAssertNil(snapper?.timer)
         XCTAssertEqual(removed, 1)
+        model.snappingEnabled = true
+        XCTAssertNotNil(snapper?.timer)
+        snapper = nil
+        XCTAssertEqual(removed, 2)
     }
 
     func testDragToEdgePreviewsAndSnaps() async throws {

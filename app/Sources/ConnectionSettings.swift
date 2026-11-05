@@ -51,6 +51,28 @@ struct StudioConnections: View {
         if model.codexConnectionSelected { return .signIn }
         return [.openaiUsage, .anthropicUsage, .cursorUsage].contains(model.connectionSettingsKind) ? .token : .signIn
     }
+    @ViewBuilder private func aiStatus(_ provider: StudioAIProvider) -> some View {
+        switch provider {
+        case .openai:
+            ConnectionSummary(model: model) { $0.usageError ?? ($0.usage == nil ? "ChatGPT account: not checked" : "ChatGPT usage received") }
+        case .claude:
+            ConnectionSummary(model: model.toolkit.claudeCodeUsage) { $0.status.isEmpty ? ($0.report == nil ? "Local account: not checked" : "Local usage received") : $0.status }
+        case .gemini:
+            ConnectionSummary(model: model.toolkit.geminiUsage) { $0.status.isEmpty ? ($0.report == nil ? "Local account: not checked" : "Local usage received") : $0.status }
+        case .cursor:
+            ConnectionSummary(model: model.toolkit.cursorUsage) { $0.status.isEmpty ? ($0.snapshot == nil ? "API usage: not checked" : "API usage received") : $0.status }
+        }
+    }
+    @ViewBuilder private func serviceStatus(_ kind: ToolKind) -> some View {
+        switch kind {
+        case .appleMusic: ConnectionSummary(model: model.toolkit.appleMusic) { $0.status }
+        case .spotify: ConnectionSummary(model: model.toolkit.spotify) { $0.status }
+        case .calendar: ConnectionSummary(model: model.toolkit.calendar) { $0.status }
+        case .googleCalendar: ConnectionSummary(model: model.toolkit.googleCalendar) { $0.status }
+        case .reminders: ConnectionSummary(model: model.toolkit.utilities) { $0.remindersStatus }
+        default: EmptyView()
+        }
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 175))], spacing: 10) {
@@ -60,21 +82,27 @@ struct StudioConnections: View {
                             model.codexConnectionSelected = provider == .openai
                             if let kind = provider.kind { model.connectionSettingsKind = kind }
                         } label: {
-                            FontAwesomeLabel(provider.title, icon: provider.icon).font(.callout)
+                            VStack(alignment: .leading, spacing: 5) {
+                                FontAwesomeLabel(provider.title, icon: provider.icon).font(.callout)
+                                aiStatus(provider)
+                            }
                                 .frame(maxWidth: .infinity, alignment: .leading).padding(14)
                                 .background(selectedAI == provider ? Color.primary.opacity(0.10) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
-                        }.buttonStyle(.plain).accessibilityAddTraits(selectedAI == provider ? .isSelected : [])
+                        }.buttonStyle(.plain).accessibilityIdentifier("connection." + provider.rawValue).accessibilityAddTraits(selectedAI == provider ? .isSelected : [])
                     }
                 }
                 ForEach(available) { kind in
                     Button { model.codexConnectionSelected = false; model.connectionSettingsKind = kind } label: {
-                        Group {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Group {
                             if let icon = FontAwesomeIcon.provider(kind) { FontAwesomeLabel(kind.title, icon: icon) }
                             else { Label(kind.title, systemImage: kind.icon) }
-                        }.font(.callout)
+                            }.font(.callout)
+                            serviceStatus(kind)
+                        }
                             .frame(maxWidth: .infinity, alignment: .leading).padding(14)
                             .background(selected == kind ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
-                    }.buttonStyle(.plain).accessibilityAddTraits(selected == kind ? .isSelected : [])
+                    }.buttonStyle(.plain).accessibilityIdentifier("connection." + kind.rawValue).accessibilityAddTraits(selected == kind ? .isSelected : [])
                 }
             }
             if let provider = selectedAI {
@@ -93,5 +121,15 @@ struct StudioConnections: View {
                 Text("Your current widgets do not require an account connection.").foregroundStyle(.secondary)
             }
         }
+    }
+}
+
+/// Observes the actual source without starting a connection or reading credentials.
+private struct ConnectionSummary<Model: ObservableObject>: View {
+    @ObservedObject var model: Model
+    let summary: (Model) -> String
+    var body: some View {
+        Text(summary(model)).font(.caption).foregroundStyle(.secondary)
+            .lineLimit(2).help(summary(model))
     }
 }
