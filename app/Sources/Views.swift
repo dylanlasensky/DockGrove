@@ -266,7 +266,7 @@ struct AppTile: View {
         .onHover { hovering in
             interaction.hovered = hovering
             // Fresh window titles for the context menu, as the system Dock lists them.
-            if hovering, app.isRunning, model.toolkit.windows.trusted { model.toolkit.windows.refresh() }
+            if hovering, let running = model.runningApplication(app), model.toolkit.windows.trusted { model.toolkit.windows.refreshIfNeeded(for: running) }
             if hovering { model.refreshLoginItems() }
         }
         .animation(.spring(response: 0.23, dampingFraction: 0.65), value: interaction.hovered)
@@ -287,7 +287,7 @@ struct AppTileMenu: View {
         let running = model.runningApplication(app), pinned = model.apps.contains(app)
         if running != nil {
             let open = windows.windows.filter { $0.owner.bundleURL?.standardizedFileURL.path == app.id }
-            ForEach(open) { window in Button(window.menuTitle + (window.isMinimized ? " — Minimized" : "")) { windows.selectedID = window.id; windows.focus() } }
+            ForEach(open) { window in Button(window.menuTitle + (window.isMinimized ? " — Minimized" : "")) { windows.selectedID = window.id; Task { await windows.focus() } } }
             if !open.isEmpty { Divider() }
         }
         Menu("Options") {
