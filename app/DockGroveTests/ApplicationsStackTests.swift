@@ -475,6 +475,29 @@ import SwiftUI
         XCTAssertEqual(edited.last?.name, "", "an unterminated quoted scalar reads as empty")
     }
 
+    func testIncompleteQuotedIndexFieldsDoNotSwallowFollowingRecords() {
+        // A lone opening quote takes the zero-character recovery path. A trailing
+        // escape and malformed lookup key must also leave the next app intact.
+        let parsed = AppIndexYAML.decode(#"""
+        apps:
+          - name: "
+            path: /Apps/Incomplete.app
+            aliases: ["]
+            lookups:
+              "unfinished: 7
+          - name: "Trailing\
+            path: /Apps/Trailing.app
+          - name: "Valid"
+            path: /Apps/Valid.app
+            aliases: ["line\nbreak", "quoted\"name", "back\\slash"]
+        """#)
+        XCTAssertEqual(parsed.map(\.path), ["/Apps/Incomplete.app", "/Apps/Trailing.app", "/Apps/Valid.app"])
+        XCTAssertEqual(parsed.map(\.name), ["", "", "Valid"])
+        XCTAssertEqual(parsed.first?.aliases, ["\""])
+        XCTAssertTrue(parsed.first?.lookups.isEmpty == true)
+        XCTAssertEqual(parsed.last?.aliases, ["line\nbreak", "quoted\"name", "back\\slash"])
+    }
+
     // MARK: Stack popover
 
     private var visible: CGRect { CGRect(x: 0, y: 0, width: 1440, height: 875) }
