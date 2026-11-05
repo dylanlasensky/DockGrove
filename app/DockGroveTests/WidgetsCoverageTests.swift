@@ -309,7 +309,7 @@ func widgetDefaults() -> UserDefaults { UserDefaults(suiteName: "WidgetsCoverage
 /// Replaces every system seam on the model, its toolkit, utilities and music players with fakes,
 /// so no test can reach a live panel, the general pasteboard, the network, or launch an app.
 @MainActor func widgetsIsolate(_ model: DockModel, file: StaticString = #filePath, line: UInt = #line) {
-    model.openApplication = { XCTFail("live launch of \($0.path)", file: file, line: line) }
+    model.openApplication = { url, _ in XCTFail("live launch of \(url.path)", file: file, line: line) }
     model.chooseExportURL = { XCTFail("live save panel", file: file, line: line); return nil }
     model.chooseImportURL = { XCTFail("live open panel", file: file, line: line); return nil }
     model.fetchUsage = { _ in throw URLError(.notConnectedToInternet) }

@@ -360,7 +360,7 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
 
     private func model(_ configure: (UserDefaults) -> Void = { _ in }) -> DockModel {
         let model = DockModel(defaults: defaults(configure))
-        model.openApplication = { _ in }
+        model.openApplication = { _, completion in completion(nil) }
         model.fetchUsage = { _ in throw UsageError.service }
         model.toolkit.applicationRoots = []
         return model
@@ -1040,7 +1040,7 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
     func testAppTileActions() throws {
         let model = dockModel(widgets: [])
         var launched: [URL] = []
-        model.openApplication = { launched.append($0) }
+        model.openApplication = { url, completion in launched.append(url); completion(nil) }
         let app = hostApp
         // A fake Accessibility client: hover refreshes and window focus never reach real apps.
         let savedAX = AccessibilityClient.current, savedModifiers = DockSystemEffect.modifiers
@@ -1531,7 +1531,7 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
     func testSecondaryClicksAndHoldOpenMenusThroughAppKit() throws {
         let model = dockModel(widgets: [])
         var launched = 0
-        model.openApplication = { _ in launched += 1 }
+        model.openApplication = { _, completion in launched += 1; completion(nil) }
         final class Shown { var menus: [[String]] = []; var views: [NSView] = [] }
         let shown = Shown()
         let savedPresent = DockContextMenu.present

@@ -51,7 +51,7 @@ import SwiftUI
         let defaults = UserDefaults(suiteName: suite)!
         defaults.set([], forKey: "apps"); defaults.set(false, forKey: "showRunning")
         let model = DockModel(defaults: defaults)
-        model.openApplication = { [unowned self] in self.launched.append($0) }
+        model.openApplication = { [unowned self] url, completion in self.launched.append(url); completion(nil) }
         model.fetchUsage = { _ in throw UsageError.service }
         model.toolkit.applicationRoots = [folder.path]
         model.toolkit.scanApplications(force: true)
