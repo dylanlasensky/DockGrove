@@ -174,8 +174,7 @@ struct WindowShelfView: View {
                                         .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
                                 }.buttonStyle(.plain).disabled(manager.acting)
                                 .contextMenu {
-                                    Button(window.isMinimized ? "Restore window" : "Bring forward") { manager.selectedID = window.id; Task { await manager.focus() } }
-                                    if !window.isMinimized { Button("Minimize window") { manager.selectedID = window.id; Task { await manager.minimize() } } }
+                                    WindowShelfActions(manager: manager, window: window)
                                 }.accessibilityLabel("\(window.title), \(window.isMinimized ? "minimized" : "open"). Restore window")
                             }
                         }
@@ -188,5 +187,25 @@ struct WindowShelfView: View {
         .onAppear { manager.refresh() }
         .onReceive(clock) { _ in manager.refresh() }
         .onDisappear { manager.cancelDiscovery() }
+    }
+}
+
+/// Shared menu controls can be exercised without opening a system menu or touching real windows.
+struct WindowShelfActions: View {
+    @ObservedObject var manager: WindowManager
+    let window: ManagedWindow
+    var body: some View {
+        Group {
+            Button(window.isMinimized ? "Restore window" : "Bring forward") {
+                manager.selectedID = window.id
+                Task { await manager.focus() }
+            }
+            if !window.isMinimized {
+                Button("Minimize window") {
+                    manager.selectedID = window.id
+                    Task { await manager.minimize() }
+                }
+            }
+        }.disabled(manager.acting)
     }
 }
