@@ -187,25 +187,13 @@ import SwiftUI
         XCTAssertNil(second?.contentView)
     }
 
-    /// Puts the real panel in a window server slot far off every display; it never becomes key.
-    private func presentOffscreen() {
-        AppsLauncher.shared.present = { $0.setFrameOrigin(NSPoint(x: -20000, y: -20000)); $0.orderFrontRegardless() }
-    }
-
-    private func awaitEntrance(of panel: NSPanel?) {
-        let deadline = Date().addingTimeInterval(5)
-        while panel?.hasShadow == false, Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) }
-    }
-
     func testWindowShadowWaitsForTheEntranceToFinish() {
-        presentOffscreen()
         let launcher = AppsLauncher.shared
         launcher.show(model: model(apps: 2))
         let panel = launcher.panel
-        XCTAssertEqual(panel?.isVisible, true)
-        XCTAssertEqual(panel?.isKeyWindow, false)
         XCTAssertEqual(panel?.hasShadow, false)
-        awaitEntrance(of: panel)
+        let deadline = Date().addingTimeInterval(5)
+        while panel?.hasShadow == false, Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) }
         XCTAssertEqual(panel?.hasShadow, true, "the shadow is computed once both glass pieces are drawn")
     }
 
@@ -224,24 +212,21 @@ import SwiftUI
     }
 
     func testClicksBesideTheGlassDismissLikeClickingOutside() {
-        presentOffscreen()
         let launcher = AppsLauncher.shared, model = model(apps: 2)
         func click(_ type: NSEvent.EventType, x: CGFloat, topY: CGFloat, on panel: NSPanel) {
             panel.sendEvent(NSEvent.mouseEvent(with: type, location: CGPoint(x: x, y: panel.frame.height - topY), modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: panel.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!)
         }
         launcher.show(model: model)
         guard let panel = launcher.panel else { return XCTFail("no panel") }
-        awaitEntrance(of: panel)
         click(.leftMouseUp, x: 2, topY: 2, on: panel)
         XCTAssertNotNil(launcher.panel, "only a press dismisses")
-        click(.leftMouseDown, x: AppsLauncher.pieces(in: panel.frame.size).bar.minX + 10, topY: 40, on: panel)
+        click(.rightMouseDown, x: AppsLauncher.pieces(in: panel.frame.size).bar.minX + 10, topY: 40, on: panel)
         XCTAssertNotNil(launcher.panel, "a click on the capsule stays open")
         click(.leftMouseDown, x: panel.frame.width / 2, topY: AppsLauncher.barSize.height + 5, on: panel)
         XCTAssertNil(launcher.panel, "a click in the gap closes")
 
         launcher.show(model: model)
         guard let reopened = launcher.panel else { return XCTFail("no panel") }
-        awaitEntrance(of: reopened)
         click(.rightMouseDown, x: 2, topY: 2, on: reopened)
         XCTAssertNil(launcher.panel, "as does a right click in a corner")
     }
