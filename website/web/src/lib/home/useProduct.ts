@@ -2,19 +2,19 @@
 
 import { useEffect, useState } from "react";
 import {
-  COMING_SOON_LABEL,
-  COMING_SOON_STATUS,
-  DEFAULT_DEVICES,
-  DEFAULT_PRICE,
-  UNAVAILABLE_LABEL,
-  UNAVAILABLE_PRICE,
-  UNAVAILABLE_STATUS,
-  checkoutState,
+  CHECKOUT_COMING_SOON,
+  CHECKOUT_UNAVAILABLE,
+  checkoutButtonState,
   errorMessage,
-  fetchProduct,
   formatPrice,
+  loadProduct,
   startCheckout,
-} from "./product";
+} from "@/lib/commerce";
+
+/** Fallback copy shown while product.json has not loaded yet (matches the static HTML). */
+const DEFAULT_PRICE = "$9.99";
+const DEFAULT_DEVICES = "3";
+const UNAVAILABLE_PRICE = "Price unavailable";
 
 export interface ProductView {
   price: string;
@@ -34,25 +34,21 @@ export interface ProductView {
 export function useProduct(comingSoon: boolean): ProductView {
   const [price, setPrice] = useState(DEFAULT_PRICE);
   const [devices, setDevices] = useState(DEFAULT_DEVICES);
-  const [button, setButton] = useState({
-    disabled: true,
-    label: COMING_SOON_LABEL,
-    status: COMING_SOON_STATUS,
-  });
+  const [button, setButton] = useState(CHECKOUT_COMING_SOON);
 
   useEffect(() => {
     let cancelled = false;
-    fetchProduct()
+    loadProduct()
       .then((product) => {
         if (cancelled) return;
         setPrice(formatPrice(product));
         setDevices(String(product.deviceLimit));
-        setButton(checkoutState(product, comingSoon));
+        setButton(checkoutButtonState(product, comingSoon));
       })
       .catch(() => {
         if (cancelled) return;
         setPrice(UNAVAILABLE_PRICE);
-        setButton({ disabled: true, label: UNAVAILABLE_LABEL, status: UNAVAILABLE_STATUS });
+        setButton(CHECKOUT_UNAVAILABLE);
       });
     return () => {
       cancelled = true;

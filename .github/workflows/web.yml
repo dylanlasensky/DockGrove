@@ -43,6 +43,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
+        env:
+          NEXT_PUBLIC_API_ENABLED: ${{ vars.NEXT_PUBLIC_API_ENABLED }}
       - name: Website tests (export in out/)
         run: npm test
       - name: Commerce Worker tests

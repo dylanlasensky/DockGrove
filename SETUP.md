@@ -34,6 +34,21 @@ If port 8080 or 8787 is taken, change `WEB_PORT` or `API_PORT` in `.env`. Nginx 
 
 Without Docker, from `website/web` with Node 24: `npm ci && npm run lint && npm run typecheck && npm run build && npm test`.
 
+#### `NEXT_PUBLIC_API_ENABLED`
+
+This build-time flag tells the site whether a commerce API exists behind `/api/*`. Only the exact value `true` turns it on, and changing it needs a rebuild.
+
+- **Off (default):** the site reads `/product.json` and never requests `/api/product`, so a static deployment with no Worker logs no 404s. Checkout stays disabled because that file always says `available: false`. Actions that need the server, such as `/recover`, still call the API and show their normal "unavailable" message.
+- **On:** the site requests `/api/product` first and falls back to `/product.json`, so `available` comes from the Worker.
+
+| Build | How to set it | Default |
+| --- | --- | --- |
+| `npm run build` | `NEXT_PUBLIC_API_ENABLED=true npm run build` | Off |
+| dockgrove.com (`web.yml`) | GitHub repository variable `NEXT_PUBLIC_API_ENABLED` (Settings → Secrets and variables → Actions → Variables), then redeploy | Off |
+| Docker image | `--build-arg NEXT_PUBLIC_API_ENABLED=false` to turn it off | On, because nginx proxies `/api/*` to `API_UPSTREAM` |
+
+The root `.env` does not reach `npm run build` or the Docker build. Turn the flag on for dockgrove.com once the commerce Worker is deployed.
+
 ### macOS app (Xcode)
 
 Requires macOS 14+ and Xcode. Open `app/DockGrove.xcodeproj` in Xcode, or use the command line:
