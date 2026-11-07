@@ -168,6 +168,7 @@ struct ApplicationsStackMenu: View {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         panel.isReleasedWhenClosed = false
         chooser.reset(query: query, defaults: model.defaults)
+        chooser.columns = AppsChooserState.columns(fitting: frame.width)
         let root = AppsLauncherView(model: model, kit: model.toolkit, state: chooser, mode: mode, close: { [weak self] in self?.close(restorePrevious: true) },
                                     entered: { [weak panel] in panel?.hasShadow = true; panel?.invalidateShadow() })
             .preferredColorScheme(model.scheme)
@@ -260,8 +261,12 @@ private final class AppsChooserMenuAction: NSObject {
     @Published var layout = Layout.icons { didSet { defaults?.set(layout.rawValue, forKey: "appsChooserLayout") } }
     /// Number of visible results, kept current by the view so arrow keys can clamp.
     var count = 0
-    static let columns = 7
+    static let maxColumns = 7
+    /// Grid columns in this window, which also sets how far Up and Down move.
+    var columns = maxColumns
     private var defaults: UserDefaults?
+    /// As many of the seven columns as fit 76pt cells beside the grid's 20pt margins.
+    static func columns(fitting width: CGFloat) -> Int { max(1, min(maxColumns, Int((width - 40) / 76))) }
     var searchIsEmpty: Bool { AppSearchIndex.fold(query).isEmpty }
 
     func reset(query: String, defaults: UserDefaults) {
@@ -303,7 +308,7 @@ private final class AppsChooserMenuAction: NSObject {
 
     /// Up/Down move by a row; Left/Right move by one icon in the grid and stay with the text in the list.
     func handleKey(_ event: NSEvent) -> Bool {
-        let row = layout == .icons ? Self.columns : 1
+        let row = layout == .icons ? columns : 1
         switch event.keyCode {
         case 125: move(row)
         case 126: move(-row)
@@ -405,7 +410,7 @@ struct AppsLauncherView: View {
     }
 
     private func grid(_ results: [DockApp]) -> some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: AppsChooserState.columns), spacing: 2) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: state.columns), spacing: 2) {
             ForEach(Array(results.enumerated()), id: \.element.id) { offset, app in
                 item(app, offset: offset, list: false).id(app.id)
             }

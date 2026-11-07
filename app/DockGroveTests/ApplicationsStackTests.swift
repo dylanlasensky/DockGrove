@@ -192,6 +192,11 @@ import SwiftUI
         AppsLauncher.shared.present = { $0.setFrameOrigin(NSPoint(x: -20000, y: -20000)); $0.orderFrontRegardless() }
     }
 
+    private func awaitEntrance(of panel: NSPanel?) {
+        let deadline = Date().addingTimeInterval(5)
+        while panel?.hasShadow == false, Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) }
+    }
+
     func testWindowShadowWaitsForTheEntranceToFinish() {
         presentOffscreen()
         let launcher = AppsLauncher.shared
@@ -200,8 +205,7 @@ import SwiftUI
         XCTAssertEqual(panel?.isVisible, true)
         XCTAssertEqual(panel?.isKeyWindow, false)
         XCTAssertEqual(panel?.hasShadow, false)
-        let deadline = Date().addingTimeInterval(5)
-        while panel?.hasShadow == false, Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) }
+        awaitEntrance(of: panel)
         XCTAssertEqual(panel?.hasShadow, true, "the shadow is computed once both glass pieces are drawn")
     }
 
@@ -227,6 +231,7 @@ import SwiftUI
         }
         launcher.show(model: model)
         guard let panel = launcher.panel else { return XCTFail("no panel") }
+        awaitEntrance(of: panel)
         click(.leftMouseUp, x: 2, topY: 2, on: panel)
         XCTAssertNotNil(launcher.panel, "only a press dismisses")
         click(.leftMouseDown, x: AppsLauncher.pieces(in: panel.frame.size).bar.minX + 10, topY: 40, on: panel)
@@ -236,6 +241,7 @@ import SwiftUI
 
         launcher.show(model: model)
         guard let reopened = launcher.panel else { return XCTFail("no panel") }
+        awaitEntrance(of: reopened)
         click(.rightMouseDown, x: 2, topY: 2, on: reopened)
         XCTAssertNil(launcher.panel, "as does a right click in a corner")
     }
@@ -302,6 +308,43 @@ import SwiftUI
         XCTAssertEqual(launcher.chooser.query, "Sam")
         XCTAssertNil(launcher.chooser.category, "each opening starts on All")
         launcher.chooser.layout = .icons
+    }
+
+    func testSmallScreensKeepBothPiecesUsable() throws {
+        XCTAssertEqual(AppsChooserState.columns(fitting: AppsLauncher.panelSize.width), 7)
+        XCTAssertEqual(AppsChooserState.columns(fitting: 552), 6)
+        XCTAssertEqual(AppsChooserState.columns(fitting: 452), 5)
+        XCTAssertEqual(AppsChooserState.columns(fitting: 60), 1)
+
+        let narrow = AppsLauncher.frame(in: NSRect(x: 0, y: 0, width: 500, height: 360))
+        XCTAssertEqual(narrow.size, CGSize(width: 452, height: 312))
+        let squeezed = AppsLauncher.pieces(in: narrow.size)
+        XCTAssertEqual(squeezed.bar, CGRect(x: 0, y: 0, width: 452, height: 80), "the capsule narrows to the window")
+        XCTAssertEqual(squeezed.results.height, 221)
+
+        // The real view at a short, narrow size matches the geometry that decides which clicks dismiss.
+        let size = AppsLauncher.frame(in: NSRect(x: 0, y: 0, width: 600, height: 400)).size
+        let pieces = AppsLauncher.pieces(in: size)
+        XCTAssertEqual(pieces.bar, CGRect(x: 17, y: 0, width: 518, height: 80))
+        let model = model(apps: 8)
+        let state = AppsChooserState()
+        state.columns = AppsChooserState.columns(fitting: size.width)
+        let harness = DockHarness(AppsLauncherView(model: model, kit: model.toolkit, state: state) {}, size: size)
+        defer { harness.close() }
+        harness.spin(0.5)
+        let results = try XCTUnwrap(harness.frame("Applications")), button = try XCTUnwrap(harness.frame("View and category options"))
+        XCTAssertEqual(results.width, pieces.results.width, accuracy: 1)
+        XCTAssertEqual(results.height, pieces.results.height, accuracy: 1)
+        XCTAssertEqual(results.minY, 0, accuracy: 1, "the panel ends at the bottom of the window")
+        XCTAssertEqual(button.midY, size.height - pieces.bar.midY, accuracy: 1, "the capsule stays at the top")
+        XCTAssertLessThan(button.maxX, pieces.bar.maxX, "with its menu button inside it")
+
+        let first = try XCTUnwrap(harness.frame("Sample 00")), second = try XCTUnwrap(harness.frame("Sample 01")), wrapped = try XCTUnwrap(harness.frame("Sample 05"))
+        XCTAssertLessThanOrEqual(first.maxX, second.minX + 1, "cells do not overlap")
+        XCTAssertLessThan(wrapped.maxY, first.minY + 1, "the seventh app wraps to a second row of six")
+        state.count = 20
+        XCTAssertTrue(state.handleKey(key(125)))
+        XCTAssertEqual(state.selection, 6, "Down moves by the visible row")
     }
 
     func testChooserSearchesFiltersAndLaunches() {
@@ -424,7 +467,7 @@ import SwiftUI
         launcher.panel?.keyDown(with: key(124)) // right
         XCTAssertEqual(state.selection, 1)
         launcher.panel?.keyDown(with: key(125)) // down one row of seven
-        XCTAssertEqual(state.selection, 1 + AppsChooserState.columns)
+        XCTAssertEqual(state.selection, 1 + state.columns)
         launcher.panel?.keyDown(with: key(126)) // up
         XCTAssertEqual(state.selection, 1)
         launcher.panel?.keyDown(with: key(123)) // left
@@ -570,6 +613,10 @@ import SwiftUI
         harness.enter("nothing matches this")
         harness.spin(0.3)
         XCTAssertEqual(state.count, 0)
+        harness.enter("")
+        state.category = .games
+        harness.spin(0.3)
+        XCTAssertEqual(state.count, 0, "a category with no apps is empty without any search")
     }
 
     func testIndexEdgeCasesAndYAMLParsing() {
