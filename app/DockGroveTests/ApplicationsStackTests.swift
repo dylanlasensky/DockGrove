@@ -13,6 +13,7 @@ import SwiftUI
     private let originalHandler = DockSystemEffect.handler
     private let originalPresent = AppsLauncher.shared.present
     private let originalStackPresent = AppsStackPopover.shared.present
+    private let originalPresentOptions = AppsLauncher.shared.presentOptions
 
     override func setUp() {
         super.setUp()
@@ -27,6 +28,7 @@ import SwiftUI
         AppsStackPopover.shared.dismissalGrace = 0.35
         DockSystemEffect.handler = originalHandler
         AppsLauncher.shared.present = originalPresent
+        AppsLauncher.shared.presentOptions = originalPresentOptions
         AppsStackPopover.shared.present = originalStackPresent
         suites.forEach { UserDefaults().removePersistentDomain(forName: $0) }
         folders.forEach { try? FileManager.default.removeItem(at: $0) }
@@ -223,14 +225,7 @@ import SwiftUI
         let index = model.toolkit.appIndex
         XCTAssertEqual(state.results(in: index).map { index.name(of: $0) }.prefix(2), ["Finder", "Sample 00"], "an empty search lists apps by name")
 
-        // The capsule's "…" menu holds the view and category choices.
-        state.category = .games
-        harness.spin(0.2)
-        XCTAssertEqual(state.count, 10)
-        state.category = nil
-        harness.spin(0.2)
-        XCTAssertNil(state.category)
-        XCTAssertEqual(state.count, 41)
+        XCTAssertTrue(harness.has("View and category options"), "\(harness.labels())")
 
         // Search filters at once; the arrow keys move the selection and Return picks it.
         harness.enter("Sample 0")
@@ -276,6 +271,57 @@ import SwiftUI
         state.selection = 35
         harness.spin(0.3)
         state.layout = .icons
+    }
+
+    /// Presses the labelled "…" button as an assistive client would and returns the menu it pops.
+    private func openOptions(_ harness: DockHarness) -> NSMenu? {
+        var opened: NSMenu?
+        AppsLauncher.shared.presentOptions = { menu, button in
+            opened = menu
+            XCTAssertNotNil(button.window, "the menu anchors to the on-screen button")
+        }
+        harness.press("View and category options")
+        return opened
+    }
+
+    private func choose(_ title: String, from harness: DockHarness) {
+        guard let menu = openOptions(harness), let index = menu.items.firstIndex(where: { $0.title == title }) else { return XCTFail("no menu item \(title)") }
+        menu.performActionForItem(at: index)
+        harness.spin(0.2)
+    }
+
+    func testOptionsMenuChangesTheViewAndCategory() {
+        let model = model(apps: 25) // Utilities, Games, and uncategorized
+        let state = AppsChooserState()
+        state.reset(query: "", defaults: model.defaults)
+        let harness = DockHarness(AppsLauncherView(model: model, kit: model.toolkit, state: state) {}, size: AppsLauncher.panelSize)
+        defer { harness.close() }
+        harness.spin(0.4)
+
+        let menu = openOptions(harness)
+        let titles = menu?.items.map(\.title) ?? []
+        XCTAssertEqual(Array(titles.prefix(4)), ["View as Icons", "View as List", "", "All Categories"])
+        XCTAssertTrue(["Utilities", "Games", "Other"].allSatisfy(titles.contains), "\(titles)")
+        XCTAssertFalse(titles.contains("Social"), "only categories that have apps")
+        XCTAssertEqual(menu?.items.filter { $0.state == .on }.map(\.title), ["View as Icons", "All Categories"])
+        XCTAssertNotNil(menu?.items.first?.image)
+        XCTAssertTrue(menu?.items[2].isSeparatorItem ?? false, "view and category choices are separate groups")
+
+        choose("View as List", from: harness)
+        XCTAssertEqual(state.layout, .list)
+        XCTAssertEqual(model.defaults.string(forKey: "appsChooserLayout"), "list")
+        choose("Games", from: harness)
+        XCTAssertEqual(state.category, .games)
+        XCTAssertEqual(state.count, 10)
+        XCTAssertEqual(openOptions(harness)?.items.filter { $0.state == .on }.map(\.title), ["View as List", "Games"])
+
+        state.selection = 3
+        choose("All Categories", from: harness)
+        XCTAssertNil(state.category)
+        XCTAssertEqual(state.selection, 0, "changing the category restarts the selection")
+        choose("View as Icons", from: harness)
+        XCTAssertEqual(state.layout, .icons)
+        XCTAssertEqual(state.optionsMenu(apps: []).items.map(\.title), ["View as Icons", "View as List", "", "All Categories"])
     }
 
     func testArrowKeysMoveTheSelectionByIconAndRow() {

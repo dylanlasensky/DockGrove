@@ -118,6 +118,8 @@ struct ApplicationsStackMenu: View {
     private(set) var mode: Mode = .launch
     /// Brings the chooser on screen through the system-effect seam, so tests never show a real window.
     var present: (NSPanel) -> Void = { DockSystemEffect.handler(.present($0)) }
+    /// Pops the capsule's "…" menu just below its button; tests read the menu without tracking it.
+    var presentOptions: (NSMenu, NSView) -> Void = { menu, button in menu.popUp(positioning: nil, at: NSPoint(x: 0, y: -4), in: button) }
     private var previousApplication: NSRunningApplication?
     private var monitors: [Any] = []
     private var resignObserver: NSObjectProtocol?
@@ -219,6 +221,13 @@ enum AppCategory: String, CaseIterable {
     }
 }
 
+/// Runs one "…" menu choice; the menu item keeps it alive through `representedObject`.
+private final class AppsChooserMenuAction: NSObject {
+    private let run: @MainActor () -> Void
+    init(_ run: @escaping @MainActor () -> Void) { self.run = run }
+    @MainActor @objc func choose() { run() }
+}
+
 /// Search text, category tag, keyboard selection and icon/list layout, shared by the panel and its view.
 @MainActor final class AppsChooserState: ObservableObject {
     enum Layout: String { case icons, list }
@@ -248,6 +257,25 @@ enum AppCategory: String, CaseIterable {
         return matches.filter { AppCategory.of($0) == category }
     }
 
+    /// Icons or list, then the categories that actually have apps, ticked like inline pickers.
+    func optionsMenu(apps: [DockApp]) -> NSMenu {
+        let menu = NSMenu(), present = Set(apps.map(AppCategory.of))
+        func add(_ title: String, symbol: String? = nil, on: Bool, _ choose: @escaping @MainActor () -> Void) {
+            let action = AppsChooserMenuAction(choose)
+            let item = menu.addItem(withTitle: title, action: #selector(AppsChooserMenuAction.choose), keyEquivalent: "")
+            item.target = action; item.representedObject = action; item.state = on ? .on : .off
+            item.image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }
+        }
+        add("View as Icons", symbol: "square.grid.2x2", on: layout == .icons) { self.layout = .icons }
+        add("View as List", symbol: "list.bullet", on: layout == .list) { self.layout = .list }
+        menu.addItem(.separator())
+        add("All Categories", on: category == nil) { self.category = nil }
+        for option in AppCategory.allCases where present.contains(option) {
+            add(option.rawValue, on: category == option) { self.category = option }
+        }
+        return menu
+    }
+
     func move(_ delta: Int) { if count > 0 { selection = max(0, min(count - 1, selection + delta)) } }
 
     /// Up/Down move by a row; Left/Right move by one icon in the grid and stay with the text in the list.
@@ -271,6 +299,7 @@ struct AppsLauncherView: View {
     var mode: AppsLauncher.Mode = .launch
     var close: () -> Void
     @State private var shown = false
+    @StateObject private var optionsButton = StackAnchor()
     @FocusState private var searchFocused: Bool
     init(model: DockModel, kit: Toolkit, state: AppsChooserState, mode: AppsLauncher.Mode = .launch, close: @escaping () -> Void) {
         self.model = model; self.kit = kit; self.state = state; self.mode = mode; self.close = close
@@ -311,22 +340,15 @@ struct AppsLauncherView: View {
         .clipShape(Capsule())
     }
 
-    /// Icons or list, then the categories that actually have apps.
+    /// A plain button over an NSMenu: unlike SwiftUI's Menu, accessibility clients can reach and press it.
     private var optionsMenu: some View {
-        let present = Set(kit.appIndex.apps.map(AppCategory.of))
-        return Menu {
-            Picker("View as", selection: $state.layout) {
-                Label("View as Icons", systemImage: "square.grid.2x2").tag(AppsChooserState.Layout.icons)
-                Label("View as List", systemImage: "list.bullet").tag(AppsChooserState.Layout.list)
-            }.pickerStyle(.inline).labelsHidden()
-            Picker("Category", selection: $state.category) {
-                Text("All Categories").tag(AppCategory?.none)
-                ForEach(AppCategory.allCases.filter(present.contains), id: \.self) { Text($0.rawValue).tag(AppCategory?.some($0)) }
-            }.pickerStyle(.inline).labelsHidden()
+        Button {
+            if let view = optionsButton.view { AppsLauncher.shared.presentOptions(state.optionsMenu(apps: kit.appIndex.apps), view) }
         } label: {
             Image(systemName: "ellipsis").font(.system(size: 17, weight: .semibold)).foregroundStyle(.secondary).frame(width: 30, height: 30).contentShape(Rectangle())
+                .background(StackAnchorView(anchor: optionsButton))
         }
-        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .buttonStyle(.plain).fixedSize()
         .help("View and category options").accessibilityLabel("View and category options")
     }
 
