@@ -122,3 +122,147 @@ for(const route of routes){
   assert.deepEqual({...report,consoleErrors:report.consoleErrors.map(local),failedRequests:report.failedRequests.map(local)},{consoleErrors:[],failedRequests:[],crossOrigin:[],overflow:[]});
  });
 }
+
+/** Opens the home page with reveals settled; `run` gets the page, and the context always closes. */
+async function withHome(viewport,run){
+ const context=await browser.newContext({viewport,reducedMotion:'reduce'});
+ try{
+  const page=await context.newPage();
+  await page.goto(origin,{waitUntil:'load'});
+  await run(page);
+ }finally{await context.close();}
+}
+
+/** Runs in the page: where the preview Dock sits in its stage, plus the fit of its tiles. */
+function measureDock(){
+ const dock=document.querySelector('#dock-size [class*="sizeDock"]');
+ const stage=dock.parentElement.getBoundingClientRect();
+ const box=dock.getBoundingClientRect();
+ const tiles=[...dock.querySelectorAll('i')].map(tile=>tile.getBoundingClientRect());
+ return {share:box.width/stage.width*100,clear:box.top-stage.bottom,tiles:tiles.length,inside:tiles.every(tile=>tile.left>=box.left&&tile.right<=box.right)};
+}
+
+test('mobile menu: Escape closes it wherever focus is and returns focus to the button',async()=>{
+ await withHome({width:390,height:844},async page=>{
+  const menu=page.getByRole('button',{name:'Toggle navigation'});
+  const onButton=()=>page.evaluate(()=>document.activeElement?.getAttribute('aria-label'));
+  await menu.click();
+  await page.evaluate(()=>document.activeElement?.blur()); // Safari leaves a clicked button unfocused.
+  assert.equal(await menu.getAttribute('aria-expanded'),'true');
+  await page.keyboard.press('Escape');
+  assert.equal(await menu.getAttribute('aria-expanded'),'false');
+  assert.equal(await onButton(),'Toggle navigation');
+
+  await menu.click();
+  await page.locator('#main-navigation-links a').first().focus();
+  await page.keyboard.press('Escape');
+  assert.equal(await menu.getAttribute('aria-expanded'),'false');
+  assert.equal(await onButton(),'Toggle navigation');
+
+  await page.getByRole('searchbox',{name:'Search applications'}).focus(); // Closed: Escape is not ours.
+  await page.keyboard.press('Escape');
+  assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'Search applications');
+ });
+});
+
+test('Dock size: the slider turns Fit off, as in the app',async()=>{
+ await withHome({width:1280,height:844},async page=>{
+  const section=page.locator('#dock-size');
+  const fit=section.getByRole('switch',{name:'Fit length to content'});
+  const slider=section.getByRole('slider',{name:'Dock length'});
+  const status=section.getByRole('status');
+  assert.deepEqual([await slider.getAttribute('min'),await slider.getAttribute('max')],['35','100']);
+  assert.equal(await section.getByText('Moving the Dock length slider turns this off.').count(),0);
+
+  await fit.focus();
+  await page.keyboard.press('Space');
+  assert.equal(await fit.getAttribute('aria-checked'),'true');
+  assert.equal(await section.getByText('Moving the Dock length slider turns this off.').count(),1);
+  assert.equal(await status.textContent(),'Fit length to content is on.');
+
+  await slider.focus();
+  await page.keyboard.press('ArrowLeft');
+  assert.equal(await slider.inputValue(),'84');
+  assert.equal(await fit.getAttribute('aria-checked'),'false');
+  assert.equal(await section.getByText('84%').count(),1);
+  assert.equal(await status.textContent(),'Fit length to content is off.');
+  assert.equal(await section.getByText('Moving the Dock length slider turns this off.').count(),0);
+ });
+});
+
+test('Dock size: presets match Studio and leave Fit off',async()=>{
+ await withHome({width:390,height:844},async page=>{
+  const section=page.locator('#dock-size');
+  const fit=section.getByRole('switch',{name:'Fit length to content'});
+  const slider=section.getByRole('slider',{name:'Dock length'});
+  for(const [name,length] of [['Compact',65],['Balanced',85],['Spacious',100]]){
+   await fit.click();
+   const preset=section.getByRole('button',{name});
+   await preset.click();
+   assert.equal(await slider.inputValue(),String(length),name);
+   assert.equal(await preset.getAttribute('aria-pressed'),'true',name);
+   assert.equal(await fit.getAttribute('aria-checked'),'false',name);
+   assert.ok(Math.abs((await page.evaluate(measureDock)).share-length)<0.5,name);
+  }
+ });
+});
+
+test('Dock size: hiding takes the Dock out of the stage and is keyboard operable',async()=>{
+ await withHome({width:390,height:844},async page=>{
+  const section=page.locator('#dock-size');
+  await section.getByRole('button',{name:'Spacious'}).focus(); // The tallest Dock has the furthest to go.
+  await page.keyboard.press('Enter');
+  // Safari's Tab skips buttons and sliders by default; Option-Tab reaches every control.
+  await page.keyboard.press('Alt+Tab');
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'dock-length');
+  await page.keyboard.press('Alt+Tab');
+  assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('role')),'switch');
+  await page.keyboard.press('Alt+Tab');
+  assert.match(await page.evaluate(()=>document.activeElement.textContent),/^Turn Hiding On/);
+  await page.keyboard.press('Enter');
+  assert.ok((await page.evaluate(measureDock)).clear>=0,'the hidden Dock is below the stage');
+  assert.equal(await section.getByRole('status').textContent(),'Hiding is on. The Dock is out of sight.');
+  await section.getByRole('button',{name:/Turn Hiding Off/}).click();
+  assert.ok((await page.evaluate(measureDock)).clear<0,'the Dock is back');
+ });
+});
+
+for(const width of [320,390,768,1280]){
+ test(`Dock size at ${width}px: 44px targets, tiles stay inside the Dock, no overflow`,async()=>{
+  await withHome({width,height:844},async page=>{
+   await page.evaluate(scrollThrough);
+   const section=page.locator('#dock-size');
+   const small=await section.evaluate(root=>[...root.querySelectorAll('button,input')].map(el=>[el.textContent||el.id,el.getBoundingClientRect().height]).filter(([,height])=>height<44));
+   assert.deepEqual(small,[]);
+   const slider=section.getByRole('slider',{name:'Dock length'});
+   for(const value of ['35','100']){
+    await slider.fill(value);
+    const dock=await page.evaluate(measureDock);
+    assert.ok(dock.inside,`${dock.tiles} tiles at ${value}%`);
+   }
+   assert.deepEqual(await page.evaluate(findTextOverflow),[]);
+  });
+ });
+}
+
+for(const width of [320,390]){
+ test(`Launcher at ${width}px: 44px controls and a menu that clears its choices`,async()=>{
+  await withHome({width,height:844},async page=>{
+   const launcher=page.locator('#launcher');
+   const small=await launcher.evaluate(root=>[...root.querySelectorAll('button,input')].map(el=>[el.textContent||el.getAttribute('aria-label'),el.getBoundingClientRect().height]).filter(([,height])=>height<44));
+   assert.deepEqual(small,[]);
+   for(const name of ['App','Option key','Dock']){
+    await launcher.getByRole('button',{name,exact:true}).click();
+    const clear=await launcher.evaluate(root=>{
+     const stage=root.querySelector('[class*="menuStage"]');
+     const edge=rect=>rect.getBoundingClientRect();
+     const menu=stage.querySelector(':scope > [class*="menu"][aria-hidden]');
+     const anchor=stage.querySelector('img,[class*="miniDock"]');
+     const choices=stage.querySelector('[role="group"]');
+     return edge(menu).bottom<=edge(anchor).top&&edge(anchor).bottom<=edge(choices).top&&edge(choices).right<=edge(stage).right;
+    });
+    assert.ok(clear,name);
+   }
+  });
+ });
+}
