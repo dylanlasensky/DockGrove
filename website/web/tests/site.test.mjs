@@ -10,6 +10,8 @@ import {PRODUCT} from '../../backend/product.mjs';
 const web=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const out=path.join(web,'out');
 const pages={'/':'index.html','/purchase':'purchase.html','/recover':'recover.html','/privacy':'privacy.html','/terms':'terms.html','/404':'404.html'};
+// Pages whose canonical and og:url must point at themselves. Add a route here to cover it.
+const canonicalPages=['/','/purchase','/recover'];
 
 assert(fs.existsSync(out),`Missing static export at ${out}; run \`npm run build\` in website/web first`);
 
@@ -20,6 +22,12 @@ function resolveLocal(url){
  return candidates.map(c=>path.join(out,c)).find(f=>fs.existsSync(f)&&fs.statSync(f).isFile());
 }
 function read(route){const file=resolveLocal(route);assert(file,`missing page ${route}`);return fs.readFileSync(file,'utf8');}
+/** Real id attributes only, so `data-id="x"` cannot satisfy an anchor. */
+function idsIn(source){return [...source.matchAll(/(?<![\w-])id="([^"]+)"/g)].map(m=>m[1]);}
+/** One attribute from every tag matched by `pattern` (a global regex). */
+function attrs(source,pattern,name){return [...source.matchAll(pattern)].map(m=>m[0].match(new RegExp(`\\b${name}="([^"]*)"`))?.[1]);}
+const canonicals=source=>attrs(source,/<link\b[^>]*\brel="canonical"[^>]*>/g,'href');
+const ogUrls=source=>attrs(source,/<meta\b[^>]*\bproperty="og:url"[^>]*>/g,'content');
 function walk(dir){return fs.readdirSync(dir,{withFileTypes:true}).flatMap(d=>d.isDirectory()?walk(path.join(dir,d.name)):[path.join(dir,d.name)]);}
 
 const html=read('/');
@@ -33,14 +41,17 @@ const ws=s=>new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/:/g,'\\s
 for(const [route] of Object.entries(pages)){
  test(`page ${route}: structure, links and safety`,()=>{
   const source=read(route);
-  const ids=[...source.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
+  const ids=idsIn(source);
   assert.equal(new Set(ids).size,ids.length,`${route}: unique identifiers`);
   assert(source.includes('name="viewport"')&&source.includes('lang="en"'),`${route}: responsive/language metadata`);
   for(const match of source.matchAll(/<(?:a|link|img|script)\b[^>]*?\b(?:href|src)="([^"]+)"/g)){
    const url=match[1].replace(/&amp;/g,'&');
    if(url.startsWith('#'))assert(ids.includes(url.slice(1)),`${route}: missing anchor ${url}`);
    if(url.startsWith('/')){
-    assert(resolveLocal(url),`${route}: missing local asset ${url}`);
+    const file=resolveLocal(url);
+    assert(file,`${route}: missing local asset ${url}`);
+    const fragment=url.split('#')[1];
+    if(fragment&&file.endsWith('.html'))assert(idsIn(fs.readFileSync(file,'utf8')).includes(decodeURIComponent(fragment)),`${route}: missing cross-page anchor ${url} (no such id in ${path.relative(out,file)})`);
     assert(!url.startsWith('/downloads/'),`${route}: no unprotected commercial download`);
    }
    if(url.startsWith('http'))assert.equal(new URL(url).protocol,'https:',`${route}: ${url}`);
@@ -49,6 +60,36 @@ for(const [route] of Object.entries(pages)){
   assert(!source.includes('sk_test_')&&!source.includes('sk_live_')&&!source.includes('whsec_'),`${route}: no secrets`);
  });
 }
+
+for(const route of canonicalPages){
+ test(`page ${route}: canonical and og:url match its own path`,()=>{
+  const source=read(route);
+  const expected=new URL(route,'https://dockgrove.com').href;
+  const [canonical,...extraCanonicals]=canonicals(source);
+  const [ogUrl,...extraOgUrls]=ogUrls(source);
+  assert(canonical&&!extraCanonicals.length,`${route}: exactly one canonical`);
+  assert(ogUrl&&!extraOgUrls.length,`${route}: exactly one og:url`);
+  // Next renders the root as `https://dockgrove.com`, so compare parsed URLs.
+  assert.equal(new URL(canonical).href,expected,`${route}: canonical`);
+  assert.equal(new URL(ogUrl).href,expected,`${route}: og:url`);
+ });
+}
+
+test('per-page Open Graph keeps the shared preview',()=>{
+ for(const route of canonicalPages){
+  const source=read(route);
+  for(const property of ['og:title','og:description','og:image','og:type'])assert(source.includes(`property="${property}"`),`${route}: ${property}`);
+ }
+ assert(purchase.includes('property="og:title" content="Your purchase — DockGrove"'));
+ assert(recover.includes('property="og:title" content="Restore purchase — DockGrove"'));
+});
+
+test('not-found claims no URL of its own',()=>{
+ const notFound=read('/404');
+ assert.deepEqual(canonicals(notFound),[],'no canonical');
+ assert.deepEqual(ogUrls(notFound),[],'no inherited og:url');
+ assert(notFound.includes('name="robots" content="noindex"'),'not indexed');
+});
 
 test('page titles and metadata',()=>{
  assert.match(purchase,/<title>Your purchase — DockGrove<\/title>/);
