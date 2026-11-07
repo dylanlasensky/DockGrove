@@ -24,6 +24,9 @@ function usePrefersDark(){
 }
 const NAV=[{id:"features",label:"Overview"},{id:"widgets",label:"Make it yours"},{id:"companions",label:"Companions"}] as const;
 
+const sheet=(name:string)=>`/assets/pets/${name}.webp`;
+const preloadSheet=(name:string)=>{new window.Image().src=sheet(name);};
+
 function Pet({name}: {name:string}) {
   const ref = useRef<HTMLSpanElement>(null);
   const [active, setActive] = useState(false);
@@ -35,7 +38,7 @@ function Pet({name}: {name:string}) {
     document.addEventListener("visibilitychange", refresh);
     return () => { observer.disconnect(); document.removeEventListener("visibilitychange", refresh); };
   }, []);
-  return <span ref={ref} data-active={active} aria-hidden="true" className={`${s.pet} ${name==="dragon"?s.dragon:""}`} style={{backgroundImage:`url(/assets/companions/${name}.png)`}}/>;
+  return <span ref={ref} data-active={active} aria-hidden="true" className={`${s.pet} ${name==="dragon"?s.dragon:""}`} style={{backgroundImage:`url(${sheet(name)})`}}/>;
 }
 function DemoDock({light=false, graphite=false, accent, pet="dragon", section="all"}: {light?:boolean;graphite?:boolean;accent?:string;pet?:string;section?:string}) {
   const petName=COMPANIONS.find(companion=>companion.file===pet)?.ariaName??"Companion";
@@ -81,6 +84,8 @@ export default function RefinedLanding(){
   const menuButton=useRef<HTMLButtonElement>(null);
   const chosen=COMPANIONS[pets.index];
   const pet=chosen.file;
+  const nextPet=COMPANIONS[(pets.index+1)%COMPANIONS.length].file;
+  useEffect(()=>{if(pets.running)preloadSheet(nextPet);},[pets.running,nextPet]);
   return <div className={`home-theme ${s.page}`} data-motion={moving?"on":"off"} style={{"--blue":"#3478f6"} as CSSProperties}>
     <a href="#main" className={s.skip}>Skip to content</a>
     <header className={s.header}><nav aria-label="Main navigation" onKeyDown={event=>{if(menu&&event.key==="Escape"){event.preventDefault();setMenu(false);menuButton.current?.focus();}}}><Brand href="#top"/><div id="main-navigation-links" className={`${s.navLinks} ${menu?s.open:""}`}>
@@ -88,7 +93,7 @@ export default function RefinedLanding(){
     </div><a className={s.button} href="#download">Explore the Dock</a><button ref={menuButton} className={s.menu} aria-label="Toggle navigation" aria-expanded={menu} aria-controls="main-navigation-links" onClick={()=>setMenu(!menu)}>☰</button></nav></header>
     <main id="main">
       <section id="top" className={s.hero}>
-        <div className={s.stage} aria-label="Interactive Dock illustration with sample data"><DemoDock/><div className={s.stageCaption}><span>Click the cube to find a window. <small>Interactive sample data.</small></span><button onClick={()=>setPaused(!paused)} aria-pressed={paused}>{paused?"Play motion":"Pause motion"}</button></div></div>
+        <div className={s.stage} aria-label="Interactive Dock illustration with sample data"><Image className={s.stageArt} src="/assets/silver-flow.webp" alt="" fill fetchPriority="high" loading="eager" unoptimized/><DemoDock/><div className={s.stageCaption}><span>Click the cube to find a window. <small>Interactive sample data.</small></span><button onClick={()=>setPaused(!paused)} aria-pressed={paused}>{paused?"Play motion":"Pause motion"}</button></div></div>
         <div className={s.heroCopy}><p className={s.eyebrow}>A LITTLE SPACE. A BETTER EVERYDAY.</p><h1>Your Mac.<br/>Everything within reach.</h1><p className={s.lead}>Apps, live widgets, and AI usage in one beautifully personal Dock.</p><div className={s.actions}><a className={s.button} href="#download">Explore DockGrove</a><a className={s.playLink} href="#widgets"><span aria-hidden="true">▷</span>Try it in action</a></div><p className={s.fine}>For macOS 14 and later · Apple silicon &amp; Intel</p></div>
       </section>
       <section id="features" className={s.features}><Reveal className={s.sectionHeading}><p className={s.eyebrow}>LESS SEARCHING. MORE DOING.</p><h2>Less switching. More living.</h2><p className={s.sectionLead}>Your everyday essentials, together in a space that feels like you.</p></Reveal><div className={s.cards}>
@@ -102,7 +107,7 @@ export default function RefinedLanding(){
       <section id="companions" className={s.companions}><div className={s.companionIntro}><Reveal><p className={s.eyebrow}>SMALL FRIENDS. BIG PERSONALITIES.</p><h2>A little company.<br/>A lot of character.</h2><p>Nine companions to make your Dock feel like yours. More room to roam, with care and details just a click away.</p><p className={s.meetAll}><a href="#companion-choices" onClick={event=>{event.preventDefault();petsRef.current?.querySelector<HTMLButtonElement>("button")?.focus();}}>Meet all nine companions <span aria-hidden="true">→</span></a></p></Reveal>
         <Reveal step={1}><div ref={petsRef} {...pets.bind} className={s.petShow} role="group" aria-label="Choose a companion">
           <div className={s.petSpotlight}><div key={pet} className={s.petHero}><Pet name={pet}/></div><div key={pet+"-text"} className={s.petCaption} aria-live={pets.running?"off":"polite"}><b>{chosen.heading}</b><span>{chosen.tagline}</span></div></div>
-          <div id="companion-choices" className={s.petStrip}>{COMPANIONS.map((c,i)=><button key={c.file} type="button" aria-label={`Show ${c.heading}`} aria-current={i===pets.index} className={i===pets.index?s.selectedPet:""} onClick={()=>pets.setIndex(i)}><div><Pet name={c.file}/></div>{i===pets.index&&<em className={s.petProgress} style={{animationDuration:`${pets.duration}ms`,animationPlayState:pets.running?"running":"paused"}}/>}</button>)}</div>
+          <div id="companion-choices" className={s.petStrip}>{COMPANIONS.map((c,i)=><button key={c.file} type="button" aria-label={`Show ${c.heading}`} aria-current={i===pets.index} className={i===pets.index?s.selectedPet:""} onClick={()=>pets.setIndex(i)} onPointerEnter={()=>preloadSheet(c.file)} onFocus={()=>preloadSheet(c.file)}><div><Image className={s.petThumb} src={`/assets/pets/${c.file}-thumb.webp`} alt="" width={192} height={192} unoptimized/></div>{i===pets.index&&<em className={s.petProgress} style={{animationDuration:`${pets.duration}ms`,animationPlayState:pets.running?"running":"paused"}}/>}</button>)}</div>
         </div></Reveal></div><div className={s.petStatus}><span className={s.statusDot}/>{chosen.heading} is in your Dock preview. Choose a friend above.</div></section>
       <MoreSection/>
       <AskSection/>
