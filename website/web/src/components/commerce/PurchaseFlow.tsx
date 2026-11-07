@@ -155,7 +155,7 @@ export default function PurchaseFlow({ comingSoon = false }: { comingSoon?: bool
         </Link>
       </p>
       <p className={p}>
-        <Link className={link} href="/#pricing">
+        <Link className={link} href="/#download">
           Return to pricing
         </Link>
       </p>

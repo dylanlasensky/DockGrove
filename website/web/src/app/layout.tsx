@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { sharedOpenGraph } from "@/lib/metadata";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -11,11 +12,9 @@ export const metadata: Metadata = {
     "A calmer space for your Mac. DockGrove brings apps, useful widgets, AI usage and window controls into one beautifully considered Dock. A commercial release in preparation.",
   icons: { icon: [{ url: "/favicon-v2.png", type: "image/png", sizes: "32x32" }], apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }] },
   openGraph: {
+    ...sharedOpenGraph,
     title: "DockGrove — Everything within reach.",
-    description: "Your apps. Your tools. A little more room to think.",
-    type: "website",
     url: "https://dockgrove.com/",
-    images: ["https://dockgrove.com/assets/DockGrove-wordmark.png"],
   },
 };
 

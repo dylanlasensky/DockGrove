@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import DocumentPage from "@/components/commerce/DocumentPage";
 import PurchaseFlow from "@/components/commerce/PurchaseFlow";
+import { sharedOpenGraph } from "@/lib/metadata";
 import { fine, h1 } from "@/components/commerce/classes";
 
+const title = "Your purchase — DockGrove";
+
 export const metadata: Metadata = {
-  title: { absolute: "Your purchase — DockGrove" },
+  title: { absolute: title },
+  alternates: { canonical: "/purchase" },
+  openGraph: { ...sharedOpenGraph, title, url: "/purchase" },
 };
 
 export default function PurchasePage() {

@@ -1,8 +1,11 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { sharedOpenGraph } from "@/lib/metadata";
 
 export const metadata: Metadata = {
   title: "Page not found",
+  // No canonical or og:url: this page is served at whatever path was missing.
+  openGraph: { ...sharedOpenGraph, title: "Page not found — DockGrove" },
 };
 
 /** Port of website/public/404.html. */
