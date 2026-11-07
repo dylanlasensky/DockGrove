@@ -15,13 +15,13 @@ const APPS: App[] = [
 const PINNED = ["Finder", "Safari", "Notes", "Calendar"];
 
 type Mode = "launch" | "add" | "replace";
-const NOTES: Record<Mode, string> = {launch: "Every app in one view.", add: "The + button opens the same view. Apps in the Dock have a check.", replace: "Replace app… swaps one for another."};
+const NOTES: Record<Mode, string> = {launch: "Every app, floating over your work.", add: "The + button opens the same view. Apps in the Dock have a check.", replace: "Replace app… swaps one for another."};
 const TITLES: Record<Mode, string> = {launch: "Applications", add: "Add an app to the Dock", replace: "Replace Safari"};
 
 const MENUS = [
   {anchor: "safari", items: ["✓Start Page", "DockGrove — Release notes", "-", ">Options", "Show All Windows", "Hide", "Quit", "-", "Replace app…", "Remove from Dock"], hover: "Options", sub: ["✓Keep in Dock", "Show in Finder"], caption: "Right-click an app: windows, Options, Hide and Quit."},
   {anchor: "safari", items: ["✓Start Page", "DockGrove — Release notes", "-", ">Options", "Show All Windows", "Hide", "Force Quit", "-", "Replace app…", "Remove from Dock"], hover: "Force Quit", sub: [], caption: "Hold Option and Quit becomes Force Quit."},
-  {anchor: "", items: ["Turn Hiding On", ">Position on Screen", "-", "Dock Settings…"], hover: "Position on Screen", sub: ["✓Bottom", "Top", "Floating"], caption: "Right-click the Dock: hiding, position and settings."},
+  {anchor: "", items: ["Turn Hiding On", ">Position on Screen", "-", "Restore Apple Dock…", "Dock Settings…"], hover: "Position on Screen", sub: ["✓Bottom", "Top", "Floating"], caption: "Right-click the Dock: hiding, position, Apple’s Dock and settings."},
 ];
 
 export default function LauncherShowcase() {
@@ -37,8 +37,8 @@ export default function LauncherShowcase() {
   return <section id="launcher" className={s.launcherSection}>
     <Reveal className={s.sectionHeading}>
       <p className={s.eyebrow}>ONE PLACE FOR EVERY APP.</p>
-      <h2>Search, add, or swap.<br/>Same view every time.</h2>
-      <p>Find an app by name. Add it to your Dock or replace an old favorite. One familiar chooser keeps everything simple.</p>
+      <h2>Search, add, or swap.<br/>Right where you left off.</h2>
+      <p>A floating glass chooser, just like Apps on your Mac. It opens over your work and never takes over the screen.</p>
     </Reveal>
 
     <div className={s.launcherGrid}>
@@ -52,8 +52,10 @@ export default function LauncherShowcase() {
           </div>
           <form className={s.search} role="search" onSubmit={e => e.preventDefault()}>
             <span aria-hidden="true">⌕</span>
-            <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search applications" aria-label="Search applications"/>
+            <input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search" aria-label="Search applications"/>
+            <span className={s.searchMore} aria-hidden="true">•••</span>
           </form>
+          <div className={s.appsPanel}>
           <ul className={s.appGrid}>
             {results.map((app, i) => {
               const inDock = mode === "add" && PINNED.includes(app.name);
@@ -68,6 +70,7 @@ export default function LauncherShowcase() {
             })}
             {results.length === 0 && <li className={s.noResults}>No applications match “{query}”.</li>}
           </ul>
+          </div>
           <p key={mode} className={`${s.launcherStatus} ${s.titleSwap}`}>{NOTES[mode]}</p>
         </div>
       </Reveal>

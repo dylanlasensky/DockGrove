@@ -68,8 +68,26 @@
   outline: 2px solid #80b7ff;
   outline-offset: 3px;
 }
+.notchPoints {
+  display: grid;
+  gap: 12px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+  color: #b4bfce;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.notchPoints + .compatibility {
+  margin-top: 16px;
+}
+.notchPoints b {
+  display: block;
+  color: #fff;
+  font-weight: 600;
+}
 .compatibility {
-  color: #718198;
+  color: #8c9cb2;
   font-size: 10px;
   margin: 18px 0 0;
 }

@@ -6,6 +6,7 @@ import Brand from "@/components/site/Brand";
 import {COMPANIONS} from "@/lib/home/companions";
 import {useReducedMotion} from "@/hooks/useReducedMotion";
 import AppearanceStudio, {accentVars, signature, type Light, type Mood} from "./AppearanceStudio";
+import DockSizeShowcase from "./DockSizeShowcase";
 import LauncherShowcase from "./LauncherShowcase";
 import NotchShowcase from "./NotchShowcase";
 import WindowShelfPreview from "./WindowShelfPreview";
@@ -62,7 +63,7 @@ function DemoDock({light=false, graphite=false, accent, pet="dragon", section="a
       <span><b>{Math.floor(seconds/60)}:{String(seconds%60).padStart(2,"0")}</b><small>{running?"Focusing":"Focus"}</small></span>
     </button>
     <div className={`${s.tile} ${s.calendar}`}><b>10:30</b><span>Design review</span><small>In 12 min</small></div></>}
-    <div className={`${s.tile} ${s.usage}`}><b>Codex</b><span className={s.usageRow}>5h <span>82% left</span></span><i><em/></i><span className={s.usageRow}>Week <span>64% left</span></span><i><em style={{width:"64%"}}/></i></div>
+    <div className={`${s.tile} ${s.usage} ${s.usageThree}`}><b>Claude</b><span className={s.usageRow}>5h <i><em style={{width:"18%"}}/></i><span>18%</span></span><span className={s.usageRow}>Week <i><em style={{width:"36%"}}/></i><span>36%</span></span><span className={s.usageRow}>Fable <i><em style={{width:"12%"}}/></i><span>12%</span></span></div>
     <div className={`${s.tile} ${s.music}`}><Image src="/assets/apps/spotify.png" alt="Spotify" width={44} height={44} unoptimized/><span><b>Deep focus</b><small>Spotify · Sample playlist</small><button className={s.musicControl} onClick={()=>setMusicPlaying(!musicPlaying)} aria-label={musicPlaying?"Pause Spotify preview":"Play Spotify preview"} aria-pressed={musicPlaying}><span aria-hidden="true">{musicPlaying?"Ⅱ":"▶"}</span> {musicPlaying?"Playing":"Paused"}</button></span></div>
     <div className={`${s.tile} ${s.cpu}`}><span className={s.usageRow}><b>CPU</b><span>18%</span></span><svg viewBox="0 0 100 28" aria-hidden="true"><path d="M0 24 L8 22 L14 23 L20 16 L26 19 L32 10 L38 16 L44 13 L50 17 L56 8 L62 14 L68 12 L74 19 L80 15 L86 20 L92 17 L100 19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg><small>System activity</small></div>
     <div key={pet} className={`${s.tile} ${s.dockPet}`} role="img" aria-label={`${petName} in a companion widget`}><Pet name={pet}/></div>
@@ -101,6 +102,7 @@ export default function RefinedLanding(){
         <Reveal step={2}><article id="intelligence"><div className={s.cardImage} inert aria-hidden="true"><DemoDock section="usage"/></div><h3>Know what’s left.</h3><p>See supported AI usage at a glance. Preview shows sample data.</p></article></Reveal>
       </div></section>
       <NotchShowcase/>
+      <DockSizeShowcase/>
       <LauncherShowcase/>
       <section id="widgets" className={s.workspace}><div className={s.workspaceInner}><Reveal><p className={s.eyebrow}>FEELS LIKE YOUR MAC.</p><h2>Make room for<br/>your way of working.</h2><p>A quiet look for deep work. A little color for everything else. Try your own combination.</p><div className={light===null?s.autoAccent:undefined} style={accentVars(accent,light)}><AppearanceStudio mood={mood} onPickMood={setMoodPick} packIndex={packIndex} onPickPack={setPackIndex} light={light}/></div></Reveal><Reveal step={1} className={s.workspaceDocks}><DemoDock light={light} graphite={mood==="Graphite"} accent={accent} pet={pet}/><p>{mood}{mood==="Automatic"&&prefersDark!==null?` (${prefersDark?"dark":"light"} right now)`:""} · {accent.name} · {chosen.heading}. Sample data.</p></Reveal></div></section>
       <section id="companions" className={s.companions}><div className={s.companionIntro}><Reveal><p className={s.eyebrow}>SMALL FRIENDS. BIG PERSONALITIES.</p><h2>A little company.<br/>A lot of character.</h2><p>Nine companions to make your Dock feel like yours. More room to roam, with care and details just a click away.</p><p className={s.meetAll}><a href="#companion-choices" onClick={event=>{event.preventDefault();petsRef.current?.querySelector<HTMLButtonElement>("button")?.focus();}}>Meet all nine companions <span aria-hidden="true">→</span></a></p></Reveal>

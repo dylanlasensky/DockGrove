@@ -1355,6 +1355,17 @@ button.tile:active {
   gap: 15px;
   font-size: 10px !important;
 }
+.usageThree .usageRow {
+  gap: 8px;
+}
+.usageThree .usageRow i {
+  flex: 1;
+  margin-top: 0;
+  min-width: 56px;
+}
+.usageThree em {
+  animation: none;
+}
 .usageRow > span {
   font-size: 10px;
   opacity: 0.8;
@@ -1776,7 +1787,18 @@ button.tile:active {
     font-size: 11px;
   }
   .stage .usageRow,
-  .stage .usageRow > span {
+  .stage .usageThree .usageRow {
+  gap: 8px;
+}
+.usageThree .usageRow i {
+  flex: 1;
+  margin-top: 0;
+  min-width: 56px;
+}
+.usageThree em {
+  animation: none;
+}
+.usageRow > span {
     font-size: 8px !important;
     gap: 5px;
   }

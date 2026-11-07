@@ -24,7 +24,12 @@ export const FAQ: readonly FaqItem[] = [
   {
     question: "What do the AI widgets measure?",
     answer:
-      "Codex reports account allowances. Claude Code can supply supported allowance windows through its local status line. Gemini CLI reports session token activity from a JSON report, not remaining chat quota. OpenAI and Claude API widgets show organization tokens; Cursor reports team activity. Each connection identifies its data source and setup requirements. API spend is separate from a ChatGPT subscription allowance.",
+      "Codex reports account allowances. Claude shows every limit your plan reports, including the five-hour window, the week, and per-model limits such as Fable. Gemini CLI reports session token activity from a JSON report, not remaining chat quota. OpenAI and Claude API widgets show organization tokens; Cursor reports team activity. Each connection identifies its data source and setup requirements. API spend is separate from a ChatGPT subscription allowance.",
+  },
+  {
+    question: "Can I change the size of the Dock?",
+    answer:
+      "Yes. Set Dock length from 35% to 100% of your display, or let it fit its contents, then adjust height and icon size in Studio. Press ⌥⌘D to turn hiding on or off.",
   },
   {
     question: "Which Macs get the notch shelf?",

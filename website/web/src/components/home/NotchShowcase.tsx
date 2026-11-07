@@ -28,10 +28,15 @@ export default function NotchShowcase() {
       <Reveal className={h.copy}>
         <p className={h.eyebrow}>THE NOTCH SHELF</p>
         <h2>Keep it close.</h2>
-        <p className={h.description}>Music, focus, and files.<br/>Just a click away.</p>
+        <p className={h.description}>Music, focus, and files.<br/>Hover or click to open.</p>
         <div className={h.controls} role="group" aria-label="Preview notch view">
           {(["Home", "Files", "Closed"] as const).map(name => <button key={name} type="button" aria-pressed={view === name} aria-controls="notch-desktop-preview" onClick={() => setView(name)}>{name}</button>)}
         </div>
+        <ul className={h.notchPoints}>
+          <li><b>Open it your way.</b> Reach the notch or click it. Turn either behavior off in Settings.</li>
+          <li><b>Gone when you are.</b> Move away, press Esc, or click outside. Clicked open, it stays until you close it.</li>
+          <li><b>Drop anything on it.</b> Drag files to the File tray, or send them with AirDrop.</li>
+        </ul>
         <p className={h.compatibility}>For Macs with a built-in notch.</p>
       </Reveal>
       <Reveal className={h.visual}>
