@@ -8,7 +8,6 @@
 .petStrip{display:grid;grid-template-columns:repeat(9,1fr);gap:8px;margin-top:14px}.petStrip button{position:relative;border:0;background:none;padding:0;min-width:0}
 .petStrip button>div{aspect-ratio:1;border-radius:14px;background:#fff;padding:4px;border:2px solid transparent;transition:transform .45s var(--spring),border-color .3s,opacity .3s;opacity:.65}
 .petStrip button:hover>div{transform:translateY(-4px);opacity:1}.petStrip button.selectedPet>div{border-color:#86b0ff;opacity:1;transform:scale(1.08)}
-.petProgress{top:auto!important;bottom:-7px!important;height:3px;background:var(--blue)!important;border-radius:3px}
 .floatIcon{animation:float 4s ease-in-out infinite}
 .cardImage .dock{animation:drift 9s ease-in-out infinite alternate}.cards article:hover .cardImage .dock{animation-duration:3s}
 .cardImage{transition:transform .6s var(--spring),box-shadow .4s}.cards article:hover .cardImage{transform:translateY(-4px);box-shadow:0 18px 30px #17304d1c}
@@ -99,6 +98,9 @@
 .dragon{animation:dragonSway 7s ease-in-out infinite alternate,dragonLift 3.8s ease-in-out infinite alternate;animation-play-state:paused}
 .cardImage .pet,.petStrip .pet{animation:none}
 .page[data-motion="off"] .pet{animation-play-state:paused!important}
+/* Pause holds the companions on their frame. Everything else settles at once, so an entrance that
+   starts while paused cannot freeze hidden, and pressing Play replays nothing that already ran. */
+.page[data-motion="off"] :not(.pet),.page[data-motion="off"] ::before,.page[data-motion="off"] ::after{animation-duration:0s!important;animation-delay:0s!important;transition:none!important}
 @keyframes petBreathe{0%,100%{transform:scaleY(1)}50%{transform:scaleY(1.012)}}
 @keyframes petBlink{0%,94%,98%,100%{background-position:0 66.6667%}95%{background-position:66.6667% 66.6667%}}
 @keyframes dragonSway{from{transform:translateX(-3px)}to{transform:translateX(3px)}}
@@ -156,3 +158,15 @@
 
 /* Keep the open shelf above nearby captions and animated hero text. */
 .stage>.dock,.workspaceDocks>.dock{position:relative;z-index:2}
+
+/* Automatic in static HTML: dark until the stylesheet says otherwise, so no script decides the first
+   paint. The light block repeats the .light Dock rules; keep the two in step. */
+.autoAccent{--accent:var(--accent-dark)}
+@media(prefers-color-scheme:light){
+.autoAccent{--accent:var(--accent-light)}
+.autoLight{background:linear-gradient(135deg,#fbfdffe8,#d5dfebe3);color:#263747;box-shadow:inset 0 0 0 3px #ffffff77,0 15px 30px #0004}
+.autoLight .tile{background:linear-gradient(145deg,#ccd6e599,#f5f8fb88);border-color:#fff9;box-shadow:inset 0 1px 2px #b6c1d633}
+.autoLight .divider{background:#9ba8b866}
+}
+.windowPreview:focus{outline:none}
+@media(prefers-reduced-motion:reduce){.stageCaption button{display:none}}

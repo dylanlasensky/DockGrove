@@ -35,7 +35,7 @@ export default function MoreSection() {
       <Reveal step={1}><p>{WIDGETS.length} widgets, ready for your day. Keep the useful things close and leave the rest out of the way.</p></Reveal>
     </div>
     <Reveal>
-      <div className={s.widgetGallery} aria-label="Widget previews with sample data">
+      <div className={s.widgetGallery} role="group" aria-label="Widget previews with sample data">
         {[FACES[0], FACES[1], FACES[5], FACES[8], FACES[9], FACES[11]].map(f => <div key={f.title} className={s.widgetPreview}><span className={s.face}><small className={s.faceTitle}>{f.title}</small>{f.body}</span></div>)}
       </div>
       <p className={s.sampleNote}>Widget previews use sample data.</p>
