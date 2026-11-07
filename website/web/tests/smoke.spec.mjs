@@ -122,3 +122,103 @@ for(const route of routes){
   assert.deepEqual({...report,consoleErrors:report.consoleErrors.map(local),failedRequests:report.failedRequests.map(local)},{consoleErrors:[],failedRequests:[],crossOrigin:[],overflow:[]});
  });
 }
+
+/** The notch section at `viewport`, scrolled into view, with its state read from the Closed button. */
+async function openNotchSection(viewport,options={}){
+ const context=await browser.newContext({viewport,reducedMotion:'reduce',...options});
+ await context.route(url=>/^https?:$/.test(url.protocol)&&url.origin!==origin,request=>request.abort());
+ const page=await context.newPage();
+ await page.goto(origin+'/',{waitUntil:'load'});
+ const button=name=>page.locator('#notch').getByRole('button',{name,exact:true});
+ await button('Home').scrollIntoViewIfNeeded();
+ await page.locator('#notch-desktop-preview').scrollIntoViewIfNeeded();
+ const shelfOpen=()=>page.locator('#notch [class*="shelfHeader"]').count().then(Boolean);
+ const until=async expected=>{for(let i=0;i<60&&await shelfOpen()!==expected;i++)await page.waitForTimeout(50);assert.equal(await shelfOpen(),expected,`shelf open is ${expected}`);};
+ const box=await page.locator('#notch [class*="cameraHousing"]').boundingBox();
+ const point={x:box.x+box.width/2,y:box.y+box.height/2};
+ const desktop=await page.locator('#notch-desktop-preview').boundingBox();
+ const away={x:desktop.x+desktop.width/2,y:desktop.y+desktop.height*0.75};
+ return {context,page,button,shelfOpen,until,point,away};
+}
+
+test('WebKit notch preview: hover opens and closes, a click keeps it open',async()=>{
+ const {context,page,button,shelfOpen,until,point,away}=await openNotchSection({width:1280,height:800});
+ const {mouse}=page;
+
+ // A shelf opened by a button ignores the pointer leaving.
+ assert.equal(await shelfOpen(),true,'starts open on Home');
+ await mouse.move(point.x,point.y);
+ await mouse.move(away.x,away.y);
+ await page.waitForTimeout(900);
+ assert.equal(await shelfOpen(),true,'button-opened shelf stays open');
+
+ // Hover opens after a pause and closes after the grace period; the shelf itself counts as inside.
+ await button('Closed').click();
+ assert.equal(await shelfOpen(),false);
+ await mouse.move(point.x,point.y);
+ await until(true);
+ await mouse.move(point.x,point.y+(await page.locator('#notch [class*="shelfHeader"]').boundingBox()).height);
+ await page.waitForTimeout(900);
+ assert.equal(await shelfOpen(),true,'pointer inside the shelf keeps it open');
+ await mouse.move(away.x,away.y);
+ await until(false);
+
+ // Esc closes a hover-opened shelf, and hover cannot reopen it until the pointer leaves and returns.
+ await mouse.move(point.x,point.y);
+ await until(true);
+ await page.keyboard.press('Escape');
+ assert.equal(await shelfOpen(),false);
+ await page.waitForTimeout(400);
+ assert.equal(await shelfOpen(),false,'no reopen while the pointer rests on the notch');
+ await mouse.move(away.x,away.y);
+
+ // As in the app, clicking the housing of an open shelf closes it, even one hover opened.
+ await mouse.move(point.x,point.y);
+ await until(true);
+ await mouse.click(point.x,point.y);
+ assert.equal(await shelfOpen(),false,'click closes a hover-opened shelf');
+
+ // Clicking the resting notch keeps it open past the grace period, until something closes it.
+ await mouse.click(point.x,point.y);
+ assert.equal(await shelfOpen(),true,'click opens');
+ await mouse.move(away.x,away.y);
+ await page.waitForTimeout(900);
+ assert.equal(await shelfOpen(),true,'clicked-open shelf stays open');
+ await mouse.click(away.x,away.y);
+ assert.equal(await shelfOpen(),false,'click outside closes');
+
+ await mouse.click(point.x,point.y);
+ await mouse.move(away.x,away.y);
+ await page.keyboard.press('Escape');
+ assert.equal(await shelfOpen(),false,'Esc closes');
+ await context.close();
+});
+
+test('WebKit notch preview: the buttons work by keyboard and touch, without hover',async()=>{
+ const keyboard=await openNotchSection({width:1280,height:800});
+ await keyboard.button('Files').focus();
+ await keyboard.page.keyboard.press('Enter');
+ const zones=keyboard.page.locator('#notch [class*="dropZone"]');
+ assert.deepEqual(await zones.locator('b').allTextContents(),['File tray','AirDrop']);
+ const [tray,airDrop]=await zones.evaluateAll(all=>all.map(zone=>zone.getBoundingClientRect().width));
+ const scale=await keyboard.page.locator('#notch [class*="shelfHeader"]').evaluate(header=>header.getBoundingClientRect().width/760);
+ assert(Math.abs(tray-359*scale)<1&&Math.abs(airDrop-359*scale)<1,`half-width drop zones at ${scale}`);
+ assert.match(await keyboard.page.locator('#notch-desktop-preview').getAttribute('aria-label'),/^Notch shelf preview: open on Files.*Sample data\.$/);
+ await keyboard.button('Closed').focus();
+ await keyboard.page.keyboard.press('Space');
+ assert.equal(await keyboard.shelfOpen(),false);
+ assert.match(await keyboard.page.locator('#notch-desktop-preview').getAttribute('aria-label'),/^Notch shelf preview: closed.*Sample data\.$/);
+ await keyboard.context.close();
+
+ const touch=await openNotchSection({width:390,height:844},{hasTouch:true});
+ await touch.button('Closed').tap();
+ assert.equal(await touch.shelfOpen(),false);
+ await touch.button('Files').tap();
+ assert.equal(await touch.shelfOpen(),true);
+ await touch.page.waitForTimeout(900);
+ assert.equal(await touch.shelfOpen(),true,'stays open without a pointer');
+ const desktop=await touch.page.locator('#notch-desktop-preview').boundingBox(); // Tapping may have scrolled.
+ await touch.page.touchscreen.tap(desktop.x+desktop.width/2,desktop.y+desktop.height*0.75);
+ assert.equal(await touch.shelfOpen(),false,'a tap outside closes');
+ await touch.context.close();
+});
