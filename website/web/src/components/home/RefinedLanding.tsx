@@ -111,6 +111,6 @@ export default function RefinedLanding(){
       <MoreSection/>
       <AskSection/>
       <ReleaseSection/>
-    </main><Reveal><footer className={s.footer}><Brand href="#top"/><p>Apps. Widgets. A little company.</p><div><a href="/privacy">Privacy</a><a href="#questions">FAQ</a><a href="/terms">Terms</a><a href="https://github.com/dylanlasensky/DockGrove/issues">Contact</a></div></footer></Reveal>
+    </main><Reveal><footer className={s.footer}><Brand href="#top"/><p>Apps. Widgets. A little company.</p><div><a href="/privacy">Privacy</a><a href="#questions">FAQ</a><a href="/terms">Terms</a><a href="/accessibility">Accessibility</a><a href="/support">Support</a></div></footer></Reveal>
   </div>;
 }

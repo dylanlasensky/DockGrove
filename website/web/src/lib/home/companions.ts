@@ -1,7 +1,7 @@
 /** The nine pixel-art companions shown in #companions, in original order. */
 
 export interface Companion {
-  /** Sprite sheet file name under /assets/companions/. */
+  /** Sprite sheet file name under /assets/pets/. */
   file: string;
   /** Name used in the aria-label ("…, animated pixel-art companion"). */
   ariaName: string;

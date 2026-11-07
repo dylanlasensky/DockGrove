@@ -9,9 +9,9 @@ import {PRODUCT} from '../../backend/product.mjs';
 
 const web=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const out=path.join(web,'out');
-const pages={'/':'index.html','/purchase':'purchase.html','/recover':'recover.html','/privacy':'privacy.html','/terms':'terms.html','/404':'404.html'};
+const pages={'/':'index.html','/purchase':'purchase.html','/recover':'recover.html','/privacy':'privacy.html','/terms':'terms.html','/support':'support.html','/accessibility':'accessibility.html','/404':'404.html'};
 // Pages whose canonical and og:url must point at themselves. Add a route here to cover it.
-const canonicalPages=['/','/purchase','/recover'];
+const canonicalPages=['/','/purchase','/recover','/privacy','/terms','/support','/accessibility'];
 
 assert(fs.existsSync(out),`Missing static export at ${out}; run \`npm run build\` in website/web first`);
 
@@ -105,7 +105,7 @@ test('purchase page copy, ids and server-authority notice',()=>{
  assert(/<button[^>]*id="checkout-button"[^>]*\bdisabled\b/.test(purchase),'checkout disabled until the product policy loads');
  assert(!purchase.includes('id="license-section"'),'no license markup before server verification');
  for(const href of ['/terms','/recover','/privacy','/'])assert(purchase.includes(`href="${href}"`),`link ${href}`);
- assert(purchase.includes('https://github.com/dylanlasensky/DockGrove/issues'));
+ assert(purchase.includes('href="/support"'));
 });
 
 test('recover page posts email, never in the URL',()=>{
@@ -117,9 +117,9 @@ test('recover page posts email, never in the URL',()=>{
 });
 
 test('home redesign keeps all companions, interactive previews and the marketing checkout gate',()=>{
- assert.equal(fs.readdirSync(path.join(out,'assets/companions')).length,9);
+ assert.equal(fs.readdirSync(path.join(out,'assets/pets')).filter(f=>!f.endsWith('-thumb.webp')).length,9);
  assert(html.includes('Show Cream cat') && !html.includes('Show Miso'),'Descriptive display name with the existing sprite asset');
- assert(fs.existsSync(path.join(out,'assets/companions/miso.png')),'Legacy asset identity stays stable');
+ assert(fs.existsSync(path.join(out,'assets/pets/miso.webp')),'Asset names stay stable');
  assert(html.includes('Everything within reach.') && html.includes('Meet all nine companions'));
  assert(html.includes('Sample data') && html.includes('API spend is separate'));
  assert(html.includes('Coming soon') && html.includes('Commercial release in preparation'));

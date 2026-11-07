@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { sharedOpenGraph } from "@/lib/metadata";
 import Brand from "@/components/site/Brand";
 import PreviewBanner from "@/components/site/PreviewBanner";
 import SkipLink from "@/components/site/SkipLink";
@@ -15,11 +16,10 @@ export const metadata: Metadata = {
   description,
   alternates: { canonical: "/support" },
   openGraph: {
+    ...sharedOpenGraph,
     title: "Support — DockGrove",
     description,
-    type: "website",
     url: "/support",
-    images: ["https://dockgrove.com/assets/DockGrove-wordmark.png"],
   },
 };
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { sharedOpenGraph } from "@/lib/metadata";
 import Brand from "@/components/site/Brand";
 import PreviewBanner from "@/components/site/PreviewBanner";
 import SkipLink from "@/components/site/SkipLink";
@@ -10,12 +11,11 @@ export const metadata: Metadata = {
     "Draft DockGrove purchase terms for owner review, including direct purchases and the terms that would apply to a copy bought on the App Store. Sales are not open.",
   alternates: { canonical: "/terms" },
   openGraph: {
+    ...sharedOpenGraph,
     title: "Proposed purchase terms — DockGrove",
     description:
       "Draft purchase terms for DockGrove, for direct and App Store purchases. Sales are not open.",
-    type: "website",
     url: "/terms",
-    images: ["/assets/DockGrove-wordmark.png"],
   },
 };
 

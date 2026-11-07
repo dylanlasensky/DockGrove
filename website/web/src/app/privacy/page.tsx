@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { sharedOpenGraph } from "@/lib/metadata";
 import Brand from "@/components/site/Brand";
 import PreviewBanner from "@/components/site/PreviewBanner";
 import SkipLink from "@/components/site/SkipLink";
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
   title: "Privacy",
   description,
   alternates: { canonical: "/privacy" },
-  openGraph: { title: "Privacy — DockGrove", description, url: "/privacy" },
+  openGraph: { ...sharedOpenGraph, title: "Privacy — DockGrove", description, url: "/privacy" },
 };
 
 const listClass = "list-disc space-y-2 pl-5 text-[var(--muted)]";
