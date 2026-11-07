@@ -219,18 +219,15 @@ import SwiftUI
         defer { harness.close() }
         harness.spin(0.4)
         XCTAssertEqual(state.count, 41)
-        XCTAssertTrue(harness.has("Applications"), "launch mode heads the panel with Applications")
+        XCTAssertTrue(harness.has("Applications"), "launch mode names the results panel Applications")
         let index = model.toolkit.appIndex
         XCTAssertEqual(state.results(in: index).map { index.name(of: $0) }.prefix(2), ["Finder", "Sample 00"], "an empty search lists apps by name")
 
-        // Category tags narrow the list; only categories that have apps get a tag.
-        XCTAssertTrue(harness.has("All"))
-        XCTAssertFalse(harness.has("Social"), "\(harness.labels())")
-        harness.press("Games")
+        // The capsule's "…" menu holds the view and category choices.
+        state.category = .games
         harness.spin(0.2)
-        XCTAssertEqual(state.category, .games)
         XCTAssertEqual(state.count, 10)
-        harness.press("All")
+        state.category = nil
         harness.spin(0.2)
         XCTAssertNil(state.category)
         XCTAssertEqual(state.count, 41)
@@ -273,14 +270,12 @@ import SwiftUI
         if case .reveal(let urls)? = effects.last { XCTAssertEqual(urls.first?.lastPathComponent, "Sample 01.app") } else { XCTFail("reveal should go through effects") }
 
         // The list shows the same apps one per row and scrolls to keep the selection visible.
-        harness.press("View as List")
+        state.layout = .list
         harness.spin(0.2)
-        XCTAssertEqual(state.layout, .list)
         XCTAssertTrue(harness.has("Sample 02"), "\(harness.labels())")
         state.selection = 35
         harness.spin(0.3)
-        harness.press("View as Icons")
-        XCTAssertEqual(state.layout, .icons)
+        state.layout = .icons
     }
 
     func testArrowKeysMoveTheSelectionByIconAndRow() {
