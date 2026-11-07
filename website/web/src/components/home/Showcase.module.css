@@ -82,7 +82,7 @@
 .pills.pills button { position: relative; overflow: hidden; width: 7px; height: 7px; padding: 0; border: 0; border-radius: 99px; background: #ffffff40; transition: width .5s var(--spring), background .3s; }
 .pills button:hover { background: #ffffff80; }
 .pills.pills .pillActive { width: 30px; background: #ffffff38; }
-.pillFill, .petProgress, .progressRun { position: absolute; inset: 0 auto 0 0; width: 100%; border-radius: inherit; background: #fff; transform-origin: left; animation: fill linear both; }
+.pillFill, .progressRun { position: absolute; inset: 0 auto 0 0; width: 100%; border-radius: inherit; background: #fff; transform-origin: left; animation: fill linear both; }
 .screenNote { position: absolute; bottom: 14px; left: 0; right: 0; text-align: center; font-size: 11px; color: #9aa6b8; }
 
 /* ---------- Statement (scroll-lit words) ---------- */
@@ -187,9 +187,6 @@
 .appGrid li.pressed .appName { color: #fff; }
 .appGrid li.justAdded .appIcon { animation: pop .6s var(--spring) both; }
 .inDock .appIcon { opacity: .45; }
-.progress { position: relative; height: 3px; border-radius: 3px; background: #ffffff18; margin-top: 10px; overflow: hidden; }
-.progress > em { position: absolute; inset: 0 auto 0 0; display: block; height: 100%; border-radius: inherit; background: #ffffffaa; transition: width .5s var(--ease-out); }
-.progress > em.progressRun { background: var(--accent, #fff); }
 .menuStage { cursor: default; }
 .menuStage:focus-visible { outline-offset: 2px; }
 .menuStage > .menu { animation: menuIn .5s var(--spring) both; }
