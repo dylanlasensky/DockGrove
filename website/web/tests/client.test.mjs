@@ -34,12 +34,57 @@ test('api(): server error message is surfaced, otherwise a generic unavailable m
  assert.equal(commerce.errorMessage(new Error('boom')),'boom');
 });
 
-test('loadProduct(): falls back to the static /product.json, then fails',async()=>{
- const a=mockFetch({'/product.json':{body:product()}});
- assert.equal((await commerce.loadProduct(a.fetch)).amount,999);
- assert.deepEqual(a.calls.map(c=>c[0]),['/api/product','/product.json']);
- await assert.rejects(commerce.loadProduct(mockFetch().fetch));
+test('api(): a malformed error body never reaches the visitor',async()=>{
+ for(const body of [{error:{code:'x'}},{error:42},{error:''},null,'nope']){
+  const {fetch}=mockFetch({'/api/checkout':{ok:false,body:{}}});
+  const reply=async(...args)=>({...(await fetch(...args)),json:async()=>body});
+  await assert.rejects(commerce.api('/api/checkout',{},reply),{message:commerce.UNAVAILABLE_MESSAGE});
+ }
+});
+
+test('NEXT_PUBLIC_API_ENABLED: only the exact value "true" enables the API, and it defaults to off',async()=>{
+ const saved=process.env.NEXT_PUBLIC_API_ENABLED;
+ try{
+  for(const [value,expected] of [[undefined,false],['',false],['false',false],['1',false],['TRUE',false],['true',true]]){
+   if(value===undefined)delete process.env.NEXT_PUBLIC_API_ENABLED;else process.env.NEXT_PUBLIC_API_ENABLED=value;
+   const fresh=await import(`../src/lib/commerce.ts?flag=${value}`);
+   assert.equal(fresh.API_ENABLED,expected,`flag value ${value}`);
+   const {fetch,calls}=mockFetch({'/api/product':{body:product()},'/product.json':{body:product()}});
+   await fresh.loadProduct(fetch);
+   assert.equal(calls[0][0],expected?'/api/product':'/product.json',`first request for flag value ${value}`);
+  }
+ }finally{
+  if(saved===undefined)delete process.env.NEXT_PUBLIC_API_ENABLED;else process.env.NEXT_PUBLIC_API_ENABLED=saved;
+ }
+});
+
+test('loadProduct() with the flag off reads /product.json and never probes the API',async()=>{
+ const a=mockFetch({'/api/product':{body:product({available:true})},'/product.json':{body:product()}});
+ assert.equal((await commerce.loadProduct(a.fetch,false)).available,false);
+ assert.deepEqual(a.calls.map(c=>c[0]),['/product.json']);
+ const missing=mockFetch();
+ await assert.rejects(commerce.loadProduct(missing.fetch,false));
+ assert.deepEqual(missing.calls.map(c=>c[0]),['/product.json'],'no API attempt even when the file fails');
  assert.equal(commerce.formatPrice(product()),'$9.99');
+});
+
+test('loadProduct() with the flag on is API-first: the API decides, /product.json is the fallback, then fails',async()=>{
+ const live=mockFetch({'/api/product':{body:product({available:true})},'/product.json':{body:product()}});
+ assert.equal((await commerce.loadProduct(live.fetch,true)).available,true);
+ assert.deepEqual(live.calls.map(c=>c[0]),['/api/product']);
+ const a=mockFetch({'/product.json':{body:product()}});
+ assert.equal((await commerce.loadProduct(a.fetch,true)).amount,999);
+ assert.deepEqual(a.calls.map(c=>c[0]),['/api/product','/product.json']);
+ await assert.rejects(commerce.loadProduct(mockFetch().fetch,true));
+});
+
+test('with the flag off, other API calls still go out and fail politely',async()=>{
+ await assert.rejects(commerce.requestRecovery('you@example.com',mockFetch().fetch),{message:'Unavailable'});
+ const notFound={fetch:async()=>({ok:false,json:async()=>{throw new Error('html 404');}})};
+ await assert.rejects(commerce.requestRecovery('you@example.com',notFound.fetch),{message:commerce.UNAVAILABLE_MESSAGE});
+ await assert.rejects(commerce.completeRecovery('t',notFound.fetch),{message:commerce.UNAVAILABLE_MESSAGE});
+ await assert.rejects(commerce.startCheckout(notFound.fetch),{message:commerce.UNAVAILABLE_MESSAGE});
+ await assert.rejects(commerce.getPurchase(notFound.fetch),{message:commerce.UNAVAILABLE_MESSAGE});
 });
 
 test('unavailable product disables checkout with the "not enabled" notice',()=>{
