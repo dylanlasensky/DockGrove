@@ -84,11 +84,18 @@ export default function RefinedLanding(){
   const light:Light=mood==="Automatic"?null:mood==="Pearl";
   const [menu,setMenu]=useState(false);
   const menuButton=useRef<HTMLButtonElement>(null);
+  useEffect(()=>{
+    if(!menu)return;
+    // On the document: Safari does not focus a clicked button, so focus may be outside the nav.
+    const close=(event:KeyboardEvent)=>{if(event.key==="Escape"&&!event.defaultPrevented){event.preventDefault();setMenu(false);menuButton.current?.focus();}};
+    document.addEventListener("keydown",close);
+    return ()=>document.removeEventListener("keydown",close);
+  },[menu]);
   const chosen=COMPANIONS[petIndex];
   const pet=chosen.file;
   return <div className={`home-theme ${s.page}`} data-motion={moving?"on":"off"} style={{"--blue":"#3478f6"} as CSSProperties}>
     <a href="#main" className={s.skip}>Skip to content</a>
-    <header className={s.header}><nav aria-label="Main navigation" onKeyDown={event=>{if(menu&&event.key==="Escape"){event.preventDefault();setMenu(false);menuButton.current?.focus();}}}><Brand href="#top"/><div id="main-navigation-links" className={`${s.navLinks} ${menu?s.open:""}`}>
+    <header className={s.header}><nav aria-label="Main navigation"><Brand href="#top"/><div id="main-navigation-links" className={`${s.navLinks} ${menu?s.open:""}`}>
       {NAV.map(n=><a key={n.id} href={`#${n.id}`} className={focus===n.id?s.navActive:""} aria-current={focus===n.id?"location":undefined} onClick={()=>setMenu(false)}>{n.label}</a>)}
     </div><a className={s.button} href="#download">Explore the Dock</a><button ref={menuButton} className={s.menu} aria-label="Toggle navigation" aria-expanded={menu} aria-controls="main-navigation-links" onClick={()=>setMenu(!menu)}>☰</button></nav></header>
     <main id="main">
