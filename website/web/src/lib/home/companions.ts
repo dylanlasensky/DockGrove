@@ -20,7 +20,3 @@ export const COMPANIONS: readonly Companion[] = [
   { file: "rabbit", ariaName: "Rabbit", heading: "Rabbit", tagline: "A soft spot for small hops" },
   { file: "fox", ariaName: "Fox", heading: "Fox", tagline: "Quietly curious" },
 ];
-
-export function companionSprite(companion: Companion): string {
-  return `/assets/companions/${companion.file}.png`;
-}
