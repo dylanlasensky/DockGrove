@@ -240,6 +240,45 @@ import SwiftUI
         XCTAssertNil(launcher.panel, "as does a right click in a corner")
     }
 
+    func testReduceMotionKeepsTheFadeAndDropsTheScale() {
+        XCTAssertEqual(AppsLauncherView.entranceScale(shown: false, reduceMotion: false), 0.96)
+        XCTAssertEqual(AppsLauncherView.entranceScale(shown: true, reduceMotion: false), 1)
+        XCTAssertEqual(AppsLauncherView.entranceScale(shown: false, reduceMotion: true), 1)
+        XCTAssertEqual(AppsLauncherView.entrance(reduceMotion: true), .easeOut(duration: 0.16))
+        XCTAssertNotEqual(AppsLauncherView.entrance(reduceMotion: false), .easeOut(duration: 0.16))
+
+        let model = model(apps: 1)
+        var entered = 0
+        let view = AppsLauncherView(model: model, kit: model.toolkit, state: AppsChooserState(), close: {}, entered: { entered += 1 })
+            .transformEnvironment(\.self) { $0._accessibilityReduceMotion = true }
+        let harness = DockHarness(view, size: AppsLauncher.panelSize)
+        defer { harness.close() }
+        harness.spin(0.5)
+        XCTAssertEqual(entered, 1, "the shortened entrance still finishes, so the shadow still appears")
+    }
+
+    /// Reduce Transparency and Increase Contrast, offscreen: opaque plates, a full border and a clear gap.
+    /// DockPlate takes its non-glass path here, so this says nothing about real Liquid Glass.
+    func testPlatesStayOpaqueAndOutlinedForAccessibilitySettings() throws {
+        let model = model(apps: 0)
+        let size = AppsLauncher.panelSize, results = AppsLauncher.pieces(in: size).results
+        let view = AppsLauncherView(model: model, kit: model.toolkit, state: AppsChooserState()) {}
+            .transformEnvironment(\.self) { $0._accessibilityReduceTransparency = true; $0._colorSchemeContrast = .increased }
+        let harness = DockHarness(view, size: size)
+        defer { harness.close() }
+        harness.spin(0.6)
+        let bitmap = try XCTUnwrap(harness.host.bitmapImageRepForCachingDisplay(in: harness.host.bounds))
+        harness.host.cacheDisplay(in: harness.host.bounds, to: bitmap)
+        let scale = CGFloat(bitmap.pixelsWide) / size.width
+        func color(_ x: CGFloat, _ y: CGFloat) -> NSColor { bitmap.colorAt(x: Int(x * scale), y: Int(y * scale))!.usingColorSpace(.sRGB)! }
+        XCTAssertEqual(color(size.width / 2, 40).alphaComponent, 1, accuracy: 0.01, "the capsule is opaque")
+        XCTAssertEqual(color(100, results.midY).alphaComponent, 1, accuracy: 0.01, "and so is the panel")
+        XCTAssertEqual(color(size.width / 2, 85).alphaComponent, 0, accuracy: 0.01, "the gap stays clear")
+        XCTAssertEqual(color(1, 1).alphaComponent, 0, accuracy: 0.01, "and so do the corners")
+        let fill = color(100, results.midY), edge = color(0.75, results.midY)
+        XCTAssertGreaterThan(abs(fill.redComponent - edge.redComponent), 0.4, "the raised-contrast border is not cut off at the window edge")
+    }
+
     func testPanelFloatsInTheUpperMiddleAndRemembersLayout() {
         let visible = NSRect(x: 0, y: 0, width: 1512, height: 944)
         let frame = AppsLauncher.frame(in: visible)

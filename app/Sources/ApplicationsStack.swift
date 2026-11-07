@@ -323,6 +323,7 @@ struct AppsLauncherView: View {
     var close: () -> Void
     /// Runs once the entrance animation has finished.
     var entered: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown = false
     @StateObject private var optionsButton = StackAnchor()
     @FocusState private var searchFocused: Bool
@@ -336,17 +337,21 @@ struct AppsLauncherView: View {
             searchBar(results)
             resultsPanel(results)
         }
-        .scaleEffect(shown ? 1 : 0.96).opacity(shown ? 1 : 0)
+        .scaleEffect(Self.entranceScale(shown: shown, reduceMotion: reduceMotion)).opacity(shown ? 1 : 0)
         .onAppear {
             state.count = results.count
             searchFocused = true
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) { shown = true } completion: { entered() }
+            withAnimation(Self.entrance(reduceMotion: reduceMotion)) { shown = true } completion: { entered() }
         }
         .onChange(of: state.query) { state.selection = 0 }
         .onChange(of: state.category) { state.selection = 0 }
         .onChange(of: results.count) { _, count in state.count = count; state.selection = min(state.selection, max(0, count - 1)) }
         .onExitCommand(perform: close)
     }
+
+    /// Reduce Motion keeps the fade and drops the scale and spring.
+    static func entranceScale(shown: Bool, reduceMotion: Bool) -> CGFloat { shown || reduceMotion ? 1 : 0.96 }
+    static func entrance(reduceMotion: Bool) -> Animation { reduceMotion ? .easeOut(duration: 0.16) : .spring(response: 0.28, dampingFraction: 0.82) }
 
     private func searchBar(_ results: [DockApp]) -> some View {
         HStack(spacing: 14) {
@@ -362,7 +367,6 @@ struct AppsLauncherView: View {
         .padding(.horizontal, 28)
         .frame(maxWidth: AppsLauncher.barSize.width, minHeight: AppsLauncher.barSize.height, maxHeight: AppsLauncher.barSize.height)
         .background(DockPlate(theme: model.theme, cornerRadius: AppsLauncher.barSize.height / 2))
-        .clipShape(Capsule())
     }
 
     /// A plain button over an NSMenu: unlike SwiftUI's Menu, accessibility clients can reach and press it.
@@ -394,8 +398,8 @@ struct AppsLauncherView: View {
             .overlay { emptyState(results) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(DockPlate(theme: model.theme, cornerRadius: AppsLauncher.resultsCornerRadius))
         .clipShape(shape)
+        .background(DockPlate(theme: model.theme, cornerRadius: AppsLauncher.resultsCornerRadius))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(mode.title ?? "Applications")
     }

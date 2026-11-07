@@ -123,7 +123,7 @@ struct DockPlate: View {
         }
 
             .overlay { if theme == "Graphite" || opaque { RoundedRectangle(cornerRadius: cornerRadius).fill(Color(nsColor:.windowBackgroundColor)) } }
-            .overlay(RoundedRectangle(cornerRadius: cornerRadius).stroke(Color.primary.opacity(contrast == .increased ? 0.6 : 0.12)))
+            .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.primary.opacity(contrast == .increased ? 0.6 : 0.12)))
     }
 }
 
