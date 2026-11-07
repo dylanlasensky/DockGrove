@@ -15,7 +15,7 @@ import AskSection from "./AskSection";
 import ReleaseSection from "./ReleaseSection";
 import {useSectionFocus} from "@/hooks/useSectionFocus";
 import {ACCENT_PACKS, type Accent} from "@/lib/home/palette";
-import s from "./RefinedLanding.module.css";
+import s from "./RefinedLanding.module.scss";
 
 const DARK_QUERY="(prefers-color-scheme: dark)";
 /** The visitor's appearance, or `null` in static HTML, which cannot know it. */

@@ -3,7 +3,7 @@
 import {useEffect, useRef, useState} from "react";
 import Image from "next/image";
 import Reveal from "./Reveal";
-import h from "./NotchHardware.module.css";
+import h from "./NotchHardware.module.scss";
 
 type Preview = "Home" | "Files" | "Closed";
 

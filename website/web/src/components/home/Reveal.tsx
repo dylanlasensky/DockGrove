@@ -2,7 +2,7 @@
 
 import type {CSSProperties, ReactNode} from "react";
 import {useReveal} from "@/hooks/useReveal";
-import s from "./Showcase.module.css";
+import s from "./Showcase.module.scss";
 
 /** Fades, unblurs and lifts its children the first time they scroll into view. `step` staggers siblings. */
 export default function Reveal({children, step = 0, className = ""}: {children: ReactNode; step?: number; className?: string}) {

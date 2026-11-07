@@ -3,7 +3,7 @@
 import type {ReactNode} from "react";
 import Reveal from "./Reveal";
 import {WIDGETS} from "@/lib/home/widgets";
-import s from "./Closing.module.css";
+import s from "./Closing.module.scss";
 
 /** Small widget faces in the Dock's own style. Sample data, like everything else on the page. */
 const FACES: {title: string; body: ReactNode}[] = [

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { sharedOpenGraph } from "@/lib/metadata";
-import "./globals.css";
+import "./globals.scss";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://dockgrove.com"),

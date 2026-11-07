@@ -3,7 +3,7 @@
 import {useMemo, useState, type CSSProperties} from "react";
 import Image from "next/image";
 import Reveal from "./Reveal";
-import s from "./Showcase.module.css";
+import s from "./Showcase.module.scss";
 
 type App = {name: string; icon?: string; glyph?: string; tint?: string};
 

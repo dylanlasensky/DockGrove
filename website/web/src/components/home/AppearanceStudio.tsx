@@ -2,8 +2,8 @@
 
 import type {CSSProperties} from "react";
 import {ACCENT_PACKS, type Accent, type AccentPack} from "@/lib/home/palette";
-import page from "./RefinedLanding.module.css";
-import s from "./Showcase.module.css";
+import page from "./RefinedLanding.module.scss";
+import s from "./Showcase.module.scss";
 
 export type Mood = "Automatic" | "Glass" | "Graphite" | "Pearl";
 export const MOODS: Mood[] = ["Automatic", "Glass", "Graphite", "Pearl"];

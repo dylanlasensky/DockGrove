@@ -1,7 +1,7 @@
 "use client";
 
 import {useEffect, useId, useRef, useState} from "react";
-import s from "./RefinedLanding.module.css";
+import s from "./RefinedLanding.module.scss";
 
 const SAMPLES = [
   {id: "finder", app: "Finder", title: "Current project", minimized: false},
