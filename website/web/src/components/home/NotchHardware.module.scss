@@ -181,6 +181,7 @@
   background: #020304;
   border-radius: 0 0 10px 10px;
   z-index: 5;
+  cursor: pointer;
 }
 .cameraHousing > span {
   position: absolute;
@@ -220,18 +221,22 @@
   align-items: center;
   gap: 6px;
 }
-.shelfHeader b {
+.shelfHeader button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
   font-weight: 500;
   padding: 5px 10px;
   border-radius: 12px;
+  cursor: pointer;
 }
-.shelfHeader b[data-active="true"] {
+.shelfHeader button[data-active="true"] {
   background: #ffffff15;
   color: white;
 }
-.shelfHeader i {
-  font-style: normal;
-  padding-left: 9px;
+.shelfHeader .collapse {
+  padding: 5px 0 5px 9px;
 }
 .cards {
   display: flex;
@@ -263,7 +268,7 @@
   flex: 1;
 }
 .music b,
-.files b {
+.dropZone b {
   font-size: 14px;
   font-weight: 600;
 }
@@ -295,10 +300,46 @@
   margin-left: 14px;
   vertical-align: middle;
 }
-.files {
-  width: 280px;
-  padding: 20px;
-  border: 1px dashed #ffffff36;
+.fileCards {
+  gap: 10px;
+}
+/* NotchFileLayout.halfWidth: (760 − 32 − 10) / 2. */
+.cards > .dropZone {
+  box-sizing: border-box;
+  width: 359px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  background: #ffffff0d;
+  border: 1px dashed #ffffff33;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.dropZone svg {
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cards .dropZone small {
+  margin-top: 4px;
+}
+.dropZone em {
+  display: block;
+  margin-top: 4px;
+  font-size: 9px;
+  font-style: normal;
+  color: #8e9299;
+}
+@media (hover: hover) {
+  .cards > .dropZone:hover {
+    background: #0a84ff2e;
+    border-color: #0a84ff;
+  }
 }
 .pages {
   display: flex;
@@ -510,7 +551,8 @@
   .shelf {
     animation: none;
   }
-  .controls button {
+  .controls button,
+  .cards > .dropZone {
     transition: none;
   }
 }
