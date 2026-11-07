@@ -142,11 +142,14 @@ struct ApplicationsStackMenu: View {
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main ?? NSScreen.screens[0]
         let frame = Self.frame(in: screen.visibleFrame)
         let panel = Panel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.level = .popUpMenu; panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = true
+        panel.level = .popUpMenu; panel.isOpaque = false; panel.backgroundColor = .clear
+        // The window shadow is cut from the content's alpha, so it waits until both pieces have landed.
+        panel.hasShadow = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         panel.isReleasedWhenClosed = false
         chooser.reset(query: query, defaults: model.defaults)
-        let root = AppsLauncherView(model: model, kit: model.toolkit, state: chooser, mode: mode) { [weak self] in self?.close(restorePrevious: true) }
+        let root = AppsLauncherView(model: model, kit: model.toolkit, state: chooser, mode: mode, close: { [weak self] in self?.close(restorePrevious: true) },
+                                    entered: { [weak panel] in panel?.hasShadow = true; panel?.invalidateShadow() })
             .preferredColorScheme(model.scheme)
         panel.contentView = NSHostingView(rootView: root)
         panel.setFrame(frame, display: false)
@@ -298,11 +301,13 @@ struct AppsLauncherView: View {
     @ObservedObject var state: AppsChooserState
     var mode: AppsLauncher.Mode = .launch
     var close: () -> Void
+    /// Runs once the entrance animation has finished.
+    var entered: () -> Void
     @State private var shown = false
     @StateObject private var optionsButton = StackAnchor()
     @FocusState private var searchFocused: Bool
-    init(model: DockModel, kit: Toolkit, state: AppsChooserState, mode: AppsLauncher.Mode = .launch, close: @escaping () -> Void) {
-        self.model = model; self.kit = kit; self.state = state; self.mode = mode; self.close = close
+    init(model: DockModel, kit: Toolkit, state: AppsChooserState, mode: AppsLauncher.Mode = .launch, close: @escaping () -> Void, entered: @escaping () -> Void = {}) {
+        self.model = model; self.kit = kit; self.state = state; self.mode = mode; self.close = close; self.entered = entered
     }
 
     var body: some View {
@@ -315,7 +320,7 @@ struct AppsLauncherView: View {
         .onAppear {
             state.count = results.count
             searchFocused = true
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) { shown = true }
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) { shown = true } completion: { entered() }
         }
         .onChange(of: state.query) { state.selection = 0 }
         .onChange(of: state.category) { state.selection = 0 }

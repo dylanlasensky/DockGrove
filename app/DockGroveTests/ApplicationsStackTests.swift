@@ -173,7 +173,7 @@ import SwiftUI
         let first = launcher.panel
         XCTAssertNotNil(first)
         XCTAssertTrue(first?.canBecomeKey ?? false, "the borderless chooser must take keyboard input")
-        XCTAssertTrue(first?.hasShadow ?? false, "it floats with a window shadow")
+        XCTAssertFalse(first?.hasShadow ?? true, "no shadow is cut from the still-empty window")
         NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: first)
         XCTAssertNil(launcher.panel, "losing key status dismisses the chooser")
         launcher.toggle(model: model)
@@ -185,6 +185,24 @@ import SwiftUI
         while second?.contentView != nil, Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
         XCTAssertFalse(second?.isVisible ?? true)
         XCTAssertNil(second?.contentView)
+    }
+
+    /// Puts the real panel in a window server slot far off every display; it never becomes key.
+    private func presentOffscreen() {
+        AppsLauncher.shared.present = { $0.setFrameOrigin(NSPoint(x: -20000, y: -20000)); $0.orderFrontRegardless() }
+    }
+
+    func testWindowShadowWaitsForTheEntranceToFinish() {
+        presentOffscreen()
+        let launcher = AppsLauncher.shared
+        launcher.show(model: model(apps: 2))
+        let panel = launcher.panel
+        XCTAssertEqual(panel?.isVisible, true)
+        XCTAssertEqual(panel?.isKeyWindow, false)
+        XCTAssertEqual(panel?.hasShadow, false)
+        let deadline = Date().addingTimeInterval(5)
+        while panel?.hasShadow == false, Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) }
+        XCTAssertEqual(panel?.hasShadow, true, "the shadow is computed once both glass pieces are drawn")
     }
 
     func testPanelFloatsInTheUpperMiddleAndRemembersLayout() {
