@@ -88,9 +88,9 @@ struct ApplicationsStackMenu: View {
     }
 }
 
-/// App chooser modelled on the macOS 26 Apps view (Spotlight's Applications mode): a floating,
-/// rounded glass panel in the upper middle of the screen with a large search field, category
-/// tags, and a scrolling alphabetical icon grid or list. It never covers the whole desktop.
+/// App chooser modelled on the macOS Apps view: a glass search capsule floating above a separate
+/// glass panel of large icons, in the upper middle of the screen. View and category choices sit in
+/// the capsule's "…" menu. It never covers the whole desktop.
 @MainActor final class AppsLauncher {
     static let shared = AppsLauncher()
     /// What clicking an app does: open it, pin it to the Dock (the + tile), or swap it into a tile.
@@ -104,7 +104,10 @@ struct ApplicationsStackMenu: View {
             }
         }
     }
-    static let panelSize = CGSize(width: 760, height: 560)
+    static let barSize = CGSize(width: 518, height: 80)
+    static let barGap: CGFloat = 11, resultsCornerRadius: CGFloat = 42
+    /// The transparent window holding both pieces.
+    static let panelSize = CGSize(width: 842, height: 610)
     private final class Panel: NSPanel {
         override var canBecomeKey: Bool { true }
         override func cancelOperation(_ sender: Any?) { AppsLauncher.shared.close(restorePrevious: true) }
@@ -275,23 +278,10 @@ struct AppsLauncherView: View {
 
     var body: some View {
         let results = state.results(in: kit.appIndex)
-        VStack(spacing: 0) {
-            searchField(results)
-            Divider().opacity(0.6)
-            header
-            tags
-            ScrollViewReader { proxy in
-                ScrollView {
-                    if state.layout == .icons { grid(results) } else { list(results) }
-                }
-                .onChange(of: state.selection) { _, index in
-                    if results.indices.contains(index) { withAnimation(.easeOut(duration: 0.12)) { proxy.scrollTo(results[index].id) } }
-                }
-            }
-            .overlay { emptyState(results) }
+        VStack(spacing: AppsLauncher.barGap) {
+            searchBar(results)
+            resultsPanel(results)
         }
-        .background(DockPlate(theme: model.theme))
-        .clipShape(RoundedRectangle(cornerRadius: 27, style: .continuous))
         .scaleEffect(shown ? 1 : 0.96).opacity(shown ? 1 : 0)
         .onAppear {
             state.count = results.count
@@ -304,75 +294,72 @@ struct AppsLauncherView: View {
         .onExitCommand(perform: close)
     }
 
-    private func searchField(_ results: [DockApp]) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass").font(.system(size: 19, weight: .medium)).foregroundStyle(.secondary)
-            TextField("Search", text: $state.query).textFieldStyle(.plain).font(.system(size: 21)).focused($searchFocused)
+    private func searchBar(_ results: [DockApp]) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: "square.grid.3x3.fill").font(.system(size: 21, weight: .medium)).foregroundStyle(.secondary).accessibilityHidden(true)
+            TextField(mode.title ?? "Search", text: $state.query).textFieldStyle(.plain).font(.system(size: 24)).focused($searchFocused)
                 .onSubmit { if results.indices.contains(state.selection) { choose(results[state.selection]) } }
             if !state.query.isEmpty {
-                Button { state.query = ""; searchFocused = true } label: { Image(systemName: "xmark.circle.fill") }
+                Button { state.query = ""; searchFocused = true } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 17)) }
                     .buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Clear search").help("Clear search")
             }
+            optionsMenu
         }
-        .padding(.horizontal, 20).frame(height: 56)
+        .padding(.horizontal, 28)
+        .frame(maxWidth: AppsLauncher.barSize.width, minHeight: AppsLauncher.barSize.height, maxHeight: AppsLauncher.barSize.height)
+        .background(DockPlate(theme: model.theme, cornerRadius: AppsLauncher.barSize.height / 2))
+        .clipShape(Capsule())
     }
 
-    private var header: some View {
-        HStack(spacing: 8) {
-            Text(mode.title ?? "Applications").font(.system(size: 13, weight: .semibold))
-                .accessibilityLabel(mode.title ?? "Applications").accessibilityAddTraits(.isHeader)
-            if mode != .launch, let error = model.systemError { Text(error).font(.caption).foregroundStyle(.red).lineLimit(1) }
-            Spacer()
-            HStack(spacing: 2) {
-                layoutButton(.icons, symbol: "square.grid.2x2", label: "View as Icons")
-                layoutButton(.list, symbol: "list.bullet", label: "View as List")
-            }
-            .padding(2).background(Color.primary.opacity(0.06), in: Capsule())
-        }
-        .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 8)
-    }
-
-    private func layoutButton(_ layout: AppsChooserState.Layout, symbol: String, label: String) -> some View {
-        Button { state.layout = layout } label: {
-            Image(systemName: symbol).font(.system(size: 11, weight: .semibold)).frame(width: 26, height: 20)
-                .background(Capsule().fill(Color.primary.opacity(state.layout == layout ? 0.14 : 0)))
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain).help(label).accessibilityLabel(label).accessibilityAddTraits(state.layout == layout ? .isSelected : [])
-    }
-
-    /// "All" plus the categories that actually have apps, as tags along the top.
-    private var tags: some View {
+    /// Icons or list, then the categories that actually have apps.
+    private var optionsMenu: some View {
         let present = Set(kit.appIndex.apps.map(AppCategory.of))
-        return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                tag("All", selected: state.category == nil) { state.category = nil }
-                ForEach(AppCategory.allCases.filter(present.contains), id: \.self) { category in
-                    tag(category.rawValue, selected: state.category == category) { state.category = category }
+        return Menu {
+            Picker("View as", selection: $state.layout) {
+                Label("View as Icons", systemImage: "square.grid.2x2").tag(AppsChooserState.Layout.icons)
+                Label("View as List", systemImage: "list.bullet").tag(AppsChooserState.Layout.list)
+            }.pickerStyle(.inline).labelsHidden()
+            Picker("Category", selection: $state.category) {
+                Text("All Categories").tag(AppCategory?.none)
+                ForEach(AppCategory.allCases.filter(present.contains), id: \.self) { Text($0.rawValue).tag(AppCategory?.some($0)) }
+            }.pickerStyle(.inline).labelsHidden()
+        } label: {
+            Image(systemName: "ellipsis").font(.system(size: 17, weight: .semibold)).foregroundStyle(.secondary).frame(width: 30, height: 30).contentShape(Rectangle())
+        }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .help("View and category options").accessibilityLabel("View and category options")
+    }
+
+    private func resultsPanel(_ results: [DockApp]) -> some View {
+        let shape = RoundedRectangle(cornerRadius: AppsLauncher.resultsCornerRadius, style: .continuous)
+        return VStack(spacing: 0) {
+            if mode != .launch, let error = model.systemError {
+                Text(error).font(.caption).foregroundStyle(.red).lineLimit(1).padding(.top, 14)
+            }
+            ScrollViewReader { proxy in
+                ScrollView {
+                    if state.layout == .icons { grid(results) } else { list(results) }
+                }
+                .onChange(of: state.selection) { _, index in
+                    if results.indices.contains(index) { withAnimation(.easeOut(duration: 0.12)) { proxy.scrollTo(results[index].id) } }
                 }
             }
-            .padding(.horizontal, 20)
+            .overlay { emptyState(results) }
         }
-        .padding(.bottom, 8)
-    }
-
-    private func tag(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title).font(.system(size: 12, weight: .medium)).padding(.horizontal, 11).padding(.vertical, 5)
-                .foregroundStyle(selected ? Color.white : Color.primary)
-                .background(Capsule().fill(selected ? Color.accentColor : Color.primary.opacity(0.07)))
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain).accessibilityLabel(title).accessibilityAddTraits(selected ? .isSelected : [])
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DockPlate(theme: model.theme, cornerRadius: AppsLauncher.resultsCornerRadius))
+        .clipShape(shape)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(mode.title ?? "Applications")
     }
 
     private func grid(_ results: [DockApp]) -> some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: AppsChooserState.columns), spacing: 4) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: AppsChooserState.columns), spacing: 2) {
             ForEach(Array(results.enumerated()), id: \.element.id) { offset, app in
                 item(app, offset: offset, list: false).id(app.id)
             }
         }
-        .padding(.horizontal, 14).padding(.vertical, 10)
+        .padding(.horizontal, 20).padding(.vertical, 16)
     }
 
     private func list(_ results: [DockApp]) -> some View {
@@ -381,7 +368,7 @@ struct AppsLauncherView: View {
                 item(app, offset: offset, list: true).id(app.id)
             }
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
+        .padding(.horizontal, 18).padding(.vertical, 16)
     }
 
     private func item(_ app: DockApp, offset: Int, list: Bool) -> some View {
@@ -438,14 +425,14 @@ private struct AppsLauncherIcon: View {
                     }
                     .padding(.horizontal, 10).frame(height: 38)
                 } else {
-                    VStack(spacing: 6) {
-                        icon(60)
-                        Text(name).font(.system(size: 11, weight: .medium)).lineLimit(1).truncationMode(.tail)
+                    VStack(spacing: 8) {
+                        icon(64)
+                        Text(name).font(.system(size: 13, weight: .medium)).lineLimit(1).truncationMode(.tail)
                     }
-                    .padding(.horizontal, 4).padding(.vertical, 8).frame(maxWidth: .infinity)
+                    .padding(.horizontal, 6).padding(.vertical, 8).frame(maxWidth: .infinity)
                 }
             }
-            .background(RoundedRectangle(cornerRadius: list ? 8 : 14, style: .continuous).fill(Color.primary.opacity(selected ? 0.14 : hovered ? 0.07 : 0)))
+            .background(RoundedRectangle(cornerRadius: list ? 10 : 18, style: .continuous).fill(Color.primary.opacity(selected ? 0.14 : hovered ? 0.07 : 0)))
             .contentShape(Rectangle())
         }
         .buttonStyle(PressScaleStyle())

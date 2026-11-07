@@ -114,7 +114,7 @@ struct ToolTile: View {
             }.padding(22).frame(width: 350).preferredColorScheme(model.scheme)
         }
     }
-    /// App search opens the full-screen Applications launcher; every other widget toggles its popover.
+    /// App search opens the floating Applications chooser; every other widget toggles its popover.
     private func open() { if kind == .search { effects(.searchApps(model, kit.query)) } else { interaction.expanded.toggle() } }
     var contents: some View {
         ToolTileContents(kind: kind, model: model, kit: kit, interaction: interaction).environment(\.connectionSettingsAction, { model.openConnectionSettings(kind) })
