@@ -5,8 +5,8 @@ import Image from "next/image";
 import Brand from "@/components/site/Brand";
 import {COMPANIONS} from "@/lib/home/companions";
 import {useReducedMotion} from "@/hooks/useReducedMotion";
-import AppearanceStudio, {accentHex, signature, type Mood} from "./AppearanceStudio";
-import {useAutoCycle} from "@/hooks/useAutoCycle";
+import AppearanceStudio, {accentVars, signature, type Light, type Mood} from "./AppearanceStudio";
+import DockSizeShowcase from "./DockSizeShowcase";
 import LauncherShowcase from "./LauncherShowcase";
 import NotchShowcase from "./NotchShowcase";
 import WindowShelfPreview from "./WindowShelfPreview";
@@ -15,14 +15,19 @@ import MoreSection from "./MoreSection";
 import AskSection from "./AskSection";
 import ReleaseSection from "./ReleaseSection";
 import {useSectionFocus} from "@/hooks/useSectionFocus";
-import {ACCENT_PACKS} from "@/lib/home/palette";
-import s from "./RefinedLanding.module.css";
+import {ACCENT_PACKS, type Accent} from "@/lib/home/palette";
+import s from "./RefinedLanding.module.scss";
 
 const DARK_QUERY="(prefers-color-scheme: dark)";
+/** The visitor's appearance, or `null` in static HTML, which cannot know it. */
 function usePrefersDark(){
-  return useSyncExternalStore(cb=>{const m=window.matchMedia(DARK_QUERY);m.addEventListener("change",cb);return ()=>m.removeEventListener("change",cb);},()=>window.matchMedia(DARK_QUERY).matches,()=>true);
+  return useSyncExternalStore<boolean|null>(cb=>{const m=window.matchMedia(DARK_QUERY);m.addEventListener("change",cb);return ()=>m.removeEventListener("change",cb);},()=>window.matchMedia(DARK_QUERY).matches,()=>null);
 }
+const DOCK_APPS=["finder","messages","safari","discord","vscode"];
 const NAV=[{id:"features",label:"Overview"},{id:"widgets",label:"Make it yours"},{id:"companions",label:"Companions"}] as const;
+
+const sheet=(name:string)=>`/assets/pets/${name}.webp`;
+const preloadSheet=(name:string)=>{new window.Image().src=sheet(name);};
 
 function Pet({name}: {name:string}) {
   const ref = useRef<HTMLSpanElement>(null);
@@ -35,9 +40,9 @@ function Pet({name}: {name:string}) {
     document.addEventListener("visibilitychange", refresh);
     return () => { observer.disconnect(); document.removeEventListener("visibilitychange", refresh); };
   }, []);
-  return <span ref={ref} data-active={active} aria-hidden="true" className={`${s.pet} ${name==="dragon"?s.dragon:""}`} style={{backgroundImage:`url(/assets/companions/${name}.png)`}}/>;
+  return <span ref={ref} data-active={active} aria-hidden="true" className={`${s.pet} ${name==="dragon"?s.dragon:""}`} style={{backgroundImage:`url(${sheet(name)})`}}/>;
 }
-function DemoDock({light=false, graphite=false, accent, pet="dragon", section="all"}: {light?:boolean;graphite?:boolean;accent?:string;pet?:string;section?:string}) {
+function DemoDock({light=false, graphite=false, accent, pet="dragon", section="all"}: {light?:Light;graphite?:boolean;accent?:Accent;pet?:string;section?:string}) {
   const petName=COMPANIONS.find(companion=>companion.file===pet)?.ariaName??"Companion";
   const [musicPlaying,setMusicPlaying]=useState(true);
   const [seconds,setSeconds]=useState(1500);
@@ -50,15 +55,15 @@ function DemoDock({light=false, graphite=false, accent, pet="dragon", section="a
     return ()=>window.clearInterval(timer);
   },[running]);
   const toggle=()=>{if(!running){deadline.current=Date.now()+(seconds||1500)*1000;}setRunning(!running);};
-  return <div className={`${s.dock} ${light?s.light:""} ${graphite?s.graphite:""} ${section!=="all"?s.croppedDock:""}`} data-section={section} style={accent?{"--accent":accent} as CSSProperties:undefined}>
-    <div className={s.apps}>{["finder","messages","safari","discord","vscode"].map(name=><Image key={name} src={`/assets/apps/${name}.png`} alt={name==="vscode"?"Visual Studio Code":name[0].toUpperCase()+name.slice(1)} width={64} height={64} unoptimized/>)}</div>
+  return <div className={`${s.dock} ${light===null?`${s.autoLight} ${s.autoAccent}`:light?s.light:""} ${graphite?s.graphite:""} ${section!=="all"?s.croppedDock:""}`} data-section={section} style={accent?accentVars(accent,light):undefined}>
+    <div className={s.apps} role="img" aria-label="Apps in the Dock: Finder, Messages, Safari, Discord and Visual Studio Code">{DOCK_APPS.map(name=><Image key={name} src={`/assets/apps/${name}.png`} alt="" width={64} height={64} unoptimized/>)}</div>
     <span className={s.divider}/>
     {section==="widgets"&&<><button type="button" className={`${s.tile} ${s.focus}`} onClick={toggle} aria-label={running?"Pause demo focus timer":"Start demo focus timer"}>
       <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" fill="none" stroke="currentColor" opacity=".16" strokeWidth="5"/><circle cx="20" cy="20" r="16" fill="none" stroke="var(--blue)" strokeWidth="5" strokeDasharray={`${seconds/1500*100} 101`} transform="rotate(-90 20 20)" strokeLinecap="round"/></svg>
       <span><b>{Math.floor(seconds/60)}:{String(seconds%60).padStart(2,"0")}</b><small>{running?"Focusing":"Focus"}</small></span>
     </button>
     <div className={`${s.tile} ${s.calendar}`}><b>10:30</b><span>Design review</span><small>In 12 min</small></div></>}
-    <div className={`${s.tile} ${s.usage}`}><b>Codex</b><span className={s.usageRow}>5h <span>82% left</span></span><i><em/></i><span className={s.usageRow}>Week <span>64% left</span></span><i><em style={{width:"64%"}}/></i></div>
+    <div className={`${s.tile} ${s.usage} ${s.usageThree}`}><b>Claude</b><span className={s.usageRow}>5h <i><em style={{width:"18%"}}/></i><span>18%</span></span><span className={s.usageRow}>Week <i><em style={{width:"36%"}}/></i><span>36%</span></span><span className={s.usageRow}>Fable <i><em style={{width:"12%"}}/></i><span>12%</span></span></div>
     <div className={`${s.tile} ${s.music}`}><Image src="/assets/apps/spotify.png" alt="Spotify" width={44} height={44} unoptimized/><span><b>Deep focus</b><small>Spotify · Sample playlist</small><button className={s.musicControl} onClick={()=>setMusicPlaying(!musicPlaying)} aria-label={musicPlaying?"Pause Spotify preview":"Play Spotify preview"} aria-pressed={musicPlaying}><span aria-hidden="true">{musicPlaying?"Ⅱ":"▶"}</span> {musicPlaying?"Playing":"Paused"}</button></span></div>
     <div className={`${s.tile} ${s.cpu}`}><span className={s.usageRow}><b>CPU</b><span>18%</span></span><svg viewBox="0 0 100 28" aria-hidden="true"><path d="M0 24 L8 22 L14 23 L20 16 L26 19 L32 10 L38 16 L44 13 L50 17 L56 8 L62 14 L68 12 L74 19 L80 15 L86 20 L92 17 L100 19" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/></svg><small>System activity</small></div>
     <div key={pet} className={`${s.tile} ${s.dockPet}`} role="img" aria-label={`${petName} in a companion widget`}><Pet name={pet}/></div>
@@ -70,16 +75,16 @@ export default function RefinedLanding(){
   const [paused,setPaused]=useState(false);
   const [mood,setMoodPick]=useState<Mood>("Automatic");
   const moving=!paused&&!reduced;
-  const [lookRef,look]=useAutoCycle<HTMLDivElement>(ACCENT_PACKS.length,3000,false);
-  const accent=signature(ACCENT_PACKS[look.index]);
-  const [petsRef,pets]=useAutoCycle<HTMLDivElement>(COMPANIONS.length,2800,false);
+  const [packIndex,setPackIndex]=useState(0);
+  const accent=signature(ACCENT_PACKS[packIndex]);
+  const [petIndex,setPetIndex]=useState(0);
+  const petsRef=useRef<HTMLDivElement>(null);
   const prefersDark=usePrefersDark();
   const focus=useSectionFocus([...NAV.map(n=>n.id),"more","questions","download"]);
-  const light=mood==="Pearl"||(mood==="Automatic"&&!prefersDark);
-  const accentColor=accentHex(accent,light);
+  const light:Light=mood==="Automatic"?null:mood==="Pearl";
   const [menu,setMenu]=useState(false);
   const menuButton=useRef<HTMLButtonElement>(null);
-  const chosen=COMPANIONS[pets.index];
+  const chosen=COMPANIONS[petIndex];
   const pet=chosen.file;
   return <div className={`home-theme ${s.page}`} data-motion={moving?"on":"off"} style={{"--blue":"#3478f6"} as CSSProperties}>
     <a href="#main" className={s.skip}>Skip to content</a>
@@ -88,7 +93,7 @@ export default function RefinedLanding(){
     </div><a className={s.button} href="#download">Explore the Dock</a><button ref={menuButton} className={s.menu} aria-label="Toggle navigation" aria-expanded={menu} aria-controls="main-navigation-links" onClick={()=>setMenu(!menu)}>☰</button></nav></header>
     <main id="main">
       <section id="top" className={s.hero}>
-        <div className={s.stage} aria-label="Interactive Dock illustration with sample data"><DemoDock/><div className={s.stageCaption}><span>Click the cube to find a window. <small>Interactive sample data.</small></span><button onClick={()=>setPaused(!paused)} aria-pressed={paused}>{paused?"Play motion":"Pause motion"}</button></div></div>
+        <div className={s.stage} role="group" aria-label="Interactive Dock illustration with sample data"><Image className={s.stageArt} src="/assets/silver-flow.webp" alt="" fill fetchPriority="high" loading="eager" unoptimized/><DemoDock/><div className={s.stageCaption}><span>Click the cube to find a window. <small>Interactive sample data.</small></span><button onClick={()=>setPaused(!paused)} aria-pressed={paused}>{paused?"Play motion":"Pause motion"}</button></div></div>
         <div className={s.heroCopy}><p className={s.eyebrow}>A LITTLE SPACE. A BETTER EVERYDAY.</p><h1>Your Mac.<br/>Everything within reach.</h1><p className={s.lead}>Apps, live widgets, and AI usage in one beautifully personal Dock.</p><div className={s.actions}><a className={s.button} href="#download">Explore DockGrove</a><a className={s.playLink} href="#widgets"><span aria-hidden="true">▷</span>Try it in action</a></div><p className={s.fine}>For macOS 14 and later · Apple silicon &amp; Intel</p></div>
       </section>
       <section id="features" className={s.features}><Reveal className={s.sectionHeading}><p className={s.eyebrow}>LESS SEARCHING. MORE DOING.</p><h2>Less switching. More living.</h2><p className={s.sectionLead}>Your everyday essentials, together in a space that feels like you.</p></Reveal><div className={s.cards}>
@@ -97,16 +102,17 @@ export default function RefinedLanding(){
         <Reveal step={2}><article id="intelligence"><div className={s.cardImage} inert aria-hidden="true"><DemoDock section="usage"/></div><h3>Know what’s left.</h3><p>See supported AI usage at a glance. Preview shows sample data.</p></article></Reveal>
       </div></section>
       <NotchShowcase/>
-      <LauncherShowcase playing={false}/>
-      <section id="widgets" className={s.workspace}><div className={s.workspaceInner}><Reveal><p className={s.eyebrow}>FEELS LIKE YOUR MAC.</p><h2>Make room for<br/>your way of working.</h2><p>A quiet look for deep work. A little color for everything else. Try your own combination.</p><div style={{"--accent":accentColor} as CSSProperties}><AppearanceStudio mood={mood} onPickMood={setMoodPick} show={look} showRef={lookRef} light={light}/></div></Reveal><Reveal step={1} className={s.workspaceDocks}><DemoDock light={light} graphite={mood==="Graphite"} accent={accentColor} pet={pet}/><p>{mood}{mood==="Automatic"?` (${light?"light":"dark"} right now)`:""} · {accent.name} · {chosen.heading}. Sample data.</p></Reveal></div></section>
+      <DockSizeShowcase/>
+      <LauncherShowcase/>
+      <section id="widgets" className={s.workspace}><div className={s.workspaceInner}><Reveal><p className={s.eyebrow}>FEELS LIKE YOUR MAC.</p><h2>Make room for<br/>your way of working.</h2><p>A quiet look for deep work. A little color for everything else. Try your own combination.</p><div className={light===null?s.autoAccent:undefined} style={accentVars(accent,light)}><AppearanceStudio mood={mood} onPickMood={setMoodPick} packIndex={packIndex} onPickPack={setPackIndex} light={light}/></div></Reveal><Reveal step={1} className={s.workspaceDocks}><DemoDock light={light} graphite={mood==="Graphite"} accent={accent} pet={pet}/><p>{mood}{mood==="Automatic"&&prefersDark!==null?` (${prefersDark?"dark":"light"} right now)`:""} · {accent.name} · {chosen.heading}. Sample data.</p></Reveal></div></section>
       <section id="companions" className={s.companions}><div className={s.companionIntro}><Reveal><p className={s.eyebrow}>SMALL FRIENDS. BIG PERSONALITIES.</p><h2>A little company.<br/>A lot of character.</h2><p>Nine companions to make your Dock feel like yours. More room to roam, with care and details just a click away.</p><p className={s.meetAll}><a href="#companion-choices" onClick={event=>{event.preventDefault();petsRef.current?.querySelector<HTMLButtonElement>("button")?.focus();}}>Meet all nine companions <span aria-hidden="true">→</span></a></p></Reveal>
-        <Reveal step={1}><div ref={petsRef} {...pets.bind} className={s.petShow} role="group" aria-label="Choose a companion">
-          <div className={s.petSpotlight}><div key={pet} className={s.petHero}><Pet name={pet}/></div><div key={pet+"-text"} className={s.petCaption} aria-live={pets.running?"off":"polite"}><b>{chosen.heading}</b><span>{chosen.tagline}</span></div></div>
-          <div id="companion-choices" className={s.petStrip}>{COMPANIONS.map((c,i)=><button key={c.file} type="button" aria-label={`Show ${c.heading}`} aria-current={i===pets.index} className={i===pets.index?s.selectedPet:""} onClick={()=>pets.setIndex(i)}><div><Pet name={c.file}/></div>{i===pets.index&&<em className={s.petProgress} style={{animationDuration:`${pets.duration}ms`,animationPlayState:pets.running?"running":"paused"}}/>}</button>)}</div>
+        <Reveal step={1}><div ref={petsRef} className={s.petShow} role="group" aria-label="Choose a companion">
+          <div className={s.petSpotlight}><div key={pet} className={s.petHero}><Pet name={pet}/></div><div aria-live="polite" aria-atomic="true"><div key={pet} className={s.petCaption}><b>{chosen.heading}</b><span>{chosen.tagline}</span></div></div></div>
+          <div id="companion-choices" className={s.petStrip}>{COMPANIONS.map((c,i)=><button key={c.file} type="button" aria-label={`Show ${c.heading}`} aria-current={i===petIndex} className={i===petIndex?s.selectedPet:""} onClick={()=>setPetIndex(i)} onPointerEnter={()=>preloadSheet(c.file)} onFocus={()=>preloadSheet(c.file)}><div><Image className={s.petThumb} src={`/assets/pets/${c.file}-thumb.webp`} alt="" width={192} height={192} unoptimized/></div></button>)}</div>
         </div></Reveal></div><div className={s.petStatus}><span className={s.statusDot}/>{chosen.heading} is in your Dock preview. Choose a friend above.</div></section>
       <MoreSection/>
       <AskSection/>
       <ReleaseSection/>
-    </main><Reveal><footer className={s.footer}><Brand href="#top"/><p>Apps. Widgets. A little company.</p><div><a href="/privacy">Privacy</a><a href="#questions">FAQ</a><a href="/terms">Terms</a><a href="https://github.com/dylanlasensky/DockGrove/issues">Contact</a></div></footer></Reveal>
+    </main><Reveal><footer className={s.footer}><Brand href="#top"/><p>Apps. Widgets. A little company.</p><div><a href="/privacy">Privacy</a><a href="#questions">FAQ</a><a href="/terms">Terms</a><a href="/accessibility">Accessibility</a><a href="/support">Support</a></div></footer></Reveal>
   </div>;
 }

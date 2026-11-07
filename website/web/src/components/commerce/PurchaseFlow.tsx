@@ -51,7 +51,7 @@ export default function PurchaseFlow({ comingSoon = false }: { comingSoon?: bool
         ? PURCHASE_CANCELLED_MESSAGE
         : (verifyStatus ?? PURCHASE_CHECKING_MESSAGE);
 
-  // loadProduct(): price from /api/product (falling back to /product.json), gate the button.
+  // loadProduct(): price from /product.json, or /api/product first when API_ENABLED; gate the button.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -155,7 +155,7 @@ export default function PurchaseFlow({ comingSoon = false }: { comingSoon?: bool
         </Link>
       </p>
       <p className={p}>
-        <Link className={link} href="/#pricing">
+        <Link className={link} href="/#download">
           Return to pricing
         </Link>
       </p>

@@ -1,7 +1,7 @@
 /** The nine pixel-art companions shown in #companions, in original order. */
 
 export interface Companion {
-  /** Sprite sheet file name under /assets/companions/. */
+  /** Sprite sheet file name under /assets/pets/. */
   file: string;
   /** Name used in the aria-label ("…, animated pixel-art companion"). */
   ariaName: string;
@@ -20,7 +20,3 @@ export const COMPANIONS: readonly Companion[] = [
   { file: "rabbit", ariaName: "Rabbit", heading: "Rabbit", tagline: "A soft spot for small hops" },
   { file: "fox", ariaName: "Fox", heading: "Fox", tagline: "Quietly curious" },
 ];
-
-export function companionSprite(companion: Companion): string {
-  return `/assets/companions/${companion.file}.png`;
-}
