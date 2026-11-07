@@ -205,6 +205,41 @@ import SwiftUI
         XCTAssertEqual(panel?.hasShadow, true, "the shadow is computed once both glass pieces are drawn")
     }
 
+    func testOnlyTheGlassPiecesTakeClicks() {
+        let size = AppsLauncher.panelSize, barBottom = AppsLauncher.barSize.height
+        for point in [CGPoint(x: size.width / 2, y: barBottom / 2), CGPoint(x: 170, y: barBottom / 2), CGPoint(x: 660, y: barBottom / 2),
+                      CGPoint(x: size.width / 2, y: 300), CGPoint(x: 1, y: 300), CGPoint(x: size.width / 2, y: size.height - 1)] {
+            XCTAssertTrue(AppsLauncher.hits(point, in: size), "\(point) is on the glass")
+        }
+        for point in [CGPoint(x: 0, y: 0), CGPoint(x: size.width - 1, y: 40), CGPoint(x: 80, y: 40), // beside the capsule
+                      CGPoint(x: 164, y: 2), // the capsule's own corner
+                      CGPoint(x: size.width / 2, y: barBottom + 5), // the gap
+                      CGPoint(x: 2, y: barBottom + AppsLauncher.barGap + 2), CGPoint(x: size.width - 2, y: size.height - 2)] { // panel corners
+            XCTAssertFalse(AppsLauncher.hits(point, in: size), "\(point) is transparent")
+        }
+    }
+
+    func testClicksBesideTheGlassDismissLikeClickingOutside() {
+        presentOffscreen()
+        let launcher = AppsLauncher.shared, model = model(apps: 2)
+        func click(_ type: NSEvent.EventType, x: CGFloat, topY: CGFloat, on panel: NSPanel) {
+            panel.sendEvent(NSEvent.mouseEvent(with: type, location: CGPoint(x: x, y: panel.frame.height - topY), modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: panel.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!)
+        }
+        launcher.show(model: model)
+        guard let panel = launcher.panel else { return XCTFail("no panel") }
+        click(.leftMouseUp, x: 2, topY: 2, on: panel)
+        XCTAssertNotNil(launcher.panel, "only a press dismisses")
+        click(.leftMouseDown, x: AppsLauncher.pieces(in: panel.frame.size).bar.minX + 10, topY: 40, on: panel)
+        XCTAssertNotNil(launcher.panel, "a click on the capsule stays open")
+        click(.leftMouseDown, x: panel.frame.width / 2, topY: AppsLauncher.barSize.height + 5, on: panel)
+        XCTAssertNil(launcher.panel, "a click in the gap closes")
+
+        launcher.show(model: model)
+        guard let reopened = launcher.panel else { return XCTFail("no panel") }
+        click(.rightMouseDown, x: 2, topY: 2, on: reopened)
+        XCTAssertNil(launcher.panel, "as does a right click in a corner")
+    }
+
     func testPanelFloatsInTheUpperMiddleAndRemembersLayout() {
         let visible = NSRect(x: 0, y: 0, width: 1512, height: 944)
         let frame = AppsLauncher.frame(in: visible)

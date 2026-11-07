@@ -112,6 +112,12 @@ struct ApplicationsStackMenu: View {
         override var canBecomeKey: Bool { true }
         override func cancelOperation(_ sender: Any?) { AppsLauncher.shared.close(restorePrevious: true) }
         override func keyDown(with event: NSEvent) { if !AppsLauncher.shared.chooser.handleKey(event) { super.keyDown(with: event) } }
+        /// A click beside the glass dismisses like a click outside; no other app receives it, so focus goes back.
+        override func sendEvent(_ event: NSEvent) {
+            let point = CGPoint(x: event.locationInWindow.x, y: frame.height - event.locationInWindow.y)
+            if [.leftMouseDown, .rightMouseDown].contains(event.type), !AppsLauncher.hits(point, in: frame.size) { AppsLauncher.shared.close(restorePrevious: true) }
+            else { super.sendEvent(event) }
+        }
     }
     private(set) var panel: NSPanel?
     /// The open launcher's mode; add and replace edit the Dock, so they close when the licence lapses.
@@ -130,6 +136,20 @@ struct ApplicationsStackMenu: View {
         let width = min(panelSize.width, visible.width - 48), height = min(panelSize.height, visible.height - 48)
         let top = visible.maxY - max(24, (visible.height - height) * 0.3)
         return NSRect(x: (visible.midX - width / 2).rounded(), y: (top - height).rounded(), width: width, height: height)
+    }
+
+    /// Where the two glass pieces sit in a window of `size`, with a top-left origin.
+    static func pieces(in size: CGSize) -> (bar: CGRect, results: CGRect) {
+        let barWidth = min(barSize.width, size.width), resultsTop = barSize.height + barGap
+        return (CGRect(x: ((size.width - barWidth) / 2).rounded(), y: 0, width: barWidth, height: barSize.height),
+                CGRect(x: 0, y: resultsTop, width: size.width, height: max(0, size.height - resultsTop)))
+    }
+
+    /// Whether a top-left window point lands on the capsule or the results panel, not the gap or corners.
+    static func hits(_ point: CGPoint, in size: CGSize) -> Bool {
+        let pieces = pieces(in: size)
+        return Capsule().path(in: pieces.bar).contains(point)
+            || RoundedRectangle(cornerRadius: resultsCornerRadius, style: .continuous).path(in: pieces.results).contains(point)
     }
 
     func toggle(model: DockModel) { panel == nil ? show(model: model) : close(restorePrevious: true) }
