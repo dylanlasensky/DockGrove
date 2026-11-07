@@ -45,6 +45,10 @@ jobs:
       - run: npm run build
       - name: Website tests (export in out/)
         run: npm test
+      - name: Install WebKit
+        run: npx playwright install --with-deps webkit
+      - name: WebKit smoke test (export in out/)
+        run: npm run test:smoke
       - name: Commerce Worker tests
         working-directory: website
         run: node --test tests/commerce.test.mjs backend/*.test.mjs
