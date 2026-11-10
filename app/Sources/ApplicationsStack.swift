@@ -112,12 +112,20 @@ struct ApplicationsStackMenu: View {
         override var canBecomeKey: Bool { true }
         override func cancelOperation(_ sender: Any?) { AppsLauncher.shared.close(restorePrevious: true) }
         override func keyDown(with event: NSEvent) { if !AppsLauncher.shared.chooser.handleKey(event) { super.keyDown(with: event) } }
+        /// A click beside the glass dismisses like a click outside; no other app receives it, so focus goes back.
+        override func sendEvent(_ event: NSEvent) {
+            let point = CGPoint(x: event.locationInWindow.x, y: frame.height - event.locationInWindow.y)
+            if [.leftMouseDown, .rightMouseDown].contains(event.type), !AppsLauncher.hits(point, in: frame.size) { AppsLauncher.shared.close(restorePrevious: true) }
+            else { super.sendEvent(event) }
+        }
     }
     private(set) var panel: NSPanel?
     /// The open launcher's mode; add and replace edit the Dock, so they close when the licence lapses.
     private(set) var mode: Mode = .launch
     /// Brings the chooser on screen through the system-effect seam, so tests never show a real window.
     var present: (NSPanel) -> Void = { DockSystemEffect.handler(.present($0)) }
+    /// Pops the capsule's "…" menu just below its button; tests read the menu without tracking it.
+    var presentOptions: (NSMenu, NSView) -> Void = { menu, button in menu.popUp(positioning: nil, at: NSPoint(x: 0, y: -4), in: button) }
     private var previousApplication: NSRunningApplication?
     private var monitors: [Any] = []
     private var resignObserver: NSObjectProtocol?
@@ -130,6 +138,20 @@ struct ApplicationsStackMenu: View {
         return NSRect(x: (visible.midX - width / 2).rounded(), y: (top - height).rounded(), width: width, height: height)
     }
 
+    /// Where the two glass pieces sit in a window of `size`, with a top-left origin.
+    static func pieces(in size: CGSize) -> (bar: CGRect, results: CGRect) {
+        let barWidth = min(barSize.width, size.width), resultsTop = barSize.height + barGap
+        return (CGRect(x: ((size.width - barWidth) / 2).rounded(), y: 0, width: barWidth, height: barSize.height),
+                CGRect(x: 0, y: resultsTop, width: size.width, height: max(0, size.height - resultsTop)))
+    }
+
+    /// Whether a top-left window point lands on the capsule or the results panel, not the gap or corners.
+    static func hits(_ point: CGPoint, in size: CGSize) -> Bool {
+        let pieces = pieces(in: size)
+        return Capsule().path(in: pieces.bar).contains(point)
+            || RoundedRectangle(cornerRadius: resultsCornerRadius, style: .continuous).path(in: pieces.results).contains(point)
+    }
+
     func toggle(model: DockModel) { panel == nil ? show(model: model) : close(restorePrevious: true) }
 
     func show(model: DockModel, mode: Mode = .launch, query: String = "") {
@@ -140,11 +162,15 @@ struct ApplicationsStackMenu: View {
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main ?? NSScreen.screens[0]
         let frame = Self.frame(in: screen.visibleFrame)
         let panel = Panel(contentRect: frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.level = .popUpMenu; panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = true
+        panel.level = .popUpMenu; panel.isOpaque = false; panel.backgroundColor = .clear
+        // The window shadow is cut from the content's alpha, so it waits until both pieces have landed.
+        panel.hasShadow = false
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         panel.isReleasedWhenClosed = false
         chooser.reset(query: query, defaults: model.defaults)
-        let root = AppsLauncherView(model: model, kit: model.toolkit, state: chooser, mode: mode) { [weak self] in self?.close(restorePrevious: true) }
+        chooser.columns = AppsChooserState.columns(fitting: frame.width)
+        let root = AppsLauncherView(model: model, kit: model.toolkit, state: chooser, mode: mode, close: { [weak self] in self?.close(restorePrevious: true) },
+                                    entered: { [weak panel] in panel?.hasShadow = true; panel?.invalidateShadow() })
             .preferredColorScheme(model.scheme)
         panel.contentView = NSHostingView(rootView: root)
         panel.setFrame(frame, display: false)
@@ -219,6 +245,13 @@ enum AppCategory: String, CaseIterable {
     }
 }
 
+/// Runs one "…" menu choice; the menu item keeps it alive through `representedObject`.
+private final class AppsChooserMenuAction: NSObject {
+    private let run: @MainActor () -> Void
+    init(_ run: @escaping @MainActor () -> Void) { self.run = run }
+    @MainActor @objc func choose() { run() }
+}
+
 /// Search text, category tag, keyboard selection and icon/list layout, shared by the panel and its view.
 @MainActor final class AppsChooserState: ObservableObject {
     enum Layout: String { case icons, list }
@@ -228,8 +261,12 @@ enum AppCategory: String, CaseIterable {
     @Published var layout = Layout.icons { didSet { defaults?.set(layout.rawValue, forKey: "appsChooserLayout") } }
     /// Number of visible results, kept current by the view so arrow keys can clamp.
     var count = 0
-    static let columns = 7
+    static let maxColumns = 7
+    /// Grid columns in this window, which also sets how far Up and Down move.
+    var columns = maxColumns
     private var defaults: UserDefaults?
+    /// As many of the seven columns as fit 76pt cells beside the grid's 20pt margins.
+    static func columns(fitting width: CGFloat) -> Int { max(1, min(maxColumns, Int((width - 40) / 76))) }
     var searchIsEmpty: Bool { AppSearchIndex.fold(query).isEmpty }
 
     func reset(query: String, defaults: UserDefaults) {
@@ -248,11 +285,30 @@ enum AppCategory: String, CaseIterable {
         return matches.filter { AppCategory.of($0) == category }
     }
 
+    /// Icons or list, then the categories that actually have apps, ticked like inline pickers.
+    func optionsMenu(apps: [DockApp]) -> NSMenu {
+        let menu = NSMenu(), present = Set(apps.map(AppCategory.of))
+        func add(_ title: String, symbol: String? = nil, on: Bool, _ choose: @escaping @MainActor () -> Void) {
+            let action = AppsChooserMenuAction(choose)
+            let item = menu.addItem(withTitle: title, action: #selector(AppsChooserMenuAction.choose), keyEquivalent: "")
+            item.target = action; item.representedObject = action; item.state = on ? .on : .off
+            item.image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }
+        }
+        add("View as Icons", symbol: "square.grid.2x2", on: layout == .icons) { self.layout = .icons }
+        add("View as List", symbol: "list.bullet", on: layout == .list) { self.layout = .list }
+        menu.addItem(.separator())
+        add("All Categories", on: category == nil) { self.category = nil }
+        for option in AppCategory.allCases where present.contains(option) {
+            add(option.rawValue, on: category == option) { self.category = option }
+        }
+        return menu
+    }
+
     func move(_ delta: Int) { if count > 0 { selection = max(0, min(count - 1, selection + delta)) } }
 
     /// Up/Down move by a row; Left/Right move by one icon in the grid and stay with the text in the list.
     func handleKey(_ event: NSEvent) -> Bool {
-        let row = layout == .icons ? Self.columns : 1
+        let row = layout == .icons ? columns : 1
         switch event.keyCode {
         case 125: move(row)
         case 126: move(-row)
@@ -270,10 +326,14 @@ struct AppsLauncherView: View {
     @ObservedObject var state: AppsChooserState
     var mode: AppsLauncher.Mode = .launch
     var close: () -> Void
+    /// Runs once the entrance animation has finished.
+    var entered: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown = false
+    @StateObject private var optionsButton = StackAnchor()
     @FocusState private var searchFocused: Bool
-    init(model: DockModel, kit: Toolkit, state: AppsChooserState, mode: AppsLauncher.Mode = .launch, close: @escaping () -> Void) {
-        self.model = model; self.kit = kit; self.state = state; self.mode = mode; self.close = close
+    init(model: DockModel, kit: Toolkit, state: AppsChooserState, mode: AppsLauncher.Mode = .launch, close: @escaping () -> Void, entered: @escaping () -> Void = {}) {
+        self.model = model; self.kit = kit; self.state = state; self.mode = mode; self.close = close; self.entered = entered
     }
 
     var body: some View {
@@ -282,17 +342,21 @@ struct AppsLauncherView: View {
             searchBar(results)
             resultsPanel(results)
         }
-        .scaleEffect(shown ? 1 : 0.96).opacity(shown ? 1 : 0)
+        .scaleEffect(Self.entranceScale(shown: shown, reduceMotion: reduceMotion)).opacity(shown ? 1 : 0)
         .onAppear {
             state.count = results.count
             searchFocused = true
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) { shown = true }
+            withAnimation(Self.entrance(reduceMotion: reduceMotion)) { shown = true } completion: { entered() }
         }
         .onChange(of: state.query) { state.selection = 0 }
         .onChange(of: state.category) { state.selection = 0 }
         .onChange(of: results.count) { _, count in state.count = count; state.selection = min(state.selection, max(0, count - 1)) }
         .onExitCommand(perform: close)
     }
+
+    /// Reduce Motion keeps the fade and drops the scale and spring.
+    static func entranceScale(shown: Bool, reduceMotion: Bool) -> CGFloat { shown || reduceMotion ? 1 : 0.96 }
+    static func entrance(reduceMotion: Bool) -> Animation { reduceMotion ? .easeOut(duration: 0.16) : .spring(response: 0.28, dampingFraction: 0.82) }
 
     private func searchBar(_ results: [DockApp]) -> some View {
         HStack(spacing: 14) {
@@ -308,25 +372,17 @@ struct AppsLauncherView: View {
         .padding(.horizontal, 28)
         .frame(maxWidth: AppsLauncher.barSize.width, minHeight: AppsLauncher.barSize.height, maxHeight: AppsLauncher.barSize.height)
         .background(DockPlate(theme: model.theme, cornerRadius: AppsLauncher.barSize.height / 2))
-        .clipShape(Capsule())
     }
 
-    /// Icons or list, then the categories that actually have apps.
+    /// A plain button over an NSMenu: unlike SwiftUI's Menu, accessibility clients can reach and press it.
     private var optionsMenu: some View {
-        let present = Set(kit.appIndex.apps.map(AppCategory.of))
-        return Menu {
-            Picker("View as", selection: $state.layout) {
-                Label("View as Icons", systemImage: "square.grid.2x2").tag(AppsChooserState.Layout.icons)
-                Label("View as List", systemImage: "list.bullet").tag(AppsChooserState.Layout.list)
-            }.pickerStyle(.inline).labelsHidden()
-            Picker("Category", selection: $state.category) {
-                Text("All Categories").tag(AppCategory?.none)
-                ForEach(AppCategory.allCases.filter(present.contains), id: \.self) { Text($0.rawValue).tag(AppCategory?.some($0)) }
-            }.pickerStyle(.inline).labelsHidden()
+        Button {
+            if let view = optionsButton.view { AppsLauncher.shared.presentOptions(state.optionsMenu(apps: kit.appIndex.apps), view) }
         } label: {
             Image(systemName: "ellipsis").font(.system(size: 17, weight: .semibold)).foregroundStyle(.secondary).frame(width: 30, height: 30).contentShape(Rectangle())
+                .background(StackAnchorView(anchor: optionsButton))
         }
-        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .buttonStyle(.plain).fixedSize()
         .help("View and category options").accessibilityLabel("View and category options")
     }
 
@@ -347,14 +403,14 @@ struct AppsLauncherView: View {
             .overlay { emptyState(results) }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(DockPlate(theme: model.theme, cornerRadius: AppsLauncher.resultsCornerRadius))
         .clipShape(shape)
+        .background(DockPlate(theme: model.theme, cornerRadius: AppsLauncher.resultsCornerRadius))
         .accessibilityElement(children: .contain)
         .accessibilityLabel(mode.title ?? "Applications")
     }
 
     private func grid(_ results: [DockApp]) -> some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: AppsChooserState.columns), spacing: 2) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: state.columns), spacing: 2) {
             ForEach(Array(results.enumerated()), id: \.element.id) { offset, app in
                 item(app, offset: offset, list: false).id(app.id)
             }

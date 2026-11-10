@@ -123,14 +123,14 @@ struct DockPlate: View {
         }
 
             .overlay { if theme == "Graphite" || opaque { RoundedRectangle(cornerRadius: cornerRadius).fill(Color(nsColor:.windowBackgroundColor)) } }
-            .overlay(RoundedRectangle(cornerRadius: cornerRadius).stroke(Color.primary.opacity(contrast == .increased ? 0.6 : 0.12)))
+            .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.primary.opacity(contrast == .increased ? 0.6 : 0.12)))
     }
 }
 
 #if compiler(>=6.2)
 @available(macOS 26.0, *)
 struct NativeDockGlass: NSViewRepresentable {
-    var cornerRadius: CGFloat = 27
+    var cornerRadius: CGFloat
     func makeNSView(context: Context) -> NSGlassEffectView {
         let view = NSGlassEffectView(); view.cornerRadius = cornerRadius; view.style = .regular
         return view
