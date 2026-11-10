@@ -13,6 +13,7 @@ import SwiftUI
     private let originalHandler = DockSystemEffect.handler
     private let originalPresent = AppsLauncher.shared.present
     private let originalStackPresent = AppsStackPopover.shared.present
+    private let originalPresentOptions = AppsLauncher.shared.presentOptions
 
     override func setUp() {
         super.setUp()
@@ -27,6 +28,7 @@ import SwiftUI
         AppsStackPopover.shared.dismissalGrace = 0.35
         DockSystemEffect.handler = originalHandler
         AppsLauncher.shared.present = originalPresent
+        AppsLauncher.shared.presentOptions = originalPresentOptions
         AppsStackPopover.shared.present = originalStackPresent
         suites.forEach { UserDefaults().removePersistentDomain(forName: $0) }
         folders.forEach { try? FileManager.default.removeItem(at: $0) }
@@ -171,7 +173,7 @@ import SwiftUI
         let first = launcher.panel
         XCTAssertNotNil(first)
         XCTAssertTrue(first?.canBecomeKey ?? false, "the borderless chooser must take keyboard input")
-        XCTAssertTrue(first?.hasShadow ?? false, "it floats with a window shadow")
+        XCTAssertFalse(first?.hasShadow ?? true, "no shadow is cut from the still-empty window")
         NotificationCenter.default.post(name: NSWindow.didResignKeyNotification, object: first)
         XCTAssertNil(launcher.panel, "losing key status dismisses the chooser")
         launcher.toggle(model: model)
@@ -183,6 +185,89 @@ import SwiftUI
         while second?.contentView != nil, Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.05)) }
         XCTAssertFalse(second?.isVisible ?? true)
         XCTAssertNil(second?.contentView)
+    }
+
+    func testWindowShadowWaitsForTheEntranceToFinish() {
+        let launcher = AppsLauncher.shared
+        launcher.show(model: model(apps: 2))
+        let panel = launcher.panel
+        XCTAssertEqual(panel?.hasShadow, false)
+        let deadline = Date().addingTimeInterval(5)
+        while panel?.hasShadow == false, Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) }
+        XCTAssertEqual(panel?.hasShadow, true, "the shadow is computed once both glass pieces are drawn")
+    }
+
+    func testOnlyTheGlassPiecesTakeClicks() {
+        let size = AppsLauncher.panelSize, barBottom = AppsLauncher.barSize.height
+        for point in [CGPoint(x: size.width / 2, y: barBottom / 2), CGPoint(x: 170, y: barBottom / 2), CGPoint(x: 660, y: barBottom / 2),
+                      CGPoint(x: size.width / 2, y: 300), CGPoint(x: 1, y: 300), CGPoint(x: size.width / 2, y: size.height - 1)] {
+            XCTAssertTrue(AppsLauncher.hits(point, in: size), "\(point) is on the glass")
+        }
+        for point in [CGPoint(x: 0, y: 0), CGPoint(x: size.width - 1, y: 40), CGPoint(x: 80, y: 40), // beside the capsule
+                      CGPoint(x: 164, y: 2), // the capsule's own corner
+                      CGPoint(x: size.width / 2, y: barBottom + 5), // the gap
+                      CGPoint(x: 2, y: barBottom + AppsLauncher.barGap + 2), CGPoint(x: size.width - 2, y: size.height - 2)] { // panel corners
+            XCTAssertFalse(AppsLauncher.hits(point, in: size), "\(point) is transparent")
+        }
+    }
+
+    func testClicksBesideTheGlassDismissLikeClickingOutside() {
+        let launcher = AppsLauncher.shared, model = model(apps: 2)
+        func click(_ type: NSEvent.EventType, x: CGFloat, topY: CGFloat, on panel: NSPanel) {
+            panel.sendEvent(NSEvent.mouseEvent(with: type, location: CGPoint(x: x, y: panel.frame.height - topY), modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: panel.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!)
+        }
+        launcher.show(model: model)
+        guard let panel = launcher.panel else { return XCTFail("no panel") }
+        click(.leftMouseUp, x: 2, topY: 2, on: panel)
+        XCTAssertNotNil(launcher.panel, "only a press dismisses")
+        click(.rightMouseDown, x: AppsLauncher.pieces(in: panel.frame.size).bar.minX + 10, topY: 40, on: panel)
+        XCTAssertNotNil(launcher.panel, "a click on the capsule stays open")
+        click(.leftMouseDown, x: panel.frame.width / 2, topY: AppsLauncher.barSize.height + 5, on: panel)
+        XCTAssertNil(launcher.panel, "a click in the gap closes")
+
+        launcher.show(model: model)
+        guard let reopened = launcher.panel else { return XCTFail("no panel") }
+        click(.rightMouseDown, x: 2, topY: 2, on: reopened)
+        XCTAssertNil(launcher.panel, "as does a right click in a corner")
+    }
+
+    func testReduceMotionKeepsTheFadeAndDropsTheScale() {
+        XCTAssertEqual(AppsLauncherView.entranceScale(shown: false, reduceMotion: false), 0.96)
+        XCTAssertEqual(AppsLauncherView.entranceScale(shown: true, reduceMotion: false), 1)
+        XCTAssertEqual(AppsLauncherView.entranceScale(shown: false, reduceMotion: true), 1)
+        XCTAssertEqual(AppsLauncherView.entrance(reduceMotion: true), .easeOut(duration: 0.16))
+        XCTAssertNotEqual(AppsLauncherView.entrance(reduceMotion: false), .easeOut(duration: 0.16))
+
+        let model = model(apps: 1)
+        var entered = 0
+        let view = AppsLauncherView(model: model, kit: model.toolkit, state: AppsChooserState(), close: {}, entered: { entered += 1 })
+            .transformEnvironment(\.self) { $0._accessibilityReduceMotion = true }
+        let harness = DockHarness(view, size: AppsLauncher.panelSize)
+        defer { harness.close() }
+        harness.spin(0.5)
+        XCTAssertEqual(entered, 1, "the shortened entrance still finishes, so the shadow still appears")
+    }
+
+    /// Reduce Transparency and Increase Contrast, offscreen: opaque plates, a full border and a clear gap.
+    /// DockPlate takes its non-glass path here, so this says nothing about real Liquid Glass.
+    func testPlatesStayOpaqueAndOutlinedForAccessibilitySettings() throws {
+        let model = model(apps: 0)
+        let size = AppsLauncher.panelSize, results = AppsLauncher.pieces(in: size).results
+        let view = AppsLauncherView(model: model, kit: model.toolkit, state: AppsChooserState()) {}
+            .transformEnvironment(\.self) { $0._accessibilityReduceTransparency = true; $0._colorSchemeContrast = .increased }
+        let harness = DockHarness(view, size: size)
+        defer { harness.close() }
+        harness.spin(0.6)
+        let bitmap = try XCTUnwrap(harness.host.bitmapImageRepForCachingDisplay(in: harness.host.bounds))
+        harness.host.cacheDisplay(in: harness.host.bounds, to: bitmap)
+        let scale = CGFloat(bitmap.pixelsWide) / size.width
+        func color(_ x: CGFloat, _ y: CGFloat) -> NSColor { bitmap.colorAt(x: Int(x * scale), y: Int(y * scale))!.usingColorSpace(.sRGB)! }
+        XCTAssertEqual(color(size.width / 2, 40).alphaComponent, 1, accuracy: 0.01, "the capsule is opaque")
+        XCTAssertEqual(color(100, results.midY).alphaComponent, 1, accuracy: 0.01, "and so is the panel")
+        XCTAssertEqual(color(size.width / 2, 85).alphaComponent, 0, accuracy: 0.01, "the gap stays clear")
+        XCTAssertEqual(color(1, 1).alphaComponent, 0, accuracy: 0.01, "and so do the corners")
+        let fill = color(100, results.midY), edge = color(0.75, results.midY)
+        XCTAssertGreaterThan(abs(fill.redComponent - edge.redComponent), 0.4, "the raised-contrast border is not cut off at the window edge")
     }
 
     func testPanelFloatsInTheUpperMiddleAndRemembersLayout() {
@@ -210,6 +295,43 @@ import SwiftUI
         launcher.chooser.layout = .icons
     }
 
+    func testSmallScreensKeepBothPiecesUsable() throws {
+        XCTAssertEqual(AppsChooserState.columns(fitting: AppsLauncher.panelSize.width), 7)
+        XCTAssertEqual(AppsChooserState.columns(fitting: 552), 6)
+        XCTAssertEqual(AppsChooserState.columns(fitting: 452), 5)
+        XCTAssertEqual(AppsChooserState.columns(fitting: 60), 1)
+
+        let narrow = AppsLauncher.frame(in: NSRect(x: 0, y: 0, width: 500, height: 360))
+        XCTAssertEqual(narrow.size, CGSize(width: 452, height: 312))
+        let squeezed = AppsLauncher.pieces(in: narrow.size)
+        XCTAssertEqual(squeezed.bar, CGRect(x: 0, y: 0, width: 452, height: 80), "the capsule narrows to the window")
+        XCTAssertEqual(squeezed.results.height, 221)
+
+        // The real view at a short, narrow size matches the geometry that decides which clicks dismiss.
+        let size = AppsLauncher.frame(in: NSRect(x: 0, y: 0, width: 600, height: 400)).size
+        let pieces = AppsLauncher.pieces(in: size)
+        XCTAssertEqual(pieces.bar, CGRect(x: 17, y: 0, width: 518, height: 80))
+        let model = model(apps: 8)
+        let state = AppsChooserState()
+        state.columns = AppsChooserState.columns(fitting: size.width)
+        let harness = DockHarness(AppsLauncherView(model: model, kit: model.toolkit, state: state) {}, size: size)
+        defer { harness.close() }
+        harness.spin(0.5)
+        let results = try XCTUnwrap(harness.frame("Applications")), button = try XCTUnwrap(harness.frame("View and category options"))
+        XCTAssertEqual(results.width, pieces.results.width, accuracy: 1)
+        XCTAssertEqual(results.height, pieces.results.height, accuracy: 1)
+        XCTAssertEqual(results.minY, 0, accuracy: 1, "the panel ends at the bottom of the window")
+        XCTAssertEqual(button.midY, size.height - pieces.bar.midY, accuracy: 1, "the capsule stays at the top")
+        XCTAssertLessThan(button.maxX, pieces.bar.maxX, "with its menu button inside it")
+
+        let first = try XCTUnwrap(harness.frame("Sample 00")), second = try XCTUnwrap(harness.frame("Sample 01")), wrapped = try XCTUnwrap(harness.frame("Sample 05"))
+        XCTAssertLessThanOrEqual(first.maxX, second.minX + 1, "cells do not overlap")
+        XCTAssertLessThan(wrapped.maxY, first.minY + 1, "the seventh app wraps to a second row of six")
+        state.count = 20
+        XCTAssertTrue(state.handleKey(key(125)))
+        XCTAssertEqual(state.selection, 6, "Down moves by the visible row")
+    }
+
     func testChooserSearchesFiltersAndLaunches() {
         let model = model(apps: 40) // 41 with Finder
         let state = AppsChooserState()
@@ -219,21 +341,11 @@ import SwiftUI
         defer { harness.close() }
         harness.spin(0.4)
         XCTAssertEqual(state.count, 41)
-        XCTAssertTrue(harness.has("Applications"), "launch mode heads the panel with Applications")
+        XCTAssertTrue(harness.has("Applications"), "launch mode names the results panel Applications")
         let index = model.toolkit.appIndex
         XCTAssertEqual(state.results(in: index).map { index.name(of: $0) }.prefix(2), ["Finder", "Sample 00"], "an empty search lists apps by name")
 
-        // Category tags narrow the list; only categories that have apps get a tag.
-        XCTAssertTrue(harness.has("All"))
-        XCTAssertFalse(harness.has("Social"), "\(harness.labels())")
-        harness.press("Games")
-        harness.spin(0.2)
-        XCTAssertEqual(state.category, .games)
-        XCTAssertEqual(state.count, 10)
-        harness.press("All")
-        harness.spin(0.2)
-        XCTAssertNil(state.category)
-        XCTAssertEqual(state.count, 41)
+        XCTAssertTrue(harness.has("View and category options"), "\(harness.labels())")
 
         // Search filters at once; the arrow keys move the selection and Return picks it.
         harness.enter("Sample 0")
@@ -273,14 +385,63 @@ import SwiftUI
         if case .reveal(let urls)? = effects.last { XCTAssertEqual(urls.first?.lastPathComponent, "Sample 01.app") } else { XCTFail("reveal should go through effects") }
 
         // The list shows the same apps one per row and scrolls to keep the selection visible.
-        harness.press("View as List")
+        state.layout = .list
         harness.spin(0.2)
-        XCTAssertEqual(state.layout, .list)
         XCTAssertTrue(harness.has("Sample 02"), "\(harness.labels())")
         state.selection = 35
         harness.spin(0.3)
-        harness.press("View as Icons")
+        state.layout = .icons
+    }
+
+    /// Presses the labelled "…" button as an assistive client would and returns the menu it pops.
+    private func openOptions(_ harness: DockHarness) -> NSMenu? {
+        var opened: NSMenu?
+        AppsLauncher.shared.presentOptions = { menu, button in
+            opened = menu
+            XCTAssertNotNil(button.window, "the menu anchors to the on-screen button")
+        }
+        harness.press("View and category options")
+        return opened
+    }
+
+    private func choose(_ title: String, from harness: DockHarness) {
+        guard let menu = openOptions(harness), let index = menu.items.firstIndex(where: { $0.title == title }) else { return XCTFail("no menu item \(title)") }
+        menu.performActionForItem(at: index)
+        harness.spin(0.2)
+    }
+
+    func testOptionsMenuChangesTheViewAndCategory() {
+        let model = model(apps: 25) // Utilities, Games, and uncategorized
+        let state = AppsChooserState()
+        state.reset(query: "", defaults: model.defaults)
+        let harness = DockHarness(AppsLauncherView(model: model, kit: model.toolkit, state: state) {}, size: AppsLauncher.panelSize)
+        defer { harness.close() }
+        harness.spin(0.4)
+
+        let menu = openOptions(harness)
+        let titles = menu?.items.map(\.title) ?? []
+        XCTAssertEqual(Array(titles.prefix(4)), ["View as Icons", "View as List", "", "All Categories"])
+        XCTAssertTrue(["Utilities", "Games", "Other"].allSatisfy(titles.contains), "\(titles)")
+        XCTAssertFalse(titles.contains("Social"), "only categories that have apps")
+        XCTAssertEqual(menu?.items.filter { $0.state == .on }.map(\.title), ["View as Icons", "All Categories"])
+        XCTAssertNotNil(menu?.items.first?.image)
+        XCTAssertTrue(menu?.items[2].isSeparatorItem ?? false, "view and category choices are separate groups")
+
+        choose("View as List", from: harness)
+        XCTAssertEqual(state.layout, .list)
+        XCTAssertEqual(model.defaults.string(forKey: "appsChooserLayout"), "list")
+        choose("Games", from: harness)
+        XCTAssertEqual(state.category, .games)
+        XCTAssertEqual(state.count, 10)
+        XCTAssertEqual(openOptions(harness)?.items.filter { $0.state == .on }.map(\.title), ["View as List", "Games"])
+
+        state.selection = 3
+        choose("All Categories", from: harness)
+        XCTAssertNil(state.category)
+        XCTAssertEqual(state.selection, 0, "changing the category restarts the selection")
+        choose("View as Icons", from: harness)
         XCTAssertEqual(state.layout, .icons)
+        XCTAssertEqual(state.optionsMenu(apps: []).items.map(\.title), ["View as Icons", "View as List", "", "All Categories"])
     }
 
     func testArrowKeysMoveTheSelectionByIconAndRow() {
@@ -291,7 +452,7 @@ import SwiftUI
         launcher.panel?.keyDown(with: key(124)) // right
         XCTAssertEqual(state.selection, 1)
         launcher.panel?.keyDown(with: key(125)) // down one row of seven
-        XCTAssertEqual(state.selection, 1 + AppsChooserState.columns)
+        XCTAssertEqual(state.selection, 1 + state.columns)
         launcher.panel?.keyDown(with: key(126)) // up
         XCTAssertEqual(state.selection, 1)
         launcher.panel?.keyDown(with: key(123)) // left
@@ -437,6 +598,10 @@ import SwiftUI
         harness.enter("nothing matches this")
         harness.spin(0.3)
         XCTAssertEqual(state.count, 0)
+        harness.enter("")
+        state.category = .games
+        harness.spin(0.3)
+        XCTAssertEqual(state.count, 0, "a category with no apps is empty without any search")
     }
 
     func testIndexEdgeCasesAndYAMLParsing() {

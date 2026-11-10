@@ -108,33 +108,35 @@ extension BrandIcon {
 
 struct DockPlate: View {
     var theme: String
+    var cornerRadius: CGFloat = 27
     @Environment(\.accessibilityReduceTransparency) private var opaque
     @Environment(\.colorSchemeContrast) private var contrast
     var body: some View {
         Group {
             #if compiler(>=6.2)
             if #available(macOS 26.0, *), !opaque, theme != "Graphite" {
-                NativeDockGlass()
-            } else { RoundedRectangle(cornerRadius: 27).fill(.ultraThinMaterial) }
+                NativeDockGlass(cornerRadius: cornerRadius)
+            } else { RoundedRectangle(cornerRadius: cornerRadius).fill(.ultraThinMaterial) }
             #else
-            RoundedRectangle(cornerRadius: 27).fill(.ultraThinMaterial)
+            RoundedRectangle(cornerRadius: cornerRadius).fill(.ultraThinMaterial)
             #endif
         }
 
-            .overlay { if theme == "Graphite" || opaque { RoundedRectangle(cornerRadius:27).fill(Color(nsColor:.windowBackgroundColor)) } }
-            .overlay(RoundedRectangle(cornerRadius:27).stroke(Color.primary.opacity(contrast == .increased ? 0.6 : 0.12)))
+            .overlay { if theme == "Graphite" || opaque { RoundedRectangle(cornerRadius: cornerRadius).fill(Color(nsColor:.windowBackgroundColor)) } }
+            .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.primary.opacity(contrast == .increased ? 0.6 : 0.12)))
     }
 }
 
 #if compiler(>=6.2)
 @available(macOS 26.0, *)
 struct NativeDockGlass: NSViewRepresentable {
+    var cornerRadius: CGFloat
     func makeNSView(context: Context) -> NSGlassEffectView {
-        let view = NSGlassEffectView(); view.cornerRadius = 27; view.style = .regular
+        let view = NSGlassEffectView(); view.cornerRadius = cornerRadius; view.style = .regular
         return view
     }
     func updateNSView(_ view: NSGlassEffectView, context: Context) {
-        view.cornerRadius = 27
+        view.cornerRadius = cornerRadius
         view.appearance = NSAppearance(named: context.environment.colorScheme == .dark ? .darkAqua : .aqua)
     }
 }
