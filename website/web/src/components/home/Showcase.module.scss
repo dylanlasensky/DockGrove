@@ -1438,16 +1438,66 @@
 .submenu {
   min-width: 160px;
 }
+.menuChoices button {
+  min-width: 44px;
+}
+@media (max-width: 1000px) {
+  .launcherGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .segmented.segmented button {
+    flex: 1;
+    min-height: 44px;
+    white-space: nowrap;
+  }
+  .search {
+    padding-block: 2px;
+  }
+  .search input {
+    min-height: 44px;
+  }
+}
+/* No room for a side-by-side submenu: the tall stage keeps the menu, its anchor and the choices apart. */
 @media (max-width: 760px) {
+  .launcher {
+    padding: 16px 14px 14px;
+  }
+  .segmented {
+    flex: 1 1 auto;
+  }
+  /* Below 16px, iOS Safari zooms the page when the field takes focus. */
+  .search input {
+    font-size: 16px;
+  }
+  .menuStage {
+    height: 384px;
+  }
   .menuStage > .menu {
+    top: 14px;
     left: 14px;
   }
   .barMenu {
+    top: auto !important;
+    bottom: 132px;
     left: 14px !important;
   }
+  .menuAnchor,
+  .miniDock {
+    bottom: 66px;
+  }
+  .menuChoices {
+    left: 10px;
+    display: grid;
+    grid-template-columns: 1fr 1.5fr 1fr;
+  }
+  /* A blur inside a blurred menu does not render, so an overlapping submenu must be opaque. */
+  .menuHover {
+    z-index: 1;
+  }
   .submenu {
-    left: 50px;
-    min-width: 160px;
+    left: 72px;
+    top: 26px;
+    background: #f4f6f9;
   }
 }
 
@@ -1739,9 +1789,9 @@
   opacity: 0;
 }
 .sizeDock i {
-  flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
+  flex: 0 1 30px;
+  min-width: 0;
+  aspect-ratio: 1;
   border-radius: 8px;
   background: linear-gradient(145deg, #5ea2f8, #3478f6);
 }
@@ -1771,6 +1821,7 @@
 .sizeHint {
   position: absolute;
   left: 22px;
+  right: 22px;
   top: 18px;
   margin: 0;
   color: #eef2f7;
@@ -1811,27 +1862,42 @@
   align-items: center;
   gap: 12px;
 }
-.sizeRow output {
+.sizeRow span {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 .sizeSlider {
+  display: block;
   width: 100%;
-  min-height: 28px;
+  min-height: 44px;
+  margin: 0;
   accent-color: #3478f6;
+}
+.sizeToggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
 }
 .sizeSwitch {
   position: relative;
   flex: 0 0 auto;
   width: 44px;
   height: 26px;
-  border: 0;
   border-radius: 99px;
   background: color-mix(in srgb, currentColor 22%, transparent);
-  cursor: pointer;
   transition: background 0.2s;
 }
-.sizeSwitch[aria-checked="true"] {
+.sizeToggle[aria-checked="true"] .sizeSwitch {
   background: #3478f6;
 }
 .sizeSwitch::after {
@@ -1846,10 +1912,10 @@
   box-shadow: 0 1px 2px #0005;
   transition: transform 0.2s var(--spring);
 }
-.sizeSwitch[aria-checked="true"]::after {
+.sizeToggle[aria-checked="true"] .sizeSwitch::after {
   transform: translateX(18px);
 }
-.sizeSwitch:focus-visible,
+.sizeToggle:focus-visible,
 .sizePresets button:focus-visible,
 .hideButton:focus-visible {
   outline: 2px solid #3478f6;
@@ -1859,6 +1925,15 @@
   margin-left: 6px;
   font: inherit;
   opacity: 0.65;
+}
+.sizeStatus {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .sizeNote {
   margin: 0;
@@ -1885,8 +1960,7 @@
     padding: 0 8px;
   }
   .sizeDock i {
-    width: 20px;
-    height: 20px;
+    flex-basis: 20px;
     border-radius: 6px;
   }
 }

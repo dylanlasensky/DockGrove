@@ -763,7 +763,8 @@ extension Binding: IntegrationsAnyBinding {
 
     func testUsageStorageMergeAndValidation() throws {
         let root = try IntegrationsUI.temporaryDirectory(self)
-        let now = Date()
+        // Keep the clock within usageText's fixture window, independent of the test run date.
+        let now = Self.date(2026, 11, 3, 12, 0)
         // A report saved before /usage support (no optional fields) still loads.
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let old = #"{"provider":"claude","observed":\#(now.timeIntervalSinceReferenceDate - 60),"windows":[{"name":"Weekly window","used":12,"resets":\#(now.timeIntervalSinceReferenceDate + 600)}],"models":[],"sessionCost":0.5}"#
@@ -777,6 +778,10 @@ extension Binding: IntegrationsAnyBinding {
         let loaded = try LocalAIStore.load(.claude, directory: root, usage: true)
         XCTAssertEqual(loaded.windows.count, 3); XCTAssertEqual(loaded.windows[2].resetText, "soon"); XCTAssertNil(loaded.windows[2].resets)
         XCTAssertEqual(loaded.activeWindows(at: now).count, 3, "A window without a readable reset stays active")
+        let reset = Self.date(2026, 11, 6, 19, 59)
+        XCTAssertEqual(loaded.activeWindows(at: reset.addingTimeInterval(-1)).count, 3)
+        XCTAssertEqual(loaded.activeWindows(at: reset).map(\.name), ["5-hour window"], "Known windows expire at their reset")
+        XCTAssertEqual(loaded.activeWindows(at: reset.addingTimeInterval(86400)).map(\.name), ["5-hour window"], "An unknown reset remains active after the known windows expire")
 
         // Fresh /usage wins and keeps the status line's cost; a stale one yields to a newer status line.
         let merged = try XCTUnwrap(LocalAIReport.merged(statusLine: line, usage: loaded, now: now))
