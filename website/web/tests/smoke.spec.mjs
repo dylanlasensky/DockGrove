@@ -31,7 +31,10 @@ function resolveFile(pathname){
 
 const headers=siteHeaders();
 const server=http.createServer((req,res)=>{
- const file=resolveFile(new URL(req.url,'http://localhost').pathname);
+ const pathname=new URL(req.url,'http://localhost').pathname;
+ // API-enabled builds need a local product endpoint too. Serve the same disabled fixture;
+ // this test server never connects to commerce services or enables checkout.
+ const file=resolveFile(req.method==='GET'&&pathname==='/api/product'?'/product.json':pathname);
  const served=file??path.join(out,'404.html');
  res.writeHead(file?200:404,{...headers,'Content-Type':types[path.extname(served)]??'application/octet-stream'});
  fs.createReadStream(served).pipe(res);
@@ -95,6 +98,14 @@ after(async()=>{
  await browser?.close();
  server.closeAllConnections();
  await new Promise(resolve=>server.close(resolve));
+});
+
+test('local product API fixture matches the static policy and keeps checkout disabled',async()=>{
+ const response=await fetch(origin+'/api/product');
+ assert.equal(response.status,200);
+ const product=await response.json();
+ assert.deepEqual(product,JSON.parse(fs.readFileSync(path.join(out,'product.json'),'utf8')));
+ assert.equal(product.available,false);
 });
 
 for(const route of routes){
