@@ -122,3 +122,248 @@ for(const route of routes){
   assert.deepEqual({...report,consoleErrors:report.consoleErrors.map(local),failedRequests:report.failedRequests.map(local)},{consoleErrors:[],failedRequests:[],crossOrigin:[],overflow:[]});
  });
 }
+
+/** Opens the home page with reveals settled; `run` gets the page, and the context always closes. */
+async function withHome(viewport,run){
+ const context=await browser.newContext({viewport,reducedMotion:'reduce'});
+ try{
+  const page=await context.newPage();
+  await page.goto(origin,{waitUntil:'load'});
+  await run(page);
+ }finally{await context.close();}
+}
+
+/** Runs in the page: where the preview Dock sits in its stage, plus the fit of its tiles. */
+function measureDock(){
+ const dock=document.querySelector('#dock-size [class*="sizeDock"]');
+ const stage=dock.parentElement.getBoundingClientRect();
+ const box=dock.getBoundingClientRect();
+ const tiles=[...dock.querySelectorAll('i')].map(tile=>tile.getBoundingClientRect());
+ return {share:box.width/stage.width*100,clear:box.top-stage.bottom,tiles:tiles.length,inside:tiles.every(tile=>tile.left>=box.left&&tile.right<=box.right)};
+}
+
+test('mobile menu: Escape closes it wherever focus is and returns focus to the button',async()=>{
+ await withHome({width:390,height:844},async page=>{
+  const menu=page.getByRole('button',{name:'Toggle navigation'});
+  const target=await menu.boundingBox();
+  assert.ok(target.width>=44&&target.height>=44,'navigation button has a 44px touch target');
+  const onButton=()=>page.evaluate(()=>document.activeElement?.getAttribute('aria-label'));
+  await menu.click();
+  await page.evaluate(()=>document.activeElement?.blur()); // Safari leaves a clicked button unfocused.
+  assert.equal(await menu.getAttribute('aria-expanded'),'true');
+  await page.keyboard.press('Escape');
+  assert.equal(await menu.getAttribute('aria-expanded'),'false');
+  assert.equal(await onButton(),'Toggle navigation');
+
+  await menu.click();
+  await page.locator('#main-navigation-links a').first().focus();
+  await page.keyboard.press('Escape');
+  assert.equal(await menu.getAttribute('aria-expanded'),'false');
+  assert.equal(await onButton(),'Toggle navigation');
+
+  await page.getByRole('searchbox',{name:'Search applications'}).focus(); // Closed: Escape is not ours.
+  await page.keyboard.press('Escape');
+  assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('aria-label')),'Search applications');
+ });
+});
+
+test('Dock size: the slider turns Fit off, as in the app',async()=>{
+ await withHome({width:1280,height:844},async page=>{
+  const section=page.locator('#dock-size');
+  const fit=section.getByRole('switch',{name:'Fit length to content'});
+  const slider=section.getByRole('slider',{name:'Dock length'});
+  const status=section.getByRole('status');
+  assert.deepEqual([await slider.getAttribute('min'),await slider.getAttribute('max')],['35','100']);
+  assert.equal(await section.getByText('Moving the Dock length slider turns this off.').count(),0);
+
+  await fit.focus();
+  await page.keyboard.press('Space');
+  assert.equal(await fit.getAttribute('aria-checked'),'true');
+  assert.equal(await section.getByText('Moving the Dock length slider turns this off.').count(),1);
+  assert.equal(await status.textContent(),'Fit length to content is on.');
+
+  await slider.focus();
+  await page.keyboard.press('ArrowLeft');
+  assert.equal(await slider.inputValue(),'84');
+  assert.equal(await fit.getAttribute('aria-checked'),'false');
+  assert.equal(await section.getByText('84%').count(),1);
+  assert.equal(await status.textContent(),'Fit length to content is off.');
+  assert.equal(await section.getByText('Moving the Dock length slider turns this off.').count(),0);
+ });
+});
+
+test('Dock size: presets match Studio and leave Fit off',async()=>{
+ await withHome({width:390,height:844},async page=>{
+  const section=page.locator('#dock-size');
+  const fit=section.getByRole('switch',{name:'Fit length to content'});
+  const slider=section.getByRole('slider',{name:'Dock length'});
+  for(const [name,length] of [['Compact',65],['Balanced',85],['Spacious',100]]){
+   await fit.click();
+   const preset=section.getByRole('button',{name});
+   await preset.click();
+   assert.equal(await slider.inputValue(),String(length),name);
+   assert.equal(await preset.getAttribute('aria-pressed'),'true',name);
+   assert.equal(await fit.getAttribute('aria-checked'),'false',name);
+   assert.ok(Math.abs((await page.evaluate(measureDock)).share-length)<0.5,name);
+  }
+ });
+});
+
+test('Dock size: hiding takes the Dock out of the stage and is keyboard operable',async()=>{
+ await withHome({width:390,height:844},async page=>{
+  const section=page.locator('#dock-size');
+  await section.getByRole('button',{name:'Spacious'}).focus(); // The tallest Dock has the furthest to go.
+  await page.keyboard.press('Enter');
+  // Safari's Tab skips buttons and sliders by default; Option-Tab reaches every control.
+  await page.keyboard.press('Alt+Tab');
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'dock-length');
+  await page.keyboard.press('Alt+Tab');
+  assert.equal(await page.evaluate(()=>document.activeElement.getAttribute('role')),'switch');
+  await page.keyboard.press('Alt+Tab');
+  assert.match(await page.evaluate(()=>document.activeElement.textContent),/^Turn Hiding On/);
+  await page.keyboard.press('Enter');
+  assert.ok((await page.evaluate(measureDock)).clear>=0,'the hidden Dock is below the stage');
+  assert.equal(await section.getByRole('status').textContent(),'Hiding is on. The Dock is out of sight.');
+  await section.getByRole('button',{name:/Turn Hiding Off/}).click();
+  assert.ok((await page.evaluate(measureDock)).clear<0,'the Dock is back');
+ });
+});
+
+for(const width of [320,390,768,1280]){
+ test(`Dock size at ${width}px: 44px targets, tiles stay inside the Dock, no overflow`,async()=>{
+  await withHome({width,height:844},async page=>{
+   await page.evaluate(scrollThrough);
+   const section=page.locator('#dock-size');
+   const small=await section.evaluate(root=>[...root.querySelectorAll('button,input')].map(el=>[el.textContent||el.id,el.getBoundingClientRect().height]).filter(([,height])=>height<44));
+   assert.deepEqual(small,[]);
+   const slider=section.getByRole('slider',{name:'Dock length'});
+   for(const value of ['35','100']){
+    await slider.fill(value);
+    const dock=await page.evaluate(measureDock);
+    assert.ok(dock.inside,`${dock.tiles} tiles at ${value}%`);
+   }
+   assert.deepEqual(await page.evaluate(findTextOverflow),[]);
+  });
+ });
+}
+
+for(const width of [320,390]){
+ test(`Launcher at ${width}px: 44px controls and a menu that clears its choices`,async()=>{
+  await withHome({width,height:844},async page=>{
+   const launcher=page.locator('#launcher');
+   const small=await launcher.evaluate(root=>[...root.querySelectorAll('button,input')].map(el=>[el.textContent||el.getAttribute('aria-label'),el.getBoundingClientRect().height]).filter(([,height])=>height<44));
+   assert.deepEqual(small,[]);
+   for(const name of ['App','Option key','Dock']){
+    await launcher.getByRole('button',{name,exact:true}).click();
+    const clear=await launcher.evaluate(root=>{
+     const stage=root.querySelector('[class*="menuStage"]');
+     const edge=rect=>rect.getBoundingClientRect();
+     const menu=stage.querySelector(':scope > [class*="menu"][aria-hidden]');
+     const anchor=stage.querySelector('img,[class*="miniDock"]');
+     const choices=stage.querySelector('[role="group"]');
+     return edge(menu).bottom<=edge(anchor).top&&edge(anchor).bottom<=edge(choices).top&&edge(choices).right<=edge(stage).right;
+    });
+    assert.ok(clear,name);
+   }
+  });
+ });
+}
+/** The notch section at `viewport`, scrolled into view, with its state read from the Closed button. */
+async function openNotchSection(viewport,options={}){
+ const context=await browser.newContext({viewport,reducedMotion:'reduce',...options});
+ await context.route(url=>/^https?:$/.test(url.protocol)&&url.origin!==origin,request=>request.abort());
+ const page=await context.newPage();
+ await page.goto(origin+'/',{waitUntil:'load'});
+ const button=name=>page.locator('#notch').getByRole('button',{name,exact:true});
+ await button('Home').scrollIntoViewIfNeeded();
+ await page.locator('#notch-desktop-preview').scrollIntoViewIfNeeded();
+ const shelfOpen=()=>page.locator('#notch [class*="shelfHeader"]').count().then(Boolean);
+ const until=async expected=>{for(let i=0;i<60&&await shelfOpen()!==expected;i++)await page.waitForTimeout(50);assert.equal(await shelfOpen(),expected,`shelf open is ${expected}`);};
+ const box=await page.locator('#notch [class*="cameraHousing"]').boundingBox();
+ const point={x:box.x+box.width/2,y:box.y+box.height/2};
+ const desktop=await page.locator('#notch-desktop-preview').boundingBox();
+ const away={x:desktop.x+desktop.width/2,y:desktop.y+desktop.height*0.75};
+ return {context,page,button,shelfOpen,until,point,away};
+}
+
+test('WebKit notch preview: hover opens and closes, a click keeps it open',async()=>{
+ const {context,page,button,shelfOpen,until,point,away}=await openNotchSection({width:1280,height:800});
+ const {mouse}=page;
+
+ // A shelf opened by a button ignores the pointer leaving.
+ assert.equal(await shelfOpen(),true,'starts open on Home');
+ await mouse.move(point.x,point.y);
+ await mouse.move(away.x,away.y);
+ await page.waitForTimeout(900);
+ assert.equal(await shelfOpen(),true,'button-opened shelf stays open');
+
+ // Hover opens after a pause and closes after the grace period; the shelf itself counts as inside.
+ await button('Closed').click();
+ assert.equal(await shelfOpen(),false);
+ await mouse.move(point.x,point.y);
+ await until(true);
+ await mouse.move(point.x,point.y+(await page.locator('#notch [class*="shelfHeader"]').boundingBox()).height);
+ await page.waitForTimeout(900);
+ assert.equal(await shelfOpen(),true,'pointer inside the shelf keeps it open');
+ await mouse.move(away.x,away.y);
+ await until(false);
+
+ // Esc closes a hover-opened shelf, and hover cannot reopen it until the pointer leaves and returns.
+ await mouse.move(point.x,point.y);
+ await until(true);
+ await page.keyboard.press('Escape');
+ assert.equal(await shelfOpen(),false);
+ await page.waitForTimeout(400);
+ assert.equal(await shelfOpen(),false,'no reopen while the pointer rests on the notch');
+ await mouse.move(away.x,away.y);
+
+ // As in the app, clicking the housing of an open shelf closes it, even one hover opened.
+ await mouse.move(point.x,point.y);
+ await until(true);
+ await mouse.click(point.x,point.y);
+ assert.equal(await shelfOpen(),false,'click closes a hover-opened shelf');
+
+ // Clicking the resting notch keeps it open past the grace period, until something closes it.
+ await mouse.click(point.x,point.y);
+ assert.equal(await shelfOpen(),true,'click opens');
+ await mouse.move(away.x,away.y);
+ await page.waitForTimeout(900);
+ assert.equal(await shelfOpen(),true,'clicked-open shelf stays open');
+ await mouse.click(away.x,away.y);
+ assert.equal(await shelfOpen(),false,'click outside closes');
+
+ await mouse.click(point.x,point.y);
+ await mouse.move(away.x,away.y);
+ await page.keyboard.press('Escape');
+ assert.equal(await shelfOpen(),false,'Esc closes');
+ await context.close();
+});
+
+test('WebKit notch preview: the buttons work by keyboard and touch, without hover',async()=>{
+ const keyboard=await openNotchSection({width:1280,height:800});
+ await keyboard.button('Files').focus();
+ await keyboard.page.keyboard.press('Enter');
+ const zones=keyboard.page.locator('#notch [class*="dropZone"]');
+ assert.deepEqual(await zones.locator('b').allTextContents(),['File tray','AirDrop']);
+ const [tray,airDrop]=await zones.evaluateAll(all=>all.map(zone=>zone.getBoundingClientRect().width));
+ const scale=await keyboard.page.locator('#notch [class*="shelfHeader"]').evaluate(header=>header.getBoundingClientRect().width/760);
+ assert(Math.abs(tray-359*scale)<1&&Math.abs(airDrop-359*scale)<1,`half-width drop zones at ${scale}`);
+ assert.match(await keyboard.page.locator('#notch-desktop-preview').getAttribute('aria-label'),/^Notch shelf preview: open on Files.*Sample data\.$/);
+ await keyboard.button('Closed').focus();
+ await keyboard.page.keyboard.press('Space');
+ assert.equal(await keyboard.shelfOpen(),false);
+ assert.match(await keyboard.page.locator('#notch-desktop-preview').getAttribute('aria-label'),/^Notch shelf preview: closed.*Sample data\.$/);
+ await keyboard.context.close();
+
+ const touch=await openNotchSection({width:390,height:844},{hasTouch:true});
+ await touch.button('Closed').tap();
+ assert.equal(await touch.shelfOpen(),false);
+ await touch.button('Files').tap();
+ assert.equal(await touch.shelfOpen(),true);
+ await touch.page.waitForTimeout(900);
+ assert.equal(await touch.shelfOpen(),true,'stays open without a pointer');
+ const desktop=await touch.page.locator('#notch-desktop-preview').boundingBox(); // Tapping may have scrolled.
+ await touch.page.touchscreen.tap(desktop.x+desktop.width/2,desktop.y+desktop.height*0.75);
+ assert.equal(await touch.shelfOpen(),false,'a tap outside closes');
+ await touch.context.close();
+});

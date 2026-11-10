@@ -1094,6 +1094,9 @@ button.tile:active {
   }
   .menu {
     display: block;
+    min-width: 44px;
+    min-height: 44px;
+    flex-shrink: 0;
     border: 0;
     background: none;
     color: #526176;
