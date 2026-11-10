@@ -12,6 +12,8 @@ RUN npm ci --no-audit --no-fund
 
 FROM deps AS build
 ENV NEXT_TELEMETRY_DISABLED=1
+# This image always proxies /api/* to API_UPSTREAM, so the client may call it.
+ARG NEXT_PUBLIC_API_ENABLED=true
 COPY backend/product.mjs /src/backend/product.mjs
 # tests/site.test.mjs checks that the Worker config serves out/ without paid bindings.
 COPY wrangler.jsonc /src/wrangler.jsonc

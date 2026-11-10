@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import DocumentPage from "@/components/commerce/DocumentPage";
 import RecoveryFlow from "@/components/commerce/RecoveryFlow";
+import { sharedOpenGraph } from "@/lib/metadata";
 import { fine, h1, p } from "@/components/commerce/classes";
 
+const title = "Restore purchase — DockGrove";
+
 export const metadata: Metadata = {
-  title: { absolute: "Restore purchase — DockGrove" },
+  title: { absolute: title },
+  alternates: { canonical: "/recover" },
+  openGraph: { ...sharedOpenGraph, title, url: "/recover" },
 };
 
 export default function RecoverPage() {

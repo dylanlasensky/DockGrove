@@ -4,7 +4,7 @@ import type {CSSProperties} from "react";
 import Image from "next/image";
 import Reveal from "./Reveal";
 import {useProduct} from "@/lib/home/useProduct";
-import s from "./Closing.module.css";
+import s from "./Closing.module.scss";
 
 export default function ReleaseSection() {
   const product = useProduct(true);

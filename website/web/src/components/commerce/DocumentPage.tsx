@@ -19,9 +19,9 @@ export default function DocumentPage({ children }: { children: ReactNode }) {
             ← Back to DockGrove
           </Link>{" "}
           ·{" "}
-          <a className={link} href="https://github.com/dylanlasensky/DockGrove/issues">
+          <Link className={link} href="/support">
             Support
-          </a>{" "}
+          </Link>{" "}
           ·{" "}
           <Link className={link} href="/privacy">
             Privacy

@@ -2,7 +2,7 @@
 
 import Reveal from "./Reveal";
 import {FAQ} from "@/lib/home/faq";
-import s from "./Closing.module.css";
+import s from "./Closing.module.scss";
 
 export default function AskSection() {
   return <section id="questions" className={s.ask}>

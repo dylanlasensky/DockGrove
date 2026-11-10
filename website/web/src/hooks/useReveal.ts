@@ -13,7 +13,7 @@ import { useEffect, useRef, type RefObject } from "react";
  *   }
  *
  * The matching CSS (`.reveal`, `.motion-ready .reveal`, `.motion-ready .reveal.is-visible`)
- * lives in src/app/globals.css. Put `className="reveal"` on the element you attach the ref to.
+ * lives in src/app/globals.scss. Put `className="reveal"` on the element you attach the ref to.
  * Without JavaScript (or with Reduced Motion) everything stays visible, as in the original.
  */
 

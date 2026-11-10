@@ -44,6 +44,13 @@ export const UNAVAILABLE_MESSAGE =
   "This service is temporarily unavailable. Please try again.";
 export const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
 
+/**
+ * Whether this build has a commerce API behind `/api/*`. Next inlines the variable
+ * at build time, so it must stay spelled out in full and changing it needs a rebuild.
+ * Off by default: `loadProduct` then reads `/product.json` and never probes the API.
+ */
+export const API_ENABLED = process.env.NEXT_PUBLIC_API_ENABLED === "true";
+
 type Fetch = typeof fetch;
 
 /** Same request shape as app.js `api(path, body)`: GET without a body, POST JSON with one. */
@@ -58,10 +65,12 @@ export async function api<T>(
     credentials: "same-origin",
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const result = (await response.json().catch(() => ({}))) as {
-    error?: string;
-  };
-  if (!response.ok) throw new Error(result.error || UNAVAILABLE_MESSAGE);
+  const result: unknown = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    // A JSON body may be anything: only a non-empty string reaches the visitor.
+    const message = (result as { error?: unknown } | null)?.error;
+    throw new Error(typeof message === "string" && message ? message : UNAVAILABLE_MESSAGE);
+  }
   return result as T;
 }
 
@@ -69,8 +78,15 @@ export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : GENERIC_ERROR_MESSAGE;
 }
 
-/** GET /api/product, falling back to the static /product.json policy. Throws when both fail. */
-export async function loadProduct(fetchImpl: Fetch = fetch): Promise<Product> {
+/**
+ * With the API enabled: GET /api/product, falling back to the static /product.json
+ * policy. Otherwise /product.json alone. Throws when nothing loads.
+ */
+export async function loadProduct(
+  fetchImpl: Fetch = fetch,
+  apiEnabled: boolean = API_ENABLED,
+): Promise<Product> {
+  if (!apiEnabled) return api<Product>("/product.json", undefined, fetchImpl);
   try {
     return await api<Product>("/api/product", undefined, fetchImpl);
   } catch {

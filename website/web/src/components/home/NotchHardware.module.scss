@@ -1,0 +1,558 @@
+.section {
+  background: #080b10;
+  color: #fff;
+  padding: 80px 40px;
+  overflow: hidden;
+}
+.inner {
+  max-width: 1220px;
+  margin: auto;
+  display: grid;
+  grid-template-columns: 0.7fr 1.65fr;
+  gap: 48px;
+  align-items: center;
+}
+.copy {
+  padding-bottom: 24px;
+}
+.eyebrow {
+  color: #8194ad;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  margin: 0 0 18px;
+}
+.copy h2 {
+  font-size: clamp(32px, 3.4vw, 48px);
+  line-height: 1.05;
+  letter-spacing: -0.045em;
+  font-weight: 600;
+  margin: 0;
+}
+.description {
+  font-size: 17px;
+  line-height: 1.55;
+  color: #b4bfce;
+  margin: 18px 0 24px;
+}
+.controls {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: #ffffff06;
+  border: 1px solid #ffffff16;
+  border-radius: 12px;
+}
+.controls button {
+  min-height: 44px;
+  padding: 0 17px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #93a3b9;
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    background 0.18s,
+    color 0.18s;
+}
+.controls button[aria-pressed="true"] {
+  background: #ffffff13;
+  color: white;
+}
+.controls button:hover {
+  color: white;
+  background: #ffffff0c;
+}
+.controls button:focus-visible {
+  outline: 2px solid #80b7ff;
+  outline-offset: 3px;
+}
+.notchPoints {
+  display: grid;
+  gap: 12px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+  color: #b4bfce;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.notchPoints + .compatibility {
+  margin-top: 16px;
+}
+.notchPoints b {
+  display: block;
+  color: #fff;
+  font-weight: 600;
+}
+.compatibility {
+  color: #8c9cb2;
+  font-size: 10px;
+  margin: 18px 0 0;
+}
+.visual {
+  min-width: 0;
+}
+.laptop {
+  position: relative;
+  padding: 0 18px 20px;
+  filter: drop-shadow(0 24px 30px #0008);
+}
+.lid {
+  padding: 7px 7px 0;
+  border: 1px solid #737d8a8a;
+  border-radius: 17px 17px 4px 4px;
+  background: linear-gradient(140deg, #4f555f, #1b2027 35%, #444c56);
+  box-shadow: inset 0 1px 1px #ffffff30;
+}
+.display {
+  position: relative;
+  aspect-ratio: 1.6;
+  overflow: hidden;
+  border-radius: 9px 9px 0 0;
+  background: #738aaa;
+}
+/* Fixed logical geometry prevents phone layouts from inflating the shelf relative to the screen. */
+.surface {
+  position: absolute;
+  width: 1440px;
+  height: 900px;
+  left: 0;
+  top: 0;
+  transform-origin: top left;
+  transform: scale(var(--screen-scale, 0.5));
+  background:
+    radial-gradient(ellipse at 0 100%, #c0d4e9 0, transparent 66%),
+    radial-gradient(ellipse at 100% 0, #849ac4, transparent 56%),
+    linear-gradient(140deg, #b9cbe2, #607fa4 70%, #496281);
+}
+.surface::before {
+  content: "";
+  position: absolute;
+  width: 1700px;
+  height: 700px;
+  bottom: -270px;
+  left: -430px;
+  border-radius: 50%;
+  transform: rotate(-24deg);
+  border: 1px solid #f4faff55;
+  box-shadow: 0 -40px 100px #edf8ff24;
+}
+.menuBar {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  font-size: 12px;
+  color: #17253b;
+  background: #eff5ff40;
+}
+.menuBar > span {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.menuBar i {
+  font-style: normal;
+}
+.menuBar em {
+  width: 20px;
+  height: 9px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  position: relative;
+}
+.menuBar em::after {
+  content: "";
+  position: absolute;
+  inset: 2px 4px 2px 2px;
+  background: currentColor;
+}
+.cameraHousing {
+  position: absolute;
+  left: 627.5px;
+  top: 0;
+  width: 185px;
+  height: 32px;
+  background: #020304;
+  border-radius: 0 0 10px 10px;
+  z-index: 5;
+  cursor: pointer;
+}
+.cameraHousing > span {
+  position: absolute;
+  left: 89px;
+  top: 12px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 25%, #36516d, #0e1822 60%, #020304);
+}
+.shelf {
+  position: absolute;
+  left: 340px;
+  top: 0;
+  width: 760px;
+  height: 144px;
+  background: #030405;
+  color: white;
+  border-radius: 0 0 20px 20px;
+  z-index: 3;
+  box-shadow: 0 12px 28px #15243d50;
+  animation: appear 0.2s ease-out;
+}
+.shelfHeader {
+  display: grid;
+  grid-template-columns: 1fr 185px 1fr;
+  height: 32px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  font-size: 11px;
+  color: #969a9e;
+}
+.shelfHeader > div {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
+.shelfHeader button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 500;
+  padding: 5px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.shelfHeader button[data-active="true"] {
+  background: #ffffff15;
+  color: white;
+}
+.shelfHeader .collapse {
+  padding: 5px 0 5px 9px;
+}
+.cards {
+  display: flex;
+  gap: 14px;
+  height: 84px;
+  margin: 6px 16px 0;
+}
+.cards > div {
+  background: #ffffff0c;
+  border-radius: 13px;
+}
+.music {
+  width: 320px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+}
+.music > span {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #ffffff0c;
+  font-size: 26px;
+}
+.music > div {
+  flex: 1;
+}
+.music b,
+.dropZone b {
+  font-size: 14px;
+  font-weight: 600;
+}
+.cards small {
+  display: block;
+  font-size: 12px;
+  color: #8e9299;
+  margin-top: 6px;
+}
+.music i {
+  font-size: 13px;
+  font-style: normal;
+  color: #bbc7d5;
+}
+.focus {
+  width: 208px;
+  padding: 10px 26px;
+}
+.focus small {
+  margin: 1px 0 4px;
+}
+.focus b {
+  font-size: 25px;
+  font-weight: 400;
+}
+.focus i {
+  font-size: 13px;
+  font-style: normal;
+  margin-left: 14px;
+  vertical-align: middle;
+}
+.fileCards {
+  gap: 10px;
+}
+/* NotchFileLayout.halfWidth: (760 − 32 − 10) / 2. */
+.cards > .dropZone {
+  box-sizing: border-box;
+  width: 359px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  background: #ffffff0d;
+  border: 1px dashed #ffffff33;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.dropZone svg {
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cards .dropZone small {
+  margin-top: 4px;
+}
+.dropZone em {
+  display: block;
+  margin-top: 4px;
+  font-size: 9px;
+  font-style: normal;
+  color: #8e9299;
+}
+@media (hover: hover) {
+  .cards > .dropZone:hover {
+    background: #0a84ff2e;
+    border-color: #0a84ff;
+  }
+}
+.pages {
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 8px;
+}
+.pages i,
+.pages b {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 99px;
+  background: #44474c;
+}
+.pages b {
+  width: 18px;
+  background: #e5e6e9;
+}
+.desktopWindow {
+  position: absolute;
+  left: 320px;
+  top: 225px;
+  width: 800px;
+  height: 465px;
+  background: #f6f8fbea;
+  color: #26384f;
+  border: 1px solid #ffffffa0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 45px #10213c26;
+}
+.windowHeader {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 0 18px;
+  border-bottom: 1px solid #45526915;
+  font-size: 12px;
+  background: #fcfdfe90;
+}
+.windowHeader > span {
+  display: flex;
+  gap: 7px;
+}
+.windowHeader i {
+  width: 9px;
+  height: 9px;
+  background: #ff665d;
+  border-radius: 50%;
+}
+.windowHeader i:nth-child(2) {
+  background: #eec259;
+}
+.windowHeader i:nth-child(3) {
+  background: #68c362;
+}
+.windowHeader b {
+  font-weight: 550;
+}
+.windowBody {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  height: 421px;
+}
+.windowBody aside {
+  display: flex;
+  flex-direction: column;
+  gap: 21px;
+  padding: 30px 24px;
+  background: #dce3ec90;
+  color: #6b7a8e;
+  font-size: 12px;
+}
+.windowBody aside b {
+  font-size: 10px;
+  color: #8f9cad;
+}
+.windowBody > div {
+  padding: 70px 70px;
+}
+.windowBody small {
+  color: #8a98ab;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+.windowBody h3 {
+  font-size: 42px;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  margin: 16px 0 24px;
+  font-weight: 600;
+}
+.swatches {
+  display: flex;
+  gap: 10px;
+}
+.swatches i {
+  width: 62px;
+  height: 22px;
+  border-radius: 4px;
+  background: #a7c1e2;
+}
+.swatches i:nth-child(2) {
+  background: #d3dfeb;
+}
+.swatches i:nth-child(3) {
+  background: #4c6e96;
+}
+.realDock {
+  position: absolute;
+  left: 142px;
+  bottom: 18px;
+  width: 1156px;
+  z-index: 2;
+  mix-blend-mode: multiply;
+}
+.realDock img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.chin {
+  height: 9px;
+  background: #11151b;
+  border-radius: 0 0 3px 3px;
+}
+.base {
+  position: absolute;
+  bottom: 7px;
+  left: 0;
+  right: 0;
+  height: 13px;
+  border-radius: 1px 1px 45% 45% / 1px 1px 85% 85%;
+  border-top: 1px solid #eff5fc66;
+  background: linear-gradient(#a9b1bc, #d2d8e0 12%, #7c8795 55%, #424c59 62%, #252d37);
+  box-shadow: 0 7px 12px #0007;
+}
+.base > span {
+  position: absolute;
+  left: 43%;
+  right: 43%;
+  top: 0;
+  height: 4px;
+  background: linear-gradient(#65717e, #b4becb);
+  border-radius: 0 0 6px 6px;
+}
+.caption {
+  font-size: 10px;
+  color: #718198;
+  text-align: center;
+  margin: 10px 0 0;
+}
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (max-width: 900px) {
+  .section {
+    padding: 56px 22px;
+  }
+  .inner {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+  .copy {
+    padding: 0;
+    text-align: center;
+  }
+  .description {
+    font-size: 16px;
+    margin: 14px 0 20px;
+  }
+  .description br {
+    display: none;
+  }
+  .compatibility {
+    margin-top: 14px;
+  }
+  .laptop {
+    max-width: 780px;
+    margin: auto;
+    padding: 0 10px 18px;
+  }
+  .lid {
+    padding: 5px 5px 0;
+    border-radius: 11px 11px 4px 4px;
+  }
+  .display {
+    border-radius: 6px 6px 0 0;
+  }
+  .chin {
+    height: 6px;
+  }
+  .base {
+    height: 11px;
+  }
+  .caption {
+    font-size: 9px;
+    margin-top: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shelf {
+    animation: none;
+  }
+  .controls button,
+  .cards > .dropZone {
+    transition: none;
+  }
+}

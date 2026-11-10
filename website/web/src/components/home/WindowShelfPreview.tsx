@@ -1,7 +1,7 @@
 "use client";
 
 import {useEffect, useId, useRef, useState} from "react";
-import s from "./RefinedLanding.module.css";
+import s from "./RefinedLanding.module.scss";
 
 const SAMPLES = [
   {id: "finder", app: "Finder", title: "Current project", minimized: false},
@@ -12,6 +12,7 @@ const SAMPLES = [
 export default function WindowShelfPreview() {
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
   const searchField = useRef<HTMLInputElement>(null);
   const dialogID = useId();
   const restoreFocus = useRef(false);
@@ -22,6 +23,7 @@ export default function WindowShelfPreview() {
   }, [open]);
   useEffect(() => {
     if (!open) return;
+    dialog.current?.focus();
     const outside = (event: PointerEvent) => { if (!root.current?.contains(event.target as Node)) setOpen(false); };
     const blur = () => setOpen(false);
     document.addEventListener("pointerdown", outside);
@@ -42,9 +44,9 @@ export default function WindowShelfPreview() {
     <button ref={trigger} type="button" aria-haspopup="dialog" aria-controls={open ? dialogID : undefined} className={s.cubeButton} title="Open and minimized windows" aria-label="Show open and minimized sample windows" aria-expanded={open} onClick={() => setOpen(!open)}>
       <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 11 6v14l-11 6-11-6V9Z M5 9l11 6 11-6 M16 15v14 M5 23l11-6 11 6 M16 3v14"/></svg>
     </button>
-    {open && <div id={dialogID} className={s.windowPreview} role="dialog" aria-label="Sample window shelf">
+    {open && <div ref={dialog} id={dialogID} className={s.windowPreview} role="dialog" aria-label="Sample window shelf" tabIndex={-1}>
       <header><b>Your windows</b><button type="button" aria-label="Close sample window shelf" onClick={close}>×</button></header>
-      <input ref={searchField} aria-label="Search sample windows" placeholder="Search apps or windows" value={query} onChange={event => setQuery(event.target.value)} autoFocus/>
+      <input ref={searchField} aria-label="Search sample windows" placeholder="Search apps or windows" value={query} onChange={event => setQuery(event.target.value)}/>
       <div className={s.windowFilters}><button type="button" aria-pressed={!minimizedOnly} onClick={() => setMinimizedOnly(false)}>All</button><button type="button" aria-pressed={minimizedOnly} onClick={() => setMinimizedOnly(true)}>Minimized</button></div>
       <div className={s.windowRows}>{matches.map(window => <button type="button" key={window.id} onClick={() => { setWindows(previous => previous.map(item => item.id === window.id ? {...item, minimized: false} : item)); setNotice(`${window.app} window ${window.minimized ? "restored" : "brought forward"} in this sample.`); searchField.current?.focus(); }}><span><b>{window.title}</b><small>{window.app}</small></span><em>{window.minimized ? "Minimized" : "Open"}</em></button>)}{!matches.length && <p>No matching windows.</p>}</div>
       <p role="status">{notice || "Sample windows. In the app, click to restore."}</p>
