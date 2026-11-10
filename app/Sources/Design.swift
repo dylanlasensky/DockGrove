@@ -130,7 +130,7 @@ struct DockPlate: View {
 #if compiler(>=6.2)
 @available(macOS 26.0, *)
 struct NativeDockGlass: NSViewRepresentable {
-    var cornerRadius: CGFloat = 27
+    var cornerRadius: CGFloat
     func makeNSView(context: Context) -> NSGlassEffectView {
         let view = NSGlassEffectView(); view.cornerRadius = cornerRadius; view.style = .regular
         return view
