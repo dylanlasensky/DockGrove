@@ -887,6 +887,9 @@
 }
 .widgetPreview .face b {
   font-size: 15px;
+  // Unlike the scrolling Dock wall, the gallery must show its full sample label on phones.
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .widgetPreview .face small {
   font-size: 10px;

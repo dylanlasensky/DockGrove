@@ -145,6 +145,8 @@ function measureDock(){
 test('mobile menu: Escape closes it wherever focus is and returns focus to the button',async()=>{
  await withHome({width:390,height:844},async page=>{
   const menu=page.getByRole('button',{name:'Toggle navigation'});
+  const target=await menu.boundingBox();
+  assert.ok(target.width>=44&&target.height>=44,'navigation button has a 44px touch target');
   const onButton=()=>page.evaluate(()=>document.activeElement?.getAttribute('aria-label'));
   await menu.click();
   await page.evaluate(()=>document.activeElement?.blur()); // Safari leaves a clicked button unfocused.
