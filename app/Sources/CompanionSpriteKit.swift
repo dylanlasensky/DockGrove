@@ -2,9 +2,14 @@ import AppKit
 import SpriteKit
 
 struct CompanionSceneRequest: Equatable {
-    let id = UUID()
+    let id: UUID
     var destination: Double
-    var arrival: CompanionMotion.Activity = .look
+    var arrival: CompanionMotion.Activity
+    init(destination: Double, arrival: CompanionMotion.Activity = .look) {
+        id = UUID()
+        self.destination = destination
+        self.arrival = arrival
+    }
 }
 
 struct CompanionSceneGeometry {
@@ -20,13 +25,14 @@ final class CompanionSpriteScene: SKScene {
     let sprite = SKSpriteNode()
     private(set) var motion = CompanionMotion()
     private(set) var frameIndex = 8
-    var animal = "Miso" { didSet { if animal != oldValue { motion = CompanionMotion(seed: Self.seed(animal)); lastTime = nil; renderPose() } } }
+    var animal = "Miso" { didSet { if animal != oldValue { motion = CompanionMotion(seed: Self.seed(animal)); walkCycle = 0; lastTime = nil; renderPose() } } }
     var resting = false
     var reducedMotion = false
     var playroom = false
     private var lastTime: TimeInterval?
     private var lastPlayRequest: Int?
     private var lastSceneRequest: UUID?
+    private var walkCycle = 0.0
     static func seed(_ name: String) -> UInt64 { name.utf8.reduce(1469598103934665603) { ($0 ^ UInt64($1)) &* 1099511628211 } }
     static func textures(for animal: String) -> [SKTexture] {
         if let cached = textureCache[animal] { return cached }
@@ -74,16 +80,23 @@ final class CompanionSpriteScene: SKScene {
         advance(delta)
     }
     func advance(_ delta: TimeInterval) {
-        motion.advance(delta, animal: animal, resting: resting, reducedMotion: reducedMotion)
+        let geometry = Self.geometry(for: animal, size: size, playroom: playroom)
+        let movementScale = playroom ? geometry.map { Double($0.spriteSize.width / max(1, $0.travel)) * 1.5 } ?? 1 : 1
+        let before = motion.travelDistance
+        motion.advance(delta, animal: animal, resting: resting, reducedMotion: reducedMotion, movementScale: movementScale)
+        if let geometry {
+            let stride = animal == "Rabbit" ? 0.20 : animal == "Cow" ? 0.10 : 0.12
+            // Integrate distance at the current size, instead of rescaling all prior
+            // travel on resize and jumping to an unrelated walking frame.
+            walkCycle += (motion.travelDistance - before) * geometry.travel / max(1, geometry.spriteSize.width * stride)
+        }
         renderPose()
     }
     private func renderPose() {
         let textures = Self.textures(for: animal)
         guard textures.count == 16, let geometry = Self.geometry(for: animal, size: size, playroom: playroom) else { sprite.isHidden = true; return }
         sprite.isHidden = false
-        let stride = animal == "Rabbit" ? 0.20 : animal == "Cow" ? 0.10 : 0.12
-        let cycle = motion.travelDistance * geometry.travel / max(1, geometry.spriteSize.width * stride)
-        frameIndex = CompanionDrawing.frameIndex(animal: animal, motion: motion, reducedMotion: reducedMotion, walkCycle: cycle)
+        frameIndex = CompanionDrawing.frameIndex(animal: animal, motion: motion, reducedMotion: reducedMotion, walkCycle: walkCycle)
         sprite.texture = textures[frameIndex]
         sprite.size = geometry.spriteSize
         sprite.xScale = motion.facing < 0 ? -1 : 1
@@ -104,6 +117,8 @@ final class CompanionStage: SKView {
     var animal: String { get { companionScene.animal } set { companionScene.animal = newValue } }
     var resting: Bool { get { companionScene.resting } set { companionScene.resting = newValue } }
     var onSelectDestination: ((Double) -> Void)?
+    /// Reads the live Mac preference; tests supply both values without changing OS settings.
+    var reduceMotionPreference: () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
     private var observers: [NSObjectProtocol] = []
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -143,7 +158,7 @@ final class CompanionStage: SKView {
     }
     func receivePlay(_ request: Int) { companionScene.receivePlay(request) }
     func refreshScene() {
-        companionScene.reducedMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        companionScene.reducedMotion = reduceMotionPreference()
         preferredFramesPerSecond = companionScene.reducedMotion ? 1 : 60
         // Floating Dock panels can remain visibly on screen while AppKit omits the
         // occlusion flag. Their own visibility is the authoritative hide signal.

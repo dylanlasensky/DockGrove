@@ -22,14 +22,20 @@ struct CompanionMotion: Equatable {
     private var randomState: UInt64
     private var wasResting = false
     private var arrivalActivity: Activity?
+    private var previousMovementScale = 1.0
     init(seed: UInt64 = 7919) { randomState = seed == 0 ? 7919 : seed }
     mutating func random() -> Double {
         randomState = randomState &* 6364136223846793005 &+ 1442695040888963407
         return Double(randomState >> 11) / 9007199254740992
     }
     func weight(_ activity: Activity) -> Double { weights[activity] ?? 0 }
-    mutating func advance(_ delta: Double, animal: String, resting: Bool, reducedMotion: Bool = false, visible: Bool = true) {
+    mutating func advance(_ delta: Double, animal: String, resting: Bool, reducedMotion: Bool = false, visible: Bool = true, movementScale: Double = 1) {
         guard visible else { return }
+        let scale = movementScale.isFinite && movementScale > 0 ? movementScale : 1
+        // Room coordinates are normalized. Keep speed relative to the animal's body
+        // when the room resizes, without stretching idle, breathing or wing time.
+        velocity *= scale / previousMovementScale
+        previousMovementScale = scale
         let dt=min(0.1,max(0,delta.isFinite ? delta : 0))
         if reducedMotion {
             activity=resting ? .sleep : .idle;weights=[activity:1];wasResting=resting;jumpHeight=0;velocity=0;arrivalActivity=nil
@@ -45,19 +51,19 @@ struct CompanionMotion: Equatable {
         jumpHeight += (jumpTarget-jumpHeight)*(1-exp(-dt*10))
         let targetHeading=facing>0 ? 0.0:Double.pi
         heading += (targetHeading-heading)*(1-exp(-dt*9))
-        let speed=animal=="Cow" ? 0.10 : animal=="Rabbit" ? 0.20:0.14
+        let speed = (animal == "Cow" ? 0.10 : animal == "Rabbit" ? 0.20 : 0.14) * scale
         let distance=destination-x
         let desiredFacing=distance>=0 ? 1.0:-1.0
         let walking=activity == .walk && !resting
         // Brake before reversing; never squash the entire animal through a turn.
         let reversing=walking && desiredFacing != facing
-        if reversing && abs(velocity)<0.002 {facing=desiredFacing}
-        let targetVelocity=walking && desiredFacing==facing ? facing*speed*min(1,abs(distance)/0.055)*weight(.walk):0
+        if reversing && abs(velocity)<0.002 * scale {facing=desiredFacing}
+        let targetVelocity=walking && desiredFacing==facing ? facing*speed*min(1,abs(distance)/(0.055 * scale))*weight(.walk):0
         velocity += (targetVelocity-velocity)*(1-exp(-dt*8))
-        if abs(velocity)<0.00005 {velocity=0}
+        if abs(velocity)<0.00005 * scale {velocity=0}
         let priorX=x
         x += velocity*dt
-        if walking && abs(distance)<0.003 && abs(velocity)<0.005 {
+        if walking && abs(distance)<0.003 * scale && abs(velocity)<0.005 * scale {
             let arrival = arrivalActivity ?? .look
             arrivalActivity = nil
             transition(arrival,duration:1.3+random()*2.5)
@@ -66,9 +72,11 @@ struct CompanionMotion: Equatable {
         // Integrate wing phase: multiplying total time by a changing speed skips poses.
         flightPhase += dt * (6 + min(1, abs(velocity) / speed) * 3)
         travelDistance += abs(x-priorX)
-        gait += abs(x-priorX)/stride*2 * .pi
+        gait += abs(x-priorX)/(stride * scale)*2 * .pi
         x=min(0.88,max(0.12,x))
-        if !resting && elapsed>=duration { choose(animal) }
+        // A spacious room can take longer than 20 seconds to cross. Finish walking
+        // to the requested snack/toy before choosing an unrelated idle activity.
+        if !resting && activity != .walk && elapsed>=duration { choose(animal) }
     }
     private mutating func transition(_ next:Activity,duration:Double) {
         previousActivity=activity;activity=next;elapsed=0;self.duration=duration

@@ -2,6 +2,7 @@ import XCTest
 import AppKit
 import SwiftUI
 import ApplicationServices
+import Combine
 @testable import DockGrove
 
 // MARK: - Fakes
@@ -85,6 +86,16 @@ private final class WinFakeAX: @unchecked Sendable {
         c.pause = { [unowned self] _ in self.pauses += 1 }
         return c
     }
+}
+
+/// A window whose display state can be exercised without minimizing a user's windows.
+private final class WindowVisibilityFixture: NSWindow {
+    var observedVisible = true
+    var observedMiniaturized = false
+    var observedOcclusion: NSWindow.OcclusionState = [.visible]
+    override var isVisible: Bool { observedVisible }
+    override var isMiniaturized: Bool { observedMiniaturized }
+    override var occlusionState: NSWindow.OcclusionState { observedOcclusion }
 }
 
 private func winElement(_ pid: pid_t) -> AXUIElement { AXUIElementCreateApplication(pid) }
@@ -752,7 +763,12 @@ private func winWakeAccessibility() async {
         manager.showOverview()
         XCTAssertEqual(presented.count, 2)
         XCTAssertTrue(presented.allSatisfy { $0 === overview })
-        overview.close()
+        overview.orderFrontRegardless()
+        let content = try XCTUnwrap(overview.contentView)
+        content.layoutSubtreeIfNeeded()
+        await winWait { !manager.loading }
+        await winSettle()
+        XCTAssertGreaterThan(winPress(content, "Done"), 0)
         XCTAssertNil(manager.overviewWindow)
         XCTAssertNil(overview.contentView, "Closing releases the hosted timer and its window listing")
     }
@@ -803,8 +819,18 @@ private func winWakeAccessibility() async {
         enter("no window matches this query")
         await winSettle()
         XCTAssertEqual(winPress(view, manager.windows[0].title + ", open. Restore window"), 0)
-        enter("")
+        enter("fixture")
         await winSettle()
+        let beforeSubmit = dismissed
+        let action = try XCTUnwrap(field.action)
+        XCTAssertTrue(NSApp.sendAction(action, to: field.target, from: field))
+        await winWait { dismissed > beforeSubmit }
+        XCTAssertEqual(dismissed, beforeSubmit + 1, "Return restores the first visible search result")
+        enter("no matching window")
+        await winSettle()
+        NSApp.sendAction(action, to: field.target, from: field)
+        await winSettle()
+        XCTAssertEqual(dismissed, beforeSubmit + 1, "Return with no results must not activate another app")
     }
 
     func testWindowOverviewGroupsAndSortsTitles() throws {
@@ -815,6 +841,62 @@ private func winWakeAccessibility() async {
         XCTAssertEqual(groups.count, 1)
         XCTAssertEqual(groups[0].windows.map(\.menuTitle), ["Window 2", "Window 12"])
         XCTAssertTrue(WindowShelfGroup.make(from: []).isEmpty)
+        let other = ManagedWindow(id: "test-host", owner: .current, element: winElement(74903), title: "Test host window")
+        let multiple = WindowShelfGroup.make(from: [a, other, b])
+        XCTAssertEqual(multiple.count, 2)
+        XCTAssertEqual(multiple.map(\.name), multiple.map(\.name).sorted { $0.localizedStandardCompare($1) == .orderedAscending })
+        XCTAssertEqual(multiple.first { $0.id == a.owner.processIdentifier }?.windows.map(\.id), [b.id, a.id])
+    }
+
+    func testWindowOverviewRefreshOnlyWhileVisible() async throws {
+        let manager = WindowManager()
+        let ticks = PassthroughSubject<Date, Never>()
+        _ = host(WindowShelfView(manager: manager, refreshEvents: ticks.eraseToAnyPublisher()) {}, size: CGSize(width: 840, height: 620))
+        await winWait { !manager.loading }
+        let visibility = WindowVisibilityFixture(contentRect: .zero, styleMask: .borderless, backing: .buffered, defer: false)
+        visibility.isReleasedWhenClosed = false
+        manager.overviewWindow = visibility
+        defer { manager.overviewWindow = nil; visibility.close() }
+        for state in [(false, false, true), (true, true, true), (true, false, false)] {
+            visibility.observedVisible = state.0
+            visibility.observedMiniaturized = state.1
+            visibility.observedOcclusion = state.2 ? [.visible] : []
+            manager.status = "No background scans"
+            ticks.send(Date())
+            await winSettle()
+            XCTAssertEqual(manager.status, "No background scans")
+            XCTAssertFalse(manager.loading)
+        }
+        visibility.observedVisible = true; visibility.observedMiniaturized = false; visibility.observedOcclusion = [.visible]
+        ticks.send(Date())
+        await winWait { !manager.loading && manager.status.hasPrefix("No accessible windows") }
+        XCTAssertTrue(manager.status.hasPrefix("No accessible windows"))
+        manager.overviewWindow = nil
+        manager.status = "Embedded overview"
+        ticks.send(Date())
+        await winWait { !manager.loading && manager.status.hasPrefix("No accessible windows") }
+        XCTAssertTrue(manager.status.hasPrefix("No accessible windows"))
+    }
+
+    func testWindowOverviewCardsHoverWithoutActivatingApps() async throws {
+        let finder = try XCTUnwrap(winFinder), element = winElement(74904)
+        fake.apps = [finder]
+        fake.put(winElement(finder.processIdentifier), kAXWindowsAttribute, [element] as CFArray)
+        fake.put(element, kAXSubroleAttribute, kAXStandardWindowSubrole as CFString)
+        fake.put(element, kAXTitleAttribute, "Hover fixture" as CFString)
+        let manager = WindowManager()
+        let view = DockHarness(WindowShelfView(manager: manager) {}, size: CGSize(width: 840, height: 620))
+        defer { view.close() }
+        await winWait { !manager.loading }
+        view.spin()
+        let window = try XCTUnwrap(manager.windows.first)
+        let label = window.title + ", open. Restore window"
+        let point = try XCTUnwrap(view.center(label))
+        view.hover(point, entering: true)
+        XCTAssertTrue(view.has(label))
+        view.hover(point, entering: false)
+        XCTAssertTrue(view.has(label))
+        XCTAssertEqual(fake.activations, 0, "Hover must only highlight the card, not activate an app")
     }
 
     func testWindowShelfContextActionsMinimizeAndRestore() async throws {

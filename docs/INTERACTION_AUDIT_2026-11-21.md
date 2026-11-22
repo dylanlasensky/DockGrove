@@ -11,7 +11,7 @@ Personal layouts, stored pet identifiers and names, and system permissions must 
 - The Applications stack icon's hover lift and scaling ignored Reduce Motion even though the adjacent application tiles honored it. The stack now uses the same accessibility behavior.
 - The website was pinned to Next.js 16.4.3, which its build and npm advisory scan identified as affected by the November security advisories. Next.js and its matching ESLint configuration are now pinned to 16.4.6. The existing TypeScript ESLint dependency was updated within its allowed 8.x range to 8.73.0, bringing in patched minimatch 11.0.9. The final npm audit reports zero known vulnerabilities. This static export does not run the affected image optimizer, Edge routes, or server cache paths; that limits applicability without making a vulnerable dependency desirable. Sources: [Next.js security release](https://nextjs.org/blog/november-2026-security-release), [16.4.6 release](https://github.com/vercel/next.js/releases/tag/v16.4.6), and [minimatch advisory](https://github.com/advisories/GHSA-g3hv-75wg-m249).
 
-Regression cases are in `IntegrationsUtilitiesTests` and `ApplicationsStackTests`. Their execution results belong in the final exact-build validation report; adding tests is not evidence that they passed.
+Regression cases are in `IntegrationsUtilitiesTests` and `ApplicationsStackTests`; native execution evidence and its limits are recorded below.
 
 ## Verification inventory
 
@@ -32,6 +32,9 @@ Regression cases are in `IntegrationsUtilitiesTests` and `ApplicationsStackTests
 
 ## Executed audit checks
 
+- Native baseline: the full `Tests-4` run completed with 298 tests, 6 skips and 0 failures. This precedes the final motion/geometry and test-harness adjustments; final exact-build native results remain pending.
+- The focused final companion suite passes all 14 tests after AX harness initialization. The full final `Tests-8` run is in progress. A universal arm64/x86_64 build passed strict signature and plist verification; the final identifier refresh and installed-app review remain pending.
+- Both initial PR CI jobs failed one assertion that depended on the runner's Reduce Motion preference. The harness now injects that preference deterministically. The corrected final CI results remain pending.
 - Offline commerce/backend: 22 passing test invocations (11 unique cases are imported by both entry points). They cover webhook signatures, product/amount/environment validation, activation caps, refunds, failed payments, recovery, rate limits and configuration failure.
 - Legacy website client: 9 passing behavior checks.
 - Current website: lint, TypeScript checking, production static export and 49 tests pass after the dependency patches. The tests cover client API gating, fallback/error handling, checkout redirects, recovery, unavailable downloads, page structure/metadata, routes, assets, payload budgets and security headers.
@@ -39,15 +42,16 @@ Regression cases are in `IntegrationsUtilitiesTests` and `ApplicationsStackTests
 - `git diff --check` passed at the audit checkpoint.
 - The initial static checks required a missing `website/web/out`; they were rerun successfully after building. The first build stopped after compilation with the Next.js advisory warning. The final patched build exits successfully without that warning. The standalone Node runtime is required locally because the desktop app's embedded Node enforces library-signing restrictions on the native SWC dependency.
 
-Native suite, rendering, live focus/window interactions, and final artifact checks must be recorded by the integration pass on the completed change. Intel execution, older supported macOS versions, external displays, clean signed upgrades, spoken VoiceOver, Developer ID/notarization and production payment configuration remain separate release gates when that environment is unavailable.
+The website results above remain unchanged. Final native tests, CI, live focus/window interactions, and artifact checks still require results for the completed change. Intel execution, older supported macOS versions, external displays, clean signed upgrades, spoken VoiceOver, Developer ID/notarization and production payment configuration remain separate release gates when that environment is unavailable.
 
 One live observation still needs reproduction: Settings' Done/Escape/Close actions did not dismiss an inactive window through the accessibility automation session. It is not yet established whether this is app focus behavior or the automation session targeting an inactive surface. Test those actions with the Settings window visibly active before treating it as a product defect.
 
-The first integrated native run exposed an existing test-fixture problem: the live AX adapter test messaged its own test-host process from a detached task. macOS logged an `NSMenu` main-thread violation at 23:18:27, and XCTest subsequently stalled while symbolizing that issue (`DBGCopyDSYMPropertyLists` → `open`). The fixture now probes an unavailable PID for AX operations and asserts failure/nil outcomes, retaining the live adapter checks without sending UI messages to itself or another application. Production discovery already excludes DockGrove's own PID. The read-only process sample is `/tmp/dockgrove-native-test2.sample.txt`; a fresh native run is required to validate the corrected fixture.
+An earlier native run exposed an existing fixture that sent live AX messages to its own test host from a detached task. macOS logged an `NSMenu` main-thread violation; XCTest then stalled during issue symbolication. The corrected fixture uses an unavailable PID for AX operations and asserts failure/nil outcomes. Production discovery already excludes DockGrove's own PID. The subsequent `Tests-4` baseline passed; the earlier diagnostic sample is `/tmp/dockgrove-native-test2.sample.txt`.
 
 ## Requested interaction changes
 
 - Pet clicks from the Dock and notch open a reusable Companion Playroom window. It can resize and enter full screen, while Details contains the name field and care meters. Feed, Play, Rest/Wake and floor clicks have visible feedback; the scene pauses when its window closes and respects Reduce Motion.
+- Playroom travel speed is relative to the pet's body size, so widening the room does not accelerate the animal. Shared scene geometry keeps the sprite contained and aligns destination clicks with the rendered floor and travel area. Final native and live motion checks are pending.
 - The windows cube opens a grouped, searchable overview. Discovery continues across bounded scans, handles missing AX subroles, retains unavailable-app readings with an explicit stale warning, and removes closed-window readings after a complete scan. Mission Control opens the system's live previews; DockGrove does not capture screen contents.
 - Hide-on-overlap defaults on for new preferences and also applies to floating docks. A hidden retained child window no longer keeps a Dock above other apps. Hidden docks ignore mouse input. Existing explicit visibility choices are preserved.
 
@@ -58,3 +62,5 @@ The focus change follows AppKit's distinction between ordinary key windows and [
 The built-in imagegen tool edited `app/Assets.xcassets/Companions/Companion-orange-cat-pixel.imageset/orange-cat-pixel.png` from the existing atlas. Prompt: preserve the transparent 4×4 sheet, all sixteen poses, grid positions, scale, outlines, golden eyes, pink ears, white paws, chest and muzzle; change only the dark orange fur to soft light apricot with warm caramel stripes. No added objects or backgrounds.
 
 The native asset validator passed all nine animals: 16 occupied poses each, clear cell boundaries, common crop/scale, and 32 mirrored render-bound checks per animal. This validates the atlas structure; it does not alone prove perceived motion quality.
+
+Initial artwork review found the lighter orange cat consistent with the requested apricot palette and existing pixel style. The cached playroom screenshot omitted the GPU-rendered sprite, so it cannot establish the pet's live appearance or motion. A live playroom review is still required.

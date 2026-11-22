@@ -160,11 +160,11 @@ struct WindowShelfGroup: Identifiable {
 
 struct WindowShelfView: View {
     @ObservedObject var manager: WindowManager
+    var refreshEvents: AnyPublisher<Date, Never> = Timer.publish(every: 3, on: .main, in: .common).autoconnect().eraseToAnyPublisher()
     var dismiss: () -> Void
     @State private var query = ""
     @State private var filter = WindowShelfFilter.all
     @FocusState private var searchFocused: Bool
-    private let clock = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
     var matches: [ManagedWindow] {
         let search = AppSearchIndex.fold(query)
         return manager.windows.filter { filter.includes($0) && (search.isEmpty || AppSearchIndex.fold($0.title).contains(search)) }
@@ -248,7 +248,7 @@ struct WindowShelfView: View {
         }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.background)
         .onAppear { manager.refresh(); searchFocused = true }
-        .onReceive(clock) { _ in
+        .onReceive(refreshEvents) { _ in
             if let window = manager.overviewWindow {
                 guard window.isVisible, !window.isMiniaturized, window.occlusionState.contains(.visible) else { return }
             }

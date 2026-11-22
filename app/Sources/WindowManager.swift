@@ -152,7 +152,7 @@ struct AccessibilityClient {
         var cursor: WindowDiscoveryCursor? = nil
         var completedPIDs: Set<pid_t> = []
         var unavailablePIDs: Set<pid_t> = []
-        var livePIDs: Set<pid_t> = []
+        var livePIDs: Set<pid_t>
     }
     nonisolated static func discover(using ax: AccessibilityClient, appPID: pid_t? = nil, startingAt cursor: WindowDiscoveryCursor? = nil) -> WindowDiscovery {
         // Cooperative budget: an in-flight AX call can finish after this deadline.

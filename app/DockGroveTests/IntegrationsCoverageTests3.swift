@@ -240,6 +240,53 @@ import ServiceManagement
         IntegrationsUI.appear(IntegrationsUI.body(view))
     }
 
+    func testCompactCompanionNameCommitsOnReturn() throws {
+        let pet = Companion(defaults: IntegrationsUI.defaults(self))
+        let harness = SettingsHarness(CompanionView(pet: pet, accent: .blue), width: 350, height: 650)
+        defer { harness.close() }
+        harness.window.styleMask.insert(.titled)
+        let field = try XCTUnwrap(harness.views(NSTextField.self).first { $0.isEditable })
+        XCTAssertTrue(harness.window.makeFirstResponder(field))
+        let editor = try XCTUnwrap(field.currentEditor() as? NSTextView)
+        editor.selectAll(nil)
+        editor.insertText("  Sunny  ", replacementRange: editor.selectedRange())
+        let enter = try XCTUnwrap(NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [],
+            timestamp: 0, windowNumber: harness.window.windowNumber, context: nil,
+            characters: "\r", charactersIgnoringModifiers: "\r", isARepeat: false, keyCode: 36))
+        editor.keyDown(with: enter)
+        harness.settle()
+        XCTAssertEqual(pet.state.name, "Sunny", "Return must save the typed name without a mouse click")
+    }
+
+    func testPlayroomAccessibilityExploreSpeciesChangeAndFullscreenButton() throws {
+        let pet = Companion(defaults: IntegrationsUI.defaults(self))
+        pet.rename("Pixel")
+        var fullscreenRequests = 0
+        let harness = DockHarness(CompanionPlayroomView(pet: pet, accent: .blue, fullscreen: { fullscreenRequests += 1 }), size: CGSize(width: 980, height: 660))
+        defer { harness.close() }
+        func descendants(_ view: NSView) -> [NSView] { view.subviews.flatMap { [$0] + descendants($0) } }
+        let stage = try XCTUnwrap(descendants(harness.host).compactMap { $0 as? CompanionStage }.first)
+        stage.reduceMotionPreference = { false }; stage.refreshScene()
+        harness.act("Explore the room")
+        XCTAssertEqual(stage.companionScene.motion.activity, .walk)
+        XCTAssertNotEqual(stage.companionScene.motion.destination, 0.5)
+        pet.animal = "Rabbit"
+        harness.spin()
+        XCTAssertEqual(stage.animal, "Rabbit")
+        XCTAssertEqual(pet.state.name, "Pixel", "Switching species must preserve the custom name")
+        // AppKit exposes a static text's content as AXValue on some SDKs, rather
+        // than AXLabel. Inspect the identified feedback element's spoken text.
+        func feedbackText() -> String {
+            harness.nodes().filter { DockHarness.get($0, "accessibilityIdentifier") as? String == "companion-feedback" }
+                .flatMap { node in ["accessibilityLabel", "accessibilityValue", "accessibilityTitle"].compactMap { DockHarness.get(node, $0) as? String } }
+                .joined(separator: " ")
+        }
+        XCTAssertTrue(IntegrationsUI.wait(1) { feedbackText().contains("Make yourself at home, Pixel.") },
+                      "The species-change feedback must be accessible. Observed: \(feedbackText())")
+        harness.press("Toggle playroom full screen")
+        XCTAssertEqual(fullscreenRequests, 1)
+    }
+
     func testPlayroomUsesReusableKeyWindowAndPreservesPet() throws {
         let defaults = IntegrationsUI.defaults(self)
         let model = DockModel(defaults: defaults)
@@ -266,6 +313,9 @@ import ServiceManagement
     }
 
     func testNameEditorKeepsTypingThroughPetUpdatesAndReopens() throws {
+        // SettingsHarness normally runs after DockHarness enables SwiftUI's AX tree.
+        // This regression must also work when it is the first or only selected test.
+        _ = NSApp.perform(Selector(("setAccessibilityEnhancedUserInterface:")), with: NSNumber(value: true))
         let pet = Companion(defaults: IntegrationsUI.defaults(self))
         let harness = SettingsHarness(CompanionDetailsView(pet: pet, accent: .blue), width: 240, height: 470)
         defer { harness.close() }
@@ -279,7 +329,7 @@ import ServiceManagement
         harness.settle()
         XCTAssertEqual(editor.string, "  Luna  ", "A care-state update must not reset an in-progress name")
         harness.window.makeFirstResponder(nil)
-        harness.press("Rename")
+        harness.press("companion-rename")
         XCTAssertEqual(pet.state.name, "Luna")
         XCTAssertEqual(field.stringValue, "Luna")
         XCTAssertTrue(harness.window.makeFirstResponder(field))
@@ -287,7 +337,7 @@ import ServiceManagement
         reopened.selectAll(nil)
         reopened.insertText("Pixel", replacementRange: reopened.selectedRange())
         harness.window.makeFirstResponder(nil)
-        harness.press("Rename")
+        harness.press("companion-rename")
         XCTAssertEqual(pet.state.name, "Pixel")
     }
 
@@ -296,13 +346,21 @@ import ServiceManagement
         let harness = SettingsHarness(CompanionPlayroomView(pet: pet, accent: .blue), width: 980, height: 660)
         defer { harness.close() }
         let stage = try XCTUnwrap(harness.views(CompanionStage.self).first)
+        stage.reduceMotionPreference = { false }
+        stage.refreshScene()
+        XCTAssertFalse(stage.companionScene.reducedMotion)
+        XCTAssertEqual(stage.preferredFramesPerSecond, 60)
         XCTAssertTrue(stage.companionScene.playroom)
         XCTAssertNotNil(stage.onSelectDestination)
         XCTAssertTrue(stage.acceptsFirstMouse(for: nil))
         XCTAssertLessThanOrEqual(stage.companionScene.sprite.size.height, 191)
-        stage.onSelectDestination?(0.75)
+        let geometry = try XCTUnwrap(CompanionSpriteScene.geometry(for: pet.animal, size: stage.bounds.size, playroom: true))
+        let click = stage.convert(NSPoint(x: geometry.x(at: 0.75), y: stage.bounds.midY), to: nil)
+        let event = try XCTUnwrap(NSEvent.mouseEvent(with: .leftMouseDown, location: click, modifierFlags: [], timestamp: 0,
+            windowNumber: harness.window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+        stage.mouseDown(with: event)
         harness.settle()
-        XCTAssertEqual(stage.companionScene.motion.destination, 0.75)
+        XCTAssertEqual(stage.companionScene.motion.destination, 0.75, accuracy: 0.0001)
         let fullness = pet.state.fullness
         harness.press("Feed")
         XCTAssertGreaterThan(pet.state.fullness, fullness)
@@ -316,6 +374,22 @@ import ServiceManagement
         XCTAssertEqual(stage.companionScene.motion.destination, sleepingDestination)
         harness.press("Wake up")
         XCTAssertFalse(pet.state.resting)
+
+        stage.reduceMotionPreference = { true }
+        NSWorkspace.shared.notificationCenter.post(name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil)
+        XCTAssertTrue(stage.companionScene.reducedMotion)
+        XCTAssertEqual(stage.preferredFramesPerSecond, 1)
+        let still = stage.companionScene.motion.x
+        let destination = stage.companionScene.motion.destination
+        stage.onSelectDestination?(0.84)
+        harness.settle()
+        XCTAssertEqual(stage.companionScene.motion.x, still)
+        XCTAssertEqual(stage.companionScene.motion.destination, destination)
+        let playCount = pet.playRequest
+        harness.press("Play")
+        XCTAssertEqual(pet.playRequest, playCount + 1, "Care actions still work with Reduce Motion enabled")
+        XCTAssertEqual(stage.companionScene.motion.activity, .idle)
+        XCTAssertEqual(stage.companionScene.motion.x, still)
         harness.press("Details")
         XCTAssertTrue(harness.views(NSTextField.self).contains { $0.isEditable })
     }
@@ -372,6 +446,72 @@ import ServiceManagement
         }
     }
 
+    func testPlayroomStaysInsideWindowWithAndWithoutDetails() throws {
+        let pet = Companion(defaults: IntegrationsUI.defaults(self))
+        for size in [CGSize(width: 760, height: 520), CGSize(width: 980, height: 660), CGSize(width: 1600, height: 900)] {
+            let harness = SettingsHarness(CompanionPlayroomView(pet: pet, accent: .blue), width: size.width, height: size.height)
+            defer { harness.close() }
+            let stage = try XCTUnwrap(harness.views(CompanionStage.self).first)
+            func stageBounds() -> CGRect { stage.convert(stage.bounds, to: harness.host) }
+            XCTAssertEqual(stageBounds().minX, 24, accuracy: 1)
+            XCTAssertEqual(stageBounds().maxX, size.width - 24, accuracy: 1,
+                           "The decorative floor must not expand the SpriteKit room beyond the window")
+            XCTAssertTrue(harness.host.bounds.insetBy(dx: 23, dy: 23).contains(stageBounds()))
+            XCTAssertEqual(stage.companionScene.size.width, stage.bounds.width, accuracy: 1)
+            harness.press("Details")
+            let nameField = try XCTUnwrap(harness.views(NSTextField.self).first { $0.isEditable })
+            let fieldBounds = nameField.convert(nameField.bounds, to: harness.host)
+            XCTAssertLessThan(stageBounds().maxX, fieldBounds.minX, "The room must not overlap the name inspector")
+            XCTAssertTrue(harness.host.bounds.insetBy(dx: 23, dy: 23).contains(stageBounds()))
+            XCTAssertEqual(stage.companionScene.size.width, stage.bounds.width, accuracy: 1)
+        }
+    }
+
+    func testPlayroomWalkingSpeedAndWingClockAreIndependentOfRoomWidth() throws {
+        for (animal, bodyLengthsPerSecond) in [("Orange cat", 0.21), ("Cow", 0.15), ("Rabbit", 0.30), ("Dragon", 0.21)] {
+            var wingTimes: [Double] = []
+            for width in [380.0, 980, 2400] {
+                let scene = CompanionSpriteScene(size: CGSize(width: width, height: 600))
+                scene.animal = animal; scene.playroom = true
+                scene.receive(CompanionSceneRequest(destination: 0.88))
+                for _ in 0..<60 { scene.advance(1.0 / 60) }
+                let geometry = try XCTUnwrap(CompanionSpriteScene.geometry(for: animal, size: scene.size, playroom: true))
+                let measured = scene.motion.velocity * geometry.travel / geometry.spriteSize.width
+                XCTAssertEqual(measured, bodyLengthsPerSecond, accuracy: 0.002,
+                               "\(animal) must not run faster in a full-screen room")
+                wingTimes.append(scene.motion.flightPhase)
+                let frame = scene.frameIndex
+                scene.size.width = 3000
+                scene.advance(0)
+                XCTAssertEqual(scene.frameIndex, frame, "Resizing must not skip walking poses")
+                let resized = try XCTUnwrap(CompanionSpriteScene.geometry(for: animal, size: scene.size, playroom: true))
+                XCTAssertEqual(scene.motion.velocity * resized.travel / resized.spriteSize.width, measured, accuracy: 0.0001)
+                XCTAssertEqual(scene.motion.total, 1, accuracy: 0.0001, "Movement scaling must not slow the animation clock")
+            }
+            XCTAssertEqual(wingTimes[0], wingTimes[1], accuracy: 0.0001)
+            XCTAssertEqual(wingTimes[1], wingTimes[2], accuracy: 0.0001)
+        }
+
+        let largeRoom = CompanionSpriteScene(size: CGSize(width: 3000, height: 600))
+        largeRoom.animal = "Orange cat"; largeRoom.playroom = true
+        largeRoom.receive(CompanionSceneRequest(destination: 0.12))
+        for _ in 0..<3600 {
+            largeRoom.advance(1.0 / 60)
+            if largeRoom.motion.activity != .walk { break }
+        }
+        XCTAssertEqual(largeRoom.motion.x, 0.12, accuracy: 0.005)
+        largeRoom.receive(CompanionSceneRequest(destination: 0.88, arrival: .play))
+        for _ in 0..<1260 { largeRoom.advance(1.0 / 60) }
+        XCTAssertEqual(largeRoom.motion.activity, .walk, "Do not abandon a distant toy after 20 seconds")
+        var arrived = false
+        for _ in 0..<3600 {
+            largeRoom.advance(1.0 / 60)
+            if largeRoom.motion.activity == .play { arrived = true; break }
+        }
+        XCTAssertTrue(arrived)
+        XCTAssertEqual(largeRoom.motion.x, 0.88, accuracy: 0.005)
+    }
+
     func testDrawingFromAssetDirectoryAndContexts() throws {
         let folder = try IntegrationsUI.temporaryDirectory(self)
         defer { CompanionDrawing.assetDirectory = nil }
@@ -406,6 +546,15 @@ import ServiceManagement
     }
 
     func testSpriteSceneClock() {
+        let missing = CompanionSpriteScene(size: CGSize(width: 800, height: 400))
+        missing.animal = "Unavailable animal"
+        missing.playroom = true
+        missing.advance(0.1)
+        XCTAssertTrue(missing.sprite.isHidden, "Missing artwork must leave an empty room without crashing")
+        XCTAssertTrue(missing.motion.x.isFinite)
+        missing.animal = "Fox"
+        missing.advance(0.1)
+        XCTAssertFalse(missing.sprite.isHidden, "Selecting available artwork must recover the same scene")
         let scene = CompanionSpriteScene(size: CGSize(width: 250, height: 180))
         scene.update(10)
         scene.update(10.5)

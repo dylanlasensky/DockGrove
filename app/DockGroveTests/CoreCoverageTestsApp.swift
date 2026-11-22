@@ -119,8 +119,15 @@ private final class CoreOtherInstance: NSRunningApplication {
         // A retained but hidden popover is not an active interaction.
         let child = NSWindow(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
         child.isReleasedWhenClosed = false
+        child.setFrame(NSRect(x: -10000, y: -10000, width: 80, height: 50), display: false)
+        panel.orderFront(nil)
+        child.orderFront(nil)
         panel.addChildWindow(child, ordered: .above)
+        XCTAssertTrue(panel.childWindows?.contains(child) == true)
+        delegate.checkAutoHide()
+        XCTAssertTrue(panel.isVisible, "An open popover keeps its Dock usable while interacting")
         child.orderOut(nil)
+        delegate.visibility = DockVisibility()
         delegate.checkAutoHide()
         XCTAssertFalse(panel.isVisible)
         panel.removeChildWindow(child); child.close()

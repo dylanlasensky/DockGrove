@@ -207,9 +207,12 @@ struct CompanionPlayroomView: View {
             ZStack(alignment: .bottom) {
                 RoundedRectangle(cornerRadius: 24).fill(accent.opacity(0.055))
                 LinearGradient(colors: [.clear, accent.opacity(0.055)], startPoint: .top, endPoint: .bottom)
-                Ellipse().fill(accent.opacity(0.07))
-                    .frame(width: geometry.size.width * 1.2, height: geometry.size.height * 0.48)
-                    .offset(y: geometry.size.height * 0.22)
+                    .overlay(alignment: .bottom) {
+                        // Decoration must not enlarge the room's layout proposal.
+                        Ellipse().fill(accent.opacity(0.07))
+                            .frame(width: geometry.size.width * 1.2, height: geometry.size.height * 0.48)
+                            .offset(y: geometry.size.height * 0.22)
+                    }
                 if let request, !marker.isEmpty, !pet.state.resting,
                    let metrics = CompanionSpriteScene.geometry(for: pet.animal, size: geometry.size, playroom: true) {
                     Image(systemName: marker).font(.system(size: 24)).foregroundStyle(accent)
@@ -219,8 +222,9 @@ struct CompanionPlayroomView: View {
                 CatPortrait(resting: pet.state.resting, animal: pet.animal, accent: accent,
                             playRequest: pet.playRequest, playroom: true, sceneRequest: request,
                             onSelectDestination: explore)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }.clipShape(RoundedRectangle(cornerRadius: 24))
+                    .frame(width: geometry.size.width, height: geometry.size.height)
+            }.frame(width: geometry.size.width, height: geometry.size.height)
+                .clipShape(RoundedRectangle(cornerRadius: 24))
                 .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(accent.opacity(0.10)))
                 .accessibilityElement(children: .contain)
                 .accessibilityAction(named: Text("Explore the room")) { explore(nextSpot()) }
@@ -271,6 +275,7 @@ struct CompanionDetailsView: View {
                         .accessibilityIdentifier("companion-name")
                     Button("Rename", action: rename)
                         .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .accessibilityIdentifier("companion-rename")
                 }
                 Picker("Companion", selection: $pet.animal) {
                     ForEach(Companion.animals, id: \.self) { Text(Companion.displayName($0)).tag($0) }
