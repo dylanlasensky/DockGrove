@@ -160,8 +160,14 @@ struct AccessibilityClient {
     nonisolated static func discover(using ax: AccessibilityClient, appPID: pid_t? = nil, startingAt cursor: WindowDiscoveryCursor? = nil) -> WindowDiscovery {
         // Cooperative budget: an in-flight AX call can finish after this deadline.
         let deadline = ax.uptime() + 3
-        let apps = ax.runningApplications().filter {
-            $0.activationPolicy != .prohibited && $0.processIdentifier != ProcessInfo.processInfo.processIdentifier && (appPID == nil || $0.processIdentifier == appPID)
+        let apps = ax.runningApplications().filter { app in
+            guard app.activationPolicy != .prohibited,
+                  app.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return false }
+            // The overview mirrors ordinary Dock apps, not background helpers such
+            // as menu-bar agents and software cursors. An explicitly chosen accessory
+            // app can still expose its own windows through its Dock tile's menu.
+            if let appPID { return app.processIdentifier == appPID }
+            return app.activationPolicy == .regular
         }
         var result = WindowDiscovery(windows: [], partial: false, livePIDs: Set(apps.map(\.processIdentifier)))
         let start = cursor.flatMap { cursor in apps.firstIndex { $0.processIdentifier == cursor.appPID } } ?? 0

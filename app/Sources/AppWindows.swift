@@ -116,6 +116,15 @@ struct WindowShelfButton: View {
 
 private final class WindowOverviewWindow: NSWindow {
     var onClose: (() -> Void)?
+    func fit(in visibleFrame: NSRect, centered: Bool) {
+        let available = visibleFrame.insetBy(dx: 16, dy: 16)
+        let size = NSSize(width: min(frame.width, available.width), height: min(frame.height, available.height))
+        minSize = NSSize(width: min(620, available.width), height: min(440, available.height))
+        let origin = centered
+            ? NSPoint(x: available.midX - size.width / 2, y: available.midY - size.height / 2)
+            : NSPoint(x: min(max(frame.minX, available.minX), available.maxX - size.width), y: min(max(frame.minY, available.minY), available.maxY - size.height))
+        setFrame(NSRect(origin: origin, size: size), display: false)
+    }
     override func close() {
         onClose?()
         contentView = nil
@@ -124,8 +133,13 @@ private final class WindowOverviewWindow: NSWindow {
 }
 
 extension WindowManager {
-    func showOverview() {
-        if let overviewWindow { overviewWindow.deminiaturize(nil); DockSystemEffect.handler(.present(overviewWindow)); refresh(); return }
+    func showOverview(visibleFrame: NSRect? = nil) {
+        let visibleFrame = visibleFrame ?? NSScreen.main?.visibleFrame
+        if let overviewWindow {
+            overviewWindow.deminiaturize(nil)
+            if let visibleFrame, !overviewWindow.styleMask.contains(.fullScreen) { (overviewWindow as? WindowOverviewWindow)?.fit(in: visibleFrame, centered: false) }
+            DockSystemEffect.handler(.present(overviewWindow)); refresh(); return
+        }
         // A real key window, rather than a popover on a nonactivating Dock panel, lets
         // search always accept typing and gives the overview room to grow.
         let window = WindowOverviewWindow(contentRect: NSRect(x: 0, y: 0, width: 840, height: 620), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
@@ -133,10 +147,16 @@ extension WindowManager {
         window.minSize = NSSize(width: 620, height: 440)
         window.isReleasedWhenClosed = false
         window.collectionBehavior = [.fullScreenPrimary]
-        window.contentView = NSHostingView(rootView: WindowShelfView(manager: self) { [weak window] in window?.close() })
+        let host = NSHostingView(rootView: WindowShelfView(manager: self) { [weak window] in window?.close() })
+        // AppKit owns the resizable viewport. A growing list must not turn SwiftUI's
+        // ideal content height into an offscreen window frame.
+        host.sizingOptions = []
+        host.autoresizingMask = [.width, .height]
+        window.contentView = host
         window.onClose = { [weak self] in self?.cancelDiscovery(); self?.overviewWindow = nil }
         overviewWindow = window
         window.center()
+        if let visibleFrame { window.fit(in: visibleFrame, centered: true) }
         DockSystemEffect.handler(.present(window))
     }
 }
@@ -210,7 +230,7 @@ struct WindowShelfView: View {
                     }.padding(10).background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
                     Picker("Show windows", selection: $filter) {
                         ForEach(WindowShelfFilter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                    }.pickerStyle(.segmented).frame(width: 230)
+                    }.pickerStyle(.segmented).labelsHidden().accessibilityLabel("Show windows").frame(width: 230)
                 }
                 if matches.isEmpty {
                     ContentUnavailableView(manager.loading ? "Finding windows…" : "No matching windows", systemImage: "macwindow", description: Text(query.isEmpty ? "Open an app window or choose another filter." : "Try a different app or window title."))
@@ -235,7 +255,7 @@ struct WindowShelfView: View {
                                 }
                             }
                         }.padding(2)
-                    }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }.frame(maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
                 }
                 HStack(alignment: .top, spacing: 16) {
                     Text(manager.status).font(.caption).foregroundStyle(.secondary).lineLimit(3)

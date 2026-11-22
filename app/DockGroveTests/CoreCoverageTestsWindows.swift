@@ -98,6 +98,17 @@ private final class WindowVisibilityFixture: NSWindow {
     override var occlusionState: NSWindow.OcclusionState { observedOcclusion }
 }
 
+/// Inert app identities keep discovery policy tests independent of the user's apps.
+private final class WindowOwnerFixture: NSRunningApplication {
+    var fixturePID: pid_t = 910_001
+    var fixturePolicy: NSApplication.ActivationPolicy = .regular
+    var fixtureName = "Window owner"
+    override var processIdentifier: pid_t { fixturePID }
+    override var activationPolicy: NSApplication.ActivationPolicy { fixturePolicy }
+    override var localizedName: String? { fixtureName }
+    override var isTerminated: Bool { false }
+}
+
 private func winElement(_ pid: pid_t) -> AXUIElement { AXUIElementCreateApplication(pid) }
 private func winPoint(_ point: CGPoint) -> AXValue { var p = point; return AXValueCreate(.cgPoint, &p)! }
 private func winSize(_ size: CGSize) -> AXValue { var s = size; return AXValueCreate(.cgSize, &s)! }
@@ -347,6 +358,36 @@ private func winWakeAccessibility() async {
         manager.refresh()
         await winWait { !manager.loading }
         XCTAssertTrue(manager.windows.isEmpty, "A completed app scan removes closed windows")
+    }
+
+    func testOverviewExcludesHelpersButScopedAccessoryWindowsRemainAvailable() async throws {
+        let regular = WindowOwnerFixture(), accessory = WindowOwnerFixture(), prohibited = WindowOwnerFixture(), own = WindowOwnerFixture()
+        accessory.fixturePID = 910_002; accessory.fixturePolicy = .accessory; accessory.fixtureName = "Menu-bar helper"
+        prohibited.fixturePID = 910_003; prohibited.fixturePolicy = .prohibited
+        own.fixturePID = ProcessInfo.processInfo.processIdentifier
+        fake.apps = [regular, accessory, prohibited, own]
+        for (index, owner) in fake.apps.enumerated() {
+            let window = winElement(pid_t(75000 + index))
+            fake.put(winElement(owner.processIdentifier), kAXWindowsAttribute, [window] as CFArray)
+            fake.put(window, kAXSubroleAttribute, kAXStandardWindowSubrole as CFString)
+            fake.put(window, kAXTitleAttribute, "Document \(index)" as CFString)
+        }
+        let overview = WindowManager.discover(using: fake.client)
+        XCTAssertEqual(overview.windows.map { $0.owner.processIdentifier }, [regular.fixturePID])
+        XCTAssertEqual(overview.livePIDs, [regular.fixturePID])
+        for excluded in [prohibited, own] {
+            let scoped = WindowManager.discover(using: fake.client, appPID: excluded.processIdentifier)
+            XCTAssertTrue(scoped.windows.isEmpty, "Prohibited apps and DockGrove itself stay excluded even when explicitly requested")
+            XCTAssertTrue(scoped.livePIDs.isEmpty)
+        }
+
+        let manager = WindowManager()
+        manager.refreshIfNeeded(for: accessory)
+        await winWait { !manager.loading }
+        XCTAssertEqual(manager.windows.map { $0.owner.processIdentifier }, [accessory.fixturePID], "A pinned accessory app may expose its own real windows")
+        manager.refresh()
+        await winWait { !manager.loading }
+        XCTAssertEqual(manager.windows.map { $0.owner.processIdentifier }, [regular.fixturePID], "Opening the ordinary overview prunes helper windows cached by a scoped menu scan")
     }
 
     func testDiscoveryResumesThroughBusyAppsAndKeepsUntypedWindows() async throws {
