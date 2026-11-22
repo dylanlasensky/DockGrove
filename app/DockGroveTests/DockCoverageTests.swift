@@ -1068,6 +1068,11 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         let point = CGPoint(x: 40, y: 45)
         harness.click(point)
         XCTAssertEqual(launched, [app.url])
+        DockSystemEffect.modifiers = { .command }
+        harness.click(point)
+        XCTAssertEqual(launched, [app.url], "Command-click must not launch the tile")
+        if case .reveal(let urls)? = effects.last { XCTAssertEqual(urls, [app.url]) } else { XCTFail("Command-click should reveal the app") }
+        DockSystemEffect.modifiers = { [] }
         harness.window.acceptsMouseMovedEvents = true
         harness.hover(point, entering: true)
         wait { !model.toolkit.windows.loading }

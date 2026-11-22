@@ -287,8 +287,19 @@ struct AccessibilityClient {
         ax.activate(selected.owner)
         let result = await Task.detached(priority: .userInitiated) { () -> String? in
             let raised = ax.perform(selected.element, kAXRaiseAction)
+            if restored.0 {
+                guard restored.1 == .success else { return nil }
+                // AX acknowledgements can arrive before an app actually restores its
+                // window. Confirm the state, with a short bounded settling period.
+                for attempt in 0..<4 {
+                    if (ax.copy(selected.element, kAXMinimizedAttribute) as? Bool) == false {
+                        return raised == .success ? "Window brought forward." : "Window restored."
+                    }
+                    if attempt < 3 { ax.pause(0.05) }
+                }
+                return nil
+            }
             if raised == .success && (restored.1 == .success || restored.1 == .attributeUnsupported) { return "Window brought forward." }
-            if restored.0, restored.1 == .success, (ax.copy(selected.element, kAXMinimizedAttribute) as? Bool) == false { return "Window restored." }
             return nil
         }.value
         guard trusted else { windows = []; status = "Accessibility permission was removed."; return false }

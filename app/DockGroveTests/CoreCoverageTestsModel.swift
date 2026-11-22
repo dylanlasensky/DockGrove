@@ -6,6 +6,19 @@ import SwiftUI
 
 private struct ModelTestError: Error {}
 
+private final class ModelRunningApplication: NSRunningApplication {
+    var appURL: URL?
+    var pid: pid_t = 900_001
+    var fakeActive = false
+    var fakeHidden = false
+    var policy: NSApplication.ActivationPolicy = .regular
+    override var bundleURL: URL? { appURL }
+    override var processIdentifier: pid_t { pid }
+    override var isActive: Bool { fakeActive }
+    override var isHidden: Bool { fakeHidden }
+    override var activationPolicy: NSApplication.ActivationPolicy { policy }
+}
+
 /// Grants StoreKit tiers to `PurchaseManager.shared` through its injectable store.
 @MainActor private func grant(_ productIDs: Set<String>) async {
     let manager = PurchaseManager.shared
@@ -473,6 +486,111 @@ private func usageResponse() throws -> UsageResponse {
             }
         }
         XCTAssertNotNil(error)
+    }
+
+    func testDockModifierClicksRevealHideAndKeepChooserLaunchesOrdinary() async throws {
+        let model = model(), app = try makeApp("Modifiers")
+        let running = ModelRunningApplication(); running.appURL = app.url; running.fakeActive = true
+        let savedEffects = DockSystemEffect.handler, savedModifiers = DockSystemEffect.modifiers
+        let savedRunning = DockSystemEffect.runningApplications
+        defer { DockSystemEffect.handler = savedEffects; DockSystemEffect.modifiers = savedModifiers; DockSystemEffect.runningApplications = savedRunning }
+        var effects: [DockSystemEffect] = [], launched: [URL] = []
+        var modifiers: NSEvent.ModifierFlags = .command
+        var runningApps: [NSRunningApplication] = [running]
+        DockSystemEffect.handler = { effects.append($0) }
+        DockSystemEffect.modifiers = { modifiers }
+        DockSystemEffect.runningApplications = { runningApps }
+        model.openApplication = { url, completion in launched.append(url); completion(nil) }
+
+        model.activateFromDock(app)
+        if case .reveal(let urls)? = effects.last { XCTAssertEqual(urls, [app.url]) } else { XCTFail("Command-click must reveal the application") }
+        XCTAssertTrue(launched.isEmpty)
+        effects.removeAll(); modifiers = .option
+        model.activateFromDock(app)
+        if case .setHidden(let target, let hidden)? = effects.last { XCTAssertTrue(target === running); XCTAssertTrue(hidden) } else { XCTFail("Option-click must hide the active application") }
+        XCTAssertTrue(launched.isEmpty)
+
+        effects.removeAll(); running.fakeActive = false
+        model.activateFromDock(app)
+        running.fakeHidden = true
+        model.activateFromDock(app)
+        runningApps = []
+        model.activateFromDock(app)
+        modifiers = []
+        model.activateFromDock(app)
+        modifiers = [.command, .option]
+        model.open(app) // Search results and the Open menu do not inherit tile modifiers.
+        await settle(0.05)
+        XCTAssertEqual(launched, Array(repeating: app.url, count: 5))
+        XCTAssertTrue(effects.isEmpty)
+    }
+
+    func testDockSoloLaunchHidesOthersOnlyAfterTheTargetIsActive() async throws {
+        let model = model(), app = try makeApp("Solo")
+        let target = ModelRunningApplication(); target.appURL = app.url; target.fakeActive = true
+        let other = ModelRunningApplication(); other.pid = 900_002
+        let hidden = ModelRunningApplication(); hidden.pid = 900_003; hidden.fakeHidden = true
+        let accessory = ModelRunningApplication(); accessory.pid = 900_004; accessory.policy = .accessory
+        let savedEffects = DockSystemEffect.handler, savedModifiers = DockSystemEffect.modifiers
+        let savedRunning = DockSystemEffect.runningApplications
+        defer { DockSystemEffect.handler = savedEffects; DockSystemEffect.modifiers = savedModifiers; DockSystemEffect.runningApplications = savedRunning }
+        var effects: [DockSystemEffect] = []
+        var runningApps: [NSRunningApplication] = [target, other, hidden, accessory]
+        var complete: ((Error?) -> Void)?
+        DockSystemEffect.handler = { effects.append($0) }
+        DockSystemEffect.modifiers = { [.command, .option] }
+        DockSystemEffect.runningApplications = { runningApps }
+        model.openApplication = { url, completion in XCTAssertEqual(url, app.url); complete = completion }
+        model.activateFromDock(app)
+        XCTAssertTrue(effects.isEmpty, "do not hide any app while a launch is pending")
+        complete?(nil)
+        await waitUntil { !effects.isEmpty }
+        XCTAssertEqual(effects.count, 1)
+        if case .setHidden(let app, let hidden)? = effects.first { XCTAssertTrue(app === other); XCTAssertTrue(hidden) } else { XCTFail("only another visible regular app should be hidden") }
+
+        effects.removeAll(); target.fakeActive = false
+        model.activateFromDock(app); complete?(nil)
+        await settle(0.05)
+        XCTAssertTrue(effects.isEmpty, "a delayed completion must not hide the app the user switched to")
+        target.fakeActive = true; target.fakeHidden = true
+        model.activateFromDock(app); complete?(nil)
+        await settle(0.05)
+        XCTAssertTrue(effects.isEmpty)
+        runningApps = [other]
+        model.activateFromDock(app); complete?(nil)
+        await settle(0.05)
+        XCTAssertTrue(effects.isEmpty, "an app that quit during launch must not hide everything else")
+    }
+
+    func testDockSoloLaunchFailureAndClosedDockLeaveOtherAppsVisible() async throws {
+        var dock: DockModel? = model()
+        let app = try makeApp("FailedSolo")
+        let target = ModelRunningApplication(); target.appURL = app.url; target.fakeActive = true
+        let other = ModelRunningApplication(); other.pid = 900_002
+        let savedEffects = DockSystemEffect.handler, savedModifiers = DockSystemEffect.modifiers
+        let savedRunning = DockSystemEffect.runningApplications
+        defer { DockSystemEffect.handler = savedEffects; DockSystemEffect.modifiers = savedModifiers; DockSystemEffect.runningApplications = savedRunning }
+        var effects: [DockSystemEffect] = [], reports: [String] = []
+        var complete: ((Error?) -> Void)?
+        DockSystemEffect.handler = { effects.append($0) }
+        DockSystemEffect.modifiers = { [.command, .option] }
+        DockSystemEffect.runningApplications = { [target, other] }
+        dock?.openApplication = { _, completion in complete = completion }
+        dock?.reportApplicationError = { reports.append($0) }
+        dock?.activateFromDock(app)
+        complete?(ModelTestError())
+        await waitUntil { !reports.isEmpty }
+        XCTAssertEqual(reports.count, 1)
+        XCTAssertTrue(reports.first?.contains("FailedSolo") == true)
+        XCTAssertTrue(effects.isEmpty)
+
+        dock?.activateFromDock(app)
+        weak var released = dock
+        dock = nil
+        XCTAssertNil(released)
+        complete?(nil)
+        await settle(0.05)
+        XCTAssertTrue(effects.isEmpty, "a late successful callback must not act for a closed Dock")
     }
 
     func testLaunchFailureExplainsRecoveryAndPreservesLayout() async throws {

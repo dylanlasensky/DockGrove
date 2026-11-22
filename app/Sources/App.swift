@@ -133,15 +133,22 @@ final class DockPanel: NSPanel {
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
+        model?.toolkit.utilities.refreshLoginStatus()
+        for dock in orEmpty(workspace?.docks) { dock.model.toolkit.utilities.refreshLoginStatus() }
         if purchasesEnabled { Task { await PurchaseManager.shared.refreshEntitlements() } }
     }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showSettings(); return true
     }
     func applicationDidFinishLaunching(_ notification: Notification) {
-        if !testing, let bundleID = Bundle.main.bundleIdentifier,
-           let existing = runningApplications(bundleID).first(where: { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }) {
-            existing.activate(options: []); terminate(nil); return
+        if !testing {
+            // Every shipping configuration controls the same Apple Dock preferences.
+            // Hand over before restoring or writing them, even across bundle IDs.
+            for identifier in ["com.dylan.wavedock", "com.dylan.wavedock.development", "com.dylan.wavedock.commercial-qa"] {
+                if let existing = runningApplications(identifier).first(where: { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier && !$0.isTerminated }) {
+                    existing.activate(options: []); terminate(nil); return
+                }
+            }
         }
         NSApp.setActivationPolicy(.accessory)
         let mainMenu = NSMenu(), appItem = NSMenuItem(), appMenu = NSMenu()

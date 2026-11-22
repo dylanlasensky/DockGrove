@@ -28,6 +28,7 @@ extension WindowManager: AppWindowListing {}
     static var handler: (DockSystemEffect) -> Void = DockSystemEffect.perform
     /// Keys held while a menu is built; Option turns Quit into Force Quit.
     static var modifiers: () -> NSEvent.ModifierFlags = { NSEvent.modifierFlags }
+    static var runningApplications: () -> [NSRunningApplication] = { NSWorkspace.shared.runningApplications }
     static func perform(_ effect: DockSystemEffect) {
         switch effect {
         case .present(let window): window.deminiaturize(nil); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
@@ -67,7 +68,7 @@ extension ManagedWindow {
 }
 extension DockModel {
     func runningApplication(_ app: DockApp) -> NSRunningApplication? {
-        NSWorkspace.shared.runningApplications.first { $0.bundleURL?.standardizedFileURL.path == app.id }
+        DockSystemEffect.runningApplications().first { $0.bundleURL?.standardizedFileURL.path == app.id }
     }
     func showAppWindows(_ app: DockApp) {
         guard canUseFeatures else { settingsAction?(); return }

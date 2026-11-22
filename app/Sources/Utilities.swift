@@ -154,10 +154,19 @@ struct UnitConversion {
             Task { @MainActor in self?.busy = false; self?.status = result == 0 ? "Capture finished. If you selected a region, paste the image with ⌘V." : "Capture cancelled or unavailable. Check Screen Recording permission." }
         }
     }
+    /// System Settings can grant or revoke startup while DockGrove is inactive.
+    /// This only reads status; returning to the app never registers a login item.
+    func refreshLoginStatus() {
+        let current = loginStatus()
+        loginEnabled = current == .enabled
+        let approval = "Approve DockGrove in System Settings > General > Login Items."
+        if current == .requiresApproval { status = approval }
+        else if status == approval { status = nil }
+    }
     func setLogin(_ enabled: Bool) {
         do { try setLoginItem(enabled)
-            loginEnabled = loginStatus() == .enabled
-            status = loginStatus() == .requiresApproval ? "Approve DockGrove in System Settings > General > Login Items." : nil
+            status = nil
+            refreshLoginStatus()
         } catch { status = "Could not change login startup. Install DockGrove in Applications and try again." }
     }
     func loadReminders() {

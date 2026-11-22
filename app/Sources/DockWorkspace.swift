@@ -66,6 +66,12 @@ enum DockGeometry {
     func remove(_ id:String) {
         guard let dock = docks.first(where:{$0.id == id}) else { return }
         dock.panel.orderOut(nil); dock.settings.orderOut(nil); dock.model.companionWindow?.close(); dock.model.toolkit.windows.overviewWindow?.close(); dock.model.toolkit.voiceMemo.stop()
+        // Full widget controls retain their model through the hosting view. Dismantle
+        // that view as well as closing its window so a removed dock cannot keep polling.
+        dock.model.appPickerWindow?.makeFirstResponder(nil)
+        dock.model.appPickerWindow?.close()
+        dock.model.appPickerWindow?.contentView = nil
+        dock.model.appPickerWindow = nil
         docks.removeAll { $0.id == id }; persist()
         // Retain scoped data so an accidental removal never deletes notes or recordings.
     }

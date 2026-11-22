@@ -246,7 +246,7 @@ struct AppTile: View {
     @StateObject private var interaction = TileInteraction()
     var body: some View {
         VStack(spacing: 4) {
-            Button { model.open(app) } label: {
+            Button { model.activateFromDock(app) } label: {
                 Group {
                     if app.isAvailable {
                         Image(nsImage: app.icon).resizable().interpolation(.high)

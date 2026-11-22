@@ -706,6 +706,42 @@ private func winWakeAccessibility() async {
         XCTAssertTrue(manager.status.hasPrefix("This app could not restore"))
     }
 
+    func testSuccessfulRaiseStillRequiresConfirmedUnminimizedState() async throws {
+        let manager = WindowManager()
+        var window = try managed(72906, frame: nil)
+        window.isMinimized = true
+        manager.windows = [window]; manager.selectedID = window.id
+        fake.put(window.element, kAXMinimizedAttribute, kCFBooleanTrue)
+        fake.storeMinimized = false
+        fake.performResult = .success
+        let refused = await manager.focus()
+        XCTAssertFalse(refused, "A successful AX acknowledgement is not proof that a minimized window was restored")
+        XCTAssertTrue(manager.windows[0].isMinimized)
+        XCTAssertTrue(manager.status.hasPrefix("This app could not restore"))
+        XCTAssertEqual(fake.pauses, 3, "Settling retries are bounded")
+
+        // The same acknowledgement may legitimately precede an asynchronous restore.
+        var pauses = 0
+        var client = fake.client
+        client.pause = { [fake] _ in
+            pauses += 1
+            if pauses == 2 { fake!.put(window.element, kAXMinimizedAttribute, kCFBooleanFalse) }
+        }
+        AccessibilityClient.current = client
+        let delayed = await manager.focus()
+        XCTAssertTrue(delayed)
+        XCTAssertEqual(pauses, 2)
+        XCTAssertFalse(manager.windows[0].isMinimized)
+        XCTAssertEqual(manager.status, "Window brought forward.")
+
+        manager.windows = [window]
+        fake.put(window.element, kAXMinimizedAttribute, kCFBooleanTrue)
+        fake.queue(kAXMinimizedAttribute, [.attributeUnsupported])
+        let unsupported = await manager.focus()
+        XCTAssertFalse(unsupported)
+        XCTAssertTrue(manager.windows[0].isMinimized)
+    }
+
     func testRestoreUsesCurrentMinimizedStateAfterDockAction() async throws {
         let manager = WindowManager()
         let window = try managed(72904, frame: nil)
