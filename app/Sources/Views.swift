@@ -298,6 +298,17 @@ struct AppTileMenu: View {
             Button("Show in Finder") { DockSystemEffect.handler(.reveal([app.url])) }
         }
         Divider()
+        applicationActions(for: running)
+        Divider()
+        // Only a pinned tile can be swapped; a running-only tile has no slot to replace.
+        if pinned { Button("Replace app…") { model.showAppPicker(replacing: app) } }
+        Button("Undo app change") { model.undoAppChange() }.disabled(model.appHistory.isEmpty)
+        Button("Move left") { model.move(app, by: -1) }.disabled(!pinned || model.apps.first == app)
+        Button("Move right") { model.move(app, by: 1) }.disabled(!pinned || model.apps.last == app)
+    }
+
+    @ViewBuilder
+    private func applicationActions(for running: NSRunningApplication?) -> some View {
         if let running {
             Button("Show All Windows") { model.showAppWindows(app) }
             Button(running.isHidden ? "Show" : "Hide") { DockSystemEffect.handler(.setHidden(running, !running.isHidden)) }
@@ -307,12 +318,6 @@ struct AppTileMenu: View {
         } else {
             Button("Open") { model.open(app) }
         }
-        Divider()
-        // Only a pinned tile can be swapped; a running-only tile has no slot to replace.
-        if pinned { Button("Replace app…") { model.showAppPicker(replacing: app) } }
-        Button("Undo app change") { model.undoAppChange() }.disabled(model.appHistory.isEmpty)
-        Button("Move left") { model.move(app, by: -1) }.disabled(!pinned || model.apps.first == app)
-        Button("Move right") { model.move(app, by: 1) }.disabled(!pinned || model.apps.last == app)
     }
 }
 

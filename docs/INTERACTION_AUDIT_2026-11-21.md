@@ -30,7 +30,7 @@ Regression cases are in `IntegrationsUtilitiesTests` and `ApplicationsStackTests
 | Purchases and licensing | Verified-only entitlements; revoked/unknown/expired products; pending/canceled purchase; recovery; offline license; malformed signing configuration; stale refresh | `LicensingTests`, purchase/settings fixtures, commerce tests; no live sale or Apple distribution is certified |
 | Website | Client API disabled/enabled behavior; allowed redirects; checkout unavailable state; static routes/assets/budget; responsive layout and keyboard/motion smoke tests | Node client tests and build-dependent static/Playwright suites; production deployment is separate |
 
-## Executed audit checks
+## Initial audit checks — November 21
 
 - Native `Tests-8` completed with 304 tests, 6 opt-in skips and 0 failures, including the final motion, geometry and focus changes. The focused companion suite separately passed all 14 tests. A final store-recovery regression also passed in `Index-10`, covering all 12 lines of the quoted-string parser; the full suite and CI are rerunning with that additional test.
 - `Live-9` passed all five available read-only checks: Codex usage, public GitHub data, currency rates, audio output discovery and CPU/memory sampling. Apple Weather's live signed-entitlement path was excluded; its offline failure cases passed in the normal suite.
@@ -43,11 +43,29 @@ Regression cases are in `IntegrationsUtilitiesTests` and `ApplicationsStackTests
 - `git diff --check` passed at the audit checkpoint.
 - The initial static checks required a missing `website/web/out`; they were rerun successfully after building. The first build stopped after compilation with the Next.js advisory warning. The final patched build exits successfully without that warning. The standalone Node runtime is required locally because the desktop app's embedded Node enforces library-signing restrictions on the native SWC dependency.
 
-The website results above remain unchanged. Live window discovery/restoration still requires macOS to recognize Accessibility access for the installed build: both the existing app and isolated preview reported access unavailable. No privacy permission was changed during this review. Intel execution, older supported macOS versions, external displays, clean signed upgrades, spoken VoiceOver, Developer ID/notarization and production payment configuration remain separate release gates when that environment is unavailable.
+These were the initial, pre-installation results. The November 22 checkpoint below supersedes the installation and Accessibility status. Intel execution, older supported macOS versions, external displays, clean signed upgrades, spoken VoiceOver, Developer ID/notarization and production payment configuration remain separate release gates when that environment is unavailable.
 
 Live computer-use review in isolated `--ui-test` preferences verified name-field typing and Return, species switching while preserving the custom name, feeding, playing, rest/wake, full-screen entry/exit, and Command-W dismissal. The room remained contained and the lighter orange cat rendered correctly in the real GPU scene. Settings' Done and Escape controls and the overview's Done control dismissed correctly; the earlier inactive-window observation did not reproduce. Personal pet/layout preferences were not used for these edits.
 
 An earlier native run exposed an existing fixture that sent live AX messages to its own test host from a detached task. macOS logged an `NSMenu` main-thread violation; XCTest then stalled during issue symbolication. The corrected fixture uses an unavailable PID for AX operations and asserts failure/nil outcomes. Production discovery already excludes DockGrove's own PID. The subsequent `Tests-4` baseline passed; the earlier diagnostic sample is `/tmp/dockgrove-native-test2.sample.txt`.
+
+## Installed-build verification — November 22
+
+The reviewed universal Development build was installed at `/Applications/DockGrove.app`. Its executable SHA-256 is `1aeb4293adb6709e4de8dcab12be0cdda507168c3ba3d3a34777cc19790deb78`. Strict ad-hoc signature, plist and both architecture checks passed. The previous process was closed before installation; the end-of-review process check found one DockGrove process and no test host.
+
+After owner authentication, the exact installed app was re-added in System Settings → Device Control and Data Access. DockGrove then recognized Accessibility. A disposable native window was searched by app name, minimized through the overview's context menu, and restored by clicking its card. The Minimized filter included it and the Open filter excluded it. Read-only Window Server observations independently confirmed that the window left the visible window list on minimize and returned on restore. No personal app window was minimized or changed.
+
+Live review found and fixed three additional overview problems: background helper windows cluttered the results, intrinsic content sizing made the window taller than the display, and the filter label wrapped. Normal discovery now lists regular applications; an explicitly scoped accessory app can still be inspected. AppKit owns the resizable viewport, the scroll area stays within it, and the frame is constrained to the available screen. The resulting overview measured 840 × 652 points on a 1470 × 956 display, with its footer visible. The native regression fixture exercises 36 results, filtering, scrolling, user resizing and a small display area.
+
+That installed build also passed full-screen hide/return and companion name-field typing. The preceding build additionally passed playroom full-screen entry/exit and Command-M followed by pet-tile restoration and typing again; the changes between these builds were confined to window discovery and overview layout. The temporary name was restored before saving. The user's overlap preference was restored, and a semantic preference comparison found only the companion's normal `lastUpdate` timestamp changed.
+
+Further reliability changes cover app-specific discovery continuation, confirmed minimize/restore outcomes, released extra-Dock controllers, single-instance handoff before Apple Dock side effects, refreshed login-item status, and Command/Option app-click actions. Option-Command hides other apps only after the target opens successfully and is still active.
+
+The app-menu regression renders stopped → running → stopped states, asserts the available actions, invokes Open in both stopped states, and verifies that the pin remains unchanged. A standalone Swift 6.4 result-builder reproduction showed that a preceding optional block with a nested condition could incorrectly assign the later `else` branch zero coverage even when it executed twice. Separating the application-action builder from the window-list builder preserves the captured running-app snapshot and menu order while avoiding that counter mapping. The coverage gate and its allowlist are unchanged. Both focused menu tests passed after extraction, with body coverage 22/22 and helper coverage 11/11; the subsequent universal build passed signature, plist and architecture checks. Its final installation and CI results are recorded in the PR.
+
+Exact-head CI results and the merge/publication state are maintained in PR #43. Website export validation and a successful merge are separate from Cloudflare publication; neither implies that production payments or a notarized public app release are enabled.
+
+Known behavior boundaries remain: browser tabs stay inside their browser windows, overview cards use app icons and titles while Mission Control supplies system previews, and DockGrove stays hidden in another app's native full-screen Space. The Apple Dock's system keyboard-focus shortcut and Finder drag-to-pin behavior are not implemented by this change.
 
 ## Requested interaction changes
 

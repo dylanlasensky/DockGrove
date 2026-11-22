@@ -1046,6 +1046,45 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         XCTAssertTrue(harness.has("Missing, unavailable"))
     }
 
+    func testAppMenuUpdatesOpenActionWhenRunningStateChanges() {
+        let model = dockModel(widgets: [])
+        let app = hostApp
+        model.apps = [app]
+        let savedRunning = DockSystemEffect.runningApplications
+        defer { DockSystemEffect.runningApplications = savedRunning }
+        var running: [NSRunningApplication] = []
+        DockSystemEffect.runningApplications = { running }
+        var launches: [URL] = []
+        model.openApplication = { url, completion in launches.append(url); completion(nil) }
+        // Render the menu content itself so AppKit's cached contextual menu cannot
+        // stand in for reevaluating availability when an application starts or quits.
+        let harness = DockHarness(VStack {
+            AppTileMenu(app: app, model: model, windows: model.toolkit.windows, utilities: model.toolkit.utilities, forceQuit: false)
+        }, size: CGSize(width: 400, height: 480))
+        defer { harness.close() }
+        XCTAssertTrue(harness.has("Open"))
+        XCTAssertFalse(harness.has("Quit"))
+        harness.press("Open")
+        XCTAssertEqual(launches, [app.url])
+
+        running = [.current]
+        model.objectWillChange.send()
+        harness.spin()
+        XCTAssertFalse(harness.has("Open"), "a running app offers its window and quit actions")
+        XCTAssertTrue(harness.has("Show All Windows"))
+        XCTAssertTrue(harness.has("Quit"))
+
+        running = []
+        model.objectWillChange.send()
+        harness.spin()
+        XCTAssertTrue(harness.has("Open"), "Open must return after the application quits")
+        XCTAssertFalse(harness.has("Show All Windows"))
+        XCTAssertFalse(harness.has("Quit"))
+        harness.press("Open")
+        XCTAssertEqual(launches, [app.url, app.url])
+        XCTAssertEqual(model.apps, [app], "running state changes must preserve the pinned app")
+    }
+
     func testAppTileActions() throws {
         let model = dockModel(widgets: [])
         var launched: [URL] = []
