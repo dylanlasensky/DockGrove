@@ -693,6 +693,30 @@ import SwiftUI
         XCTAssertEqual(parsed.last?.aliases, ["line\nbreak", "quoted\"name", "back\\slash"])
     }
 
+    func testIndexStoreRecoversValidAppsAfterTruncatedQuotedFields() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("AppIndexRecovery-" + UUID().uuidString)
+        folders.append(folder)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appendingPathComponent("AppIndex.yml")
+        let damaged = #"""
+        apps:
+          - name: "Unfinished\
+            path: /Apps/BadName.app
+          - name: "Missing path"
+            path: "
+          - name: "Valid"
+            path: "/Apps/Valid.app"
+            aliases: ["line\nbreak", "back\\slash"]
+        """#
+        try Data(damaged.utf8).write(to: url)
+        let store = AppIndexStore(url: url, seedURL: nil)
+        let expected = [AppSearchIndex.Record(path: "/Apps/Valid.app", name: "Valid", bundleIdentifier: nil, modified: nil, aliases: ["line\nbreak", "back\\slash"])]
+        XCTAssertEqual(store.load(), expected, "incomplete records must not hide later launchable apps")
+        store.save(store.load())
+        XCTAssertEqual(AppIndexYAML.decode(try String(contentsOf: url, encoding: .utf8)), expected)
+        XCTAssertEqual(AppIndexStore(url: url, seedURL: nil).load(), expected, "saving recovery must preserve escaped aliases across restart")
+    }
+
     // MARK: Stack popover
 
     private var visible: CGRect { CGRect(x: 0, y: 0, width: 1440, height: 875) }
