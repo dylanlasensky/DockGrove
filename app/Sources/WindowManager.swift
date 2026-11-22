@@ -80,19 +80,19 @@ struct AccessibilityClient {
         AccessibilityClient.current.promptForTrust()
         status = "Enable DockGrove in Privacy & Security > Accessibility (Device Control and Data Access on newer macOS), then Refresh."
     }
-    func refresh() { refresh(appPID: nil) }
+    func refresh() { refresh(appPID: nil, scopedCursor: nil, scopedWindowIDs: []) }
     func refreshIfNeeded(for app: NSRunningApplication) {
         let now = AccessibilityClient.current.uptime()
         guard now - (appRefreshTimes[app.processIdentifier] ?? -.infinity) >= 3 else { return }
         guard !loading, !acting else { return }
         appRefreshTimes[app.processIdentifier] = now
-        refresh(appPID: app.processIdentifier)
+        refresh(appPID: app.processIdentifier, scopedCursor: nil, scopedWindowIDs: [])
     }
     func cancelDiscovery() {
         discoveryGeneration += 1
         if discovery != nil { discovery?.cancel(); discovery = nil; loading = false }
     }
-    private func refresh(appPID: pid_t?) {
+    private func refresh(appPID: pid_t?, scopedCursor: WindowDiscoveryCursor?, scopedWindowIDs: Set<String>) {
         guard trusted else {
             cancelDiscovery(); discoveryCursor = nil; cycleWindowIDs = [:]; windows = []
             status = "Accessibility access is required. Use Allow Accessibility, then Refresh."
@@ -104,7 +104,9 @@ struct AccessibilityClient {
         let generation = discoveryGeneration, ax = AccessibilityClient.current
         // A full scan resumes where its previous slice stopped. Restarting at the first
         // app on every timer tick permanently starved later apps on busy desktops.
-        let cursor = appPID == nil ? discoveryCursor : nil
+        // Scoped cursors belong only to this scan chain, so a new hover or a
+        // cancelled scan never resumes another app's partially read window list.
+        let cursor = appPID == nil ? discoveryCursor : scopedCursor
         if appPID == nil && cursor == nil { cycleWindowIDs = [:]; cycleUnavailablePIDs = [] }
         let worker = Task.detached(priority: .userInitiated) { Self.discover(using: ax, appPID: appPID, startingAt: cursor) }
         discovery = worker
@@ -113,6 +115,7 @@ struct AccessibilityClient {
             guard generation == discoveryGeneration else { return }
             discovery = nil; loading = false
             guard trusted else { windows = []; discoveryCursor = nil; status = "Accessibility permission was removed."; return }
+            let nextScopedWindowIDs: Set<String> = appPID == nil ? [] : scopedWindowIDs.union(result.windows.map(\.id))
             if appPID == nil {
                 discoveryCursor = result.cursor
                 cycleUnavailablePIDs.formUnion(result.unavailablePIDs)
@@ -124,7 +127,7 @@ struct AccessibilityClient {
                     return window.owner.isTerminated || !result.livePIDs.contains(pid) || (result.completedPIDs.contains(pid) && !(cycleWindowIDs[pid] ?? []).contains(window.id))
                 }
             } else if let appPID, result.completedPIDs.contains(appPID) {
-                windows.removeAll { $0.owner.processIdentifier == appPID }
+                windows.removeAll { $0.owner.processIdentifier == appPID && !nextScopedWindowIDs.contains($0.id) }
             }
             let updated = Set(result.windows.map(\.id))
             windows.removeAll { updated.contains($0.id) }
@@ -139,7 +142,7 @@ struct AccessibilityClient {
                 : "Choose a window to bring it forward. Right-click for window actions."
             // Continue without requiring the user to refresh repeatedly. Every slice is
             // off the main actor and can be cancelled when the overview is dismissed.
-            if appPID == nil && result.cursor != nil { refresh(appPID: nil) }
+            if result.cursor != nil { refresh(appPID: appPID, scopedCursor: result.cursor, scopedWindowIDs: nextScopedWindowIDs) }
         }
     }
     struct WindowDiscoveryCursor: Equatable {
@@ -315,7 +318,12 @@ struct AccessibilityClient {
         let ax = AccessibilityClient.current
         let minimized = await Task.detached(priority: .userInitiated) {
             ax.setTimeout(selected.element, 0.5)
-            return ax.set(selected.element, kAXMinimizedAttribute, kCFBooleanTrue) == .success && (ax.copy(selected.element, kAXMinimizedAttribute) as? Bool) == true
+            guard ax.set(selected.element, kAXMinimizedAttribute, kCFBooleanTrue) == .success else { return false }
+            for attempt in 0..<4 {
+                if (ax.copy(selected.element, kAXMinimizedAttribute) as? Bool) == true { return true }
+                if attempt < 3 { ax.pause(0.05) }
+            }
+            return false
         }.value
         guard trusted else { windows = []; status = "Accessibility permission was removed."; return }
         status = minimized ? "Window minimized." : "This window cannot be minimized."
