@@ -15,13 +15,13 @@ import ServiceManagement
     let host: NSView
     private static var accessibilityReady = false
 
-    init(view host: NSView, size: CGSize) {
+    init(view host: NSView, size: CGSize, window existingWindow: NSWindow? = nil) {
         if !Self.accessibilityReady {
             // Builds SwiftUI's accessibility tree in-process, as an assistive client would.
             _ = NSApp.perform(Selector(("setAccessibilityEnhancedUserInterface:")), with: NSNumber(value: true))
             Self.accessibilityReady = true
         }
-        window = NSWindow(contentRect: NSRect(x: -20000, y: -20000, width: size.width, height: size.height), styleMask: [.borderless], backing: .buffered, defer: false)
+        window = existingWindow ?? NSWindow(contentRect: NSRect(x: -20000, y: -20000, width: size.width, height: size.height), styleMask: [.borderless], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         self.host = host
         host.frame = NSRect(origin: .zero, size: size)
@@ -621,7 +621,7 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         let model = model { $0.set(["focus"], forKey: "widgets") }
         let controller = notchController(model)
         let harness = DockHarness(NotchShelfView(model: model, controller: controller), size: CGSize(width: 1100, height: 160))
-        defer { model.appPickerWindow?.close(); model.appPickerWindow = nil; harness.close() }
+        defer { model.appPickerWindow?.close(); model.appPickerWindow = nil; model.companionWindow?.close(); harness.close() }
         harness.press("Expand DockGrove notch")
         harness.spin(0.2)
         harness.press("Open Focus from notch")
@@ -635,7 +635,7 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         harness.press("Open full Focus controls")
         XCTAssertFalse(firstControls === model.appPickerWindow)
         model.showNotchWidgetControls(.pet)
-        XCTAssertEqual(model.appPickerWindow?.title, "Companion")
+        XCTAssertEqual(model.companionWindow?.title, "Companion Playroom")
         let petControls = DockHarness(NotchWidgetControls(kind: .pet, model: model), size: CGSize(width: 420, height: 560))
         XCTAssertTrue(petControls.has("Feed"), "\(petControls.labels())")
         XCTAssertTrue(petControls.has("Play"))
@@ -1046,6 +1046,45 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         XCTAssertTrue(harness.has("Missing, unavailable"))
     }
 
+    func testAppMenuUpdatesOpenActionWhenRunningStateChanges() {
+        let model = dockModel(widgets: [])
+        let app = hostApp
+        model.apps = [app]
+        let savedRunning = DockSystemEffect.runningApplications
+        defer { DockSystemEffect.runningApplications = savedRunning }
+        var running: [NSRunningApplication] = []
+        DockSystemEffect.runningApplications = { running }
+        var launches: [URL] = []
+        model.openApplication = { url, completion in launches.append(url); completion(nil) }
+        // Render the menu content itself so AppKit's cached contextual menu cannot
+        // stand in for reevaluating availability when an application starts or quits.
+        let harness = DockHarness(VStack {
+            AppTileMenu(app: app, model: model, windows: model.toolkit.windows, utilities: model.toolkit.utilities, forceQuit: false)
+        }, size: CGSize(width: 400, height: 480))
+        defer { harness.close() }
+        XCTAssertTrue(harness.has("Open"))
+        XCTAssertFalse(harness.has("Quit"))
+        harness.press("Open")
+        XCTAssertEqual(launches, [app.url])
+
+        running = [.current]
+        model.objectWillChange.send()
+        harness.spin()
+        XCTAssertFalse(harness.has("Open"), "a running app offers its window and quit actions")
+        XCTAssertTrue(harness.has("Show All Windows"))
+        XCTAssertTrue(harness.has("Quit"))
+
+        running = []
+        model.objectWillChange.send()
+        harness.spin()
+        XCTAssertTrue(harness.has("Open"), "Open must return after the application quits")
+        XCTAssertFalse(harness.has("Show All Windows"))
+        XCTAssertFalse(harness.has("Quit"))
+        harness.press("Open")
+        XCTAssertEqual(launches, [app.url, app.url])
+        XCTAssertEqual(model.apps, [app], "running state changes must preserve the pinned app")
+    }
+
     func testAppTileActions() throws {
         let model = dockModel(widgets: [])
         var launched: [URL] = []
@@ -1068,6 +1107,11 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         let point = CGPoint(x: 40, y: 45)
         harness.click(point)
         XCTAssertEqual(launched, [app.url])
+        DockSystemEffect.modifiers = { .command }
+        harness.click(point)
+        XCTAssertEqual(launched, [app.url], "Command-click must not launch the tile")
+        if case .reveal(let urls)? = effects.last { XCTAssertEqual(urls, [app.url]) } else { XCTFail("Command-click should reveal the app") }
+        DockSystemEffect.modifiers = { [] }
         harness.window.acceptsMouseMovedEvents = true
         harness.hover(point, entering: true)
         wait { !model.toolkit.windows.loading }
@@ -1300,6 +1344,77 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         XCTAssertEqual(model.toolkit.enabled, ["separator", "spacer"])
         harness.choose("Remove from Dock", inMenuAt: point)
         XCTAssertEqual(model.toolkit.enabled, ["spacer"])
+    }
+
+    func testWindowOverviewKeepsResultsInsideItsResizableViewport() throws {
+        let savedAX = AccessibilityClient.current
+        var client = AccessibilityClient()
+        client.isTrusted = { true }
+        client.runningApplications = { [] }
+        AccessibilityClient.current = client
+        defer { AccessibilityClient.current = savedAX }
+        let manager = WindowManager()
+        let display = try XCTUnwrap(NSScreen.main).visibleFrame
+        manager.showOverview(visibleFrame: display)
+        let window = try XCTUnwrap(manager.overviewWindow)
+        let host = try XCTUnwrap(window.contentView as? NSHostingView<WindowShelfView>)
+        host.rootView.refreshEvents = Empty<Date, Never>().eraseToAnyPublisher()
+        let initialFrame = window.frame
+        let harness = DockHarness(view: host, size: host.frame.size, window: window)
+        defer { harness.close() }
+        wait { !manager.loading }
+        manager.cancelDiscovery()
+        let element = AXUIElementCreateApplication(getpid())
+        manager.windows = (0..<36).map { index in
+            ManagedWindow(id: "overview-\(index)", owner: .current, element: element,
+                title: index == 0 ? "Unique Draft" : "Document \(index)", isMinimized: index.isMultiple(of: 2))
+        }
+        manager.status = "36 windows ready."
+        harness.spin(0.2)
+        let footer = "Browser tabs stay inside their browser window. This overview shows app windows, including minimized ones."
+        func textNode(_ text: String) -> NSObject? {
+            harness.nodes().first {
+                DockHarness.get($0, "accessibilityValue") as? String == text || DockHarness.get($0, "accessibilityLabel") as? String == text
+            }
+        }
+        func assertViewport(_ expectedSize: NSSize) throws {
+            XCTAssertEqual(window.frame.size.width, expectedSize.width, accuracy: 1)
+            XCTAssertEqual(window.frame.size.height, expectedSize.height, accuracy: 1)
+            let contentBounds = host.convert(host.bounds, to: nil).insetBy(dx: -1, dy: -1)
+            let footerFrame = try XCTUnwrap(harness.frame(of: XCTUnwrap(textNode(footer))))
+            XCTAssertTrue(contentBounds.contains(footerFrame), "the footer stays inside the content viewport")
+        }
+        XCTAssertTrue(display.contains(window.frame))
+        XCTAssertNotNil(textNode("36 windows"))
+        try assertViewport(initialFrame.size)
+        func scrollViews(_ view: NSView) -> [NSScrollView] {
+            (view as? NSScrollView).map { [$0] } ?? view.subviews.flatMap(scrollViews)
+        }
+        XCTAssertTrue(scrollViews(host).contains { ($0.documentView?.frame.height ?? 0) > $0.contentView.bounds.height }, "many cards must scroll rather than enlarge the window")
+        XCTAssertTrue(harness.has("Show windows"), "the hidden picker label remains available to accessibility")
+        XCTAssertFalse(harness.nodes().contains { DockHarness.get($0, "accessibilityRole") as? String == NSAccessibility.Role.staticText.rawValue && DockHarness.get($0, "accessibilityValue") as? String == "Show windows" })
+
+        harness.enter("Unique Draft")
+        XCTAssertNotNil(textNode("1 window"))
+        try assertViewport(initialFrame.size)
+        harness.enter("")
+        harness.press("Minimized")
+        XCTAssertNotNil(textNode("18 windows"))
+        try assertViewport(initialFrame.size)
+        harness.resize(CGSize(width: 720, height: 480))
+        let resized = window.frame.size
+        harness.press("All")
+        XCTAssertNotNil(textNode("36 windows"))
+        try assertViewport(resized)
+
+        // Reopening after moving to a smaller display keeps the same window in bounds.
+        let smallerDisplay = NSRect(x: display.minX + 16, y: display.minY + 16, width: min(720, display.width - 32), height: min(540, display.height - 32))
+        manager.showOverview(visibleFrame: smallerDisplay)
+        harness.spin()
+        XCTAssertTrue(manager.overviewWindow === window)
+        XCTAssertTrue(smallerDisplay.contains(window.frame))
+        XCTAssertLessThanOrEqual(window.frame.width, smallerDisplay.width - 32)
+        XCTAssertLessThanOrEqual(window.frame.height, smallerDisplay.height - 32)
     }
 
     func testAcceptFilesAndAppWindows() throws {

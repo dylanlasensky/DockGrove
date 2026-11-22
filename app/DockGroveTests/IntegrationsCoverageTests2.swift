@@ -35,6 +35,9 @@ final class IntegrationsEventAccess: EventStoreAccess {
     var calendars: [EKCalendar] = []
     var events: [EKEvent] = []
     var reminders: [EKReminder]?
+    var deferReminderResults = false
+    var pendingReminderResults: [([EKReminder]?) -> Void] = []
+    var reminderAccessDelay: UInt64 = 0
     var saveError: Error?
     var saved: [EKReminder] = []
     var queriedCalendars: [[EKCalendar]] = []
@@ -58,11 +61,18 @@ final class IntegrationsEventAccess: EventStoreAccess {
     }
 
     func requestEventAccess() async throws -> Bool { if delay > 0 { try? await Task.sleep(nanoseconds: delay) }; return try allowEvents.get() }
-    func requestReminderAccess() async throws -> Bool { try allowReminders.get() }
+    func requestReminderAccess() async throws -> Bool {
+        let result = allowReminders
+        if reminderAccessDelay > 0 { try? await Task.sleep(nanoseconds: reminderAccessDelay) }
+        return try result.get()
+    }
     func eventsAuthorized() -> Bool { authorized }
     func eventCalendars() -> [EKCalendar] { calendars }
     func events(from start: Date, to end: Date, in calendars: [EKCalendar]) -> [EKEvent] { queriedCalendars.append(calendars); return events }
-    func incompleteReminders(_ completion: @escaping ([EKReminder]?) -> Void) { let items = reminders; DispatchQueue.global().async { completion(items) } }
+    func incompleteReminders(_ completion: @escaping ([EKReminder]?) -> Void) {
+        if deferReminderResults { pendingReminderResults.append(completion); return }
+        let items = reminders; DispatchQueue.global().async { completion(items) }
+    }
     func saveReminder(_ reminder: EKReminder) throws { if let saveError { throw saveError }; saved.append(reminder) }
 }
 

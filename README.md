@@ -23,11 +23,13 @@ Unavailable pinned apps keep their saved position, including when restoring a la
 
 ## Refined desktop preview
 
-A permanent cube button at the side of every Dock page opens **Your windows**: search open and minimized app windows, filter by state, and click to restore. Accessibility permission is required; no Screen Recording permission is needed. Browser tabs are represented by their containing windows.
+A permanent cube button at the side of every Dock page opens **Your windows**, a resizable overview grouped by app. Search open and minimized windows, filter by state, and click to restore. Slow apps no longer prevent later apps from appearing. Accessibility permission is required; no Screen Recording permission is needed. Browser tabs are represented by their containing windows. Mission Control is available for macOS’s live window previews.
 
 If macOS cannot open an app, DockGrove explains how to recover without removing the app or changing your saved layout. Its Window menu also lets you minimize, zoom, and return to DockGrove’s own open controls.
 
-The latest design brings a silver-and-blue landing page, the new three-bar DockGrove mark, and nine distinct pixel companions. Pet details open on click so the main tile has more room to roam. Malcolm's notch, Studio, connection settings, Applications launcher and Next.js work are integrated in this release branch. See [integration review](docs/REFINED-RELEASE-REVIEW.md) for corrections and validation boundaries.
+Click a companion to open its **Playroom**: a spacious, resizable window with a full-screen option, click-to-explore, snacks, toys, and rest. Details holds the name field and care meters, keeping the room open for movement. The name editor runs in a normal keyboard-focusable window, and reopening the room preserves an unfinished edit. The orange tabby now uses light apricot fur.
+
+New docks hide when ordinary app windows overlap them, including floating docks. Move to the nearest screen edge to reveal the Dock. Existing saved visibility choices remain yours to control in Behavior. See the [interaction audit](docs/INTERACTION_AUDIT_2026-11-21.md) for fixes, regression cases, and testing boundaries.
 
 ## Repository layout
 

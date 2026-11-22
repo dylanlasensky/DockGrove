@@ -65,7 +65,13 @@ enum DockGeometry {
     private func append(_ id:String) { let dock = ExtraDock(id:id,defaults:UserDefaults(suiteName:prefix+id)!,index:docks.count); configure?(dock); docks.append(dock) }
     func remove(_ id:String) {
         guard let dock = docks.first(where:{$0.id == id}) else { return }
-        dock.panel.orderOut(nil); dock.settings.orderOut(nil); dock.model.toolkit.voiceMemo.stop()
+        dock.panel.orderOut(nil); dock.settings.orderOut(nil); dock.model.companionWindow?.close(); dock.model.toolkit.windows.overviewWindow?.close(); dock.model.toolkit.voiceMemo.stop()
+        // Full widget controls retain their model through the hosting view. Dismantle
+        // that view as well as closing its window so a removed dock cannot keep polling.
+        dock.model.appPickerWindow?.makeFirstResponder(nil)
+        dock.model.appPickerWindow?.close()
+        dock.model.appPickerWindow?.contentView = nil
+        dock.model.appPickerWindow = nil
         docks.removeAll { $0.id == id }; persist()
         // Retain scoped data so an accidental removal never deletes notes or recordings.
     }
@@ -102,7 +108,7 @@ struct DockAppearanceSettings: View {
             DockLengthSlider(model:model)
             HStack { Text("Horizontal position"); Slider(value:$model.alignment,in:0...1) }
             Picker("Position",selection:edge) { Text("Bottom").tag("Bottom"); Text("Top").tag("Top"); Text("Floating").tag("Floating") }.disabled(model.replacingDock)
-            if model.toolkit.edge == "Floating" { HStack { Text("Floating height"); Slider(value:$model.elevation,in:0...1) }; Text("Floating docks stay visible on the desktop; edge auto-hide applies to top and bottom docks.").font(.caption).foregroundStyle(.secondary) }
+            if model.toolkit.edge == "Floating" { HStack { Text("Floating height"); Slider(value:$model.elevation,in:0...1) }; Text("When hidden, move to the nearer top or bottom screen edge to reveal this dock.").font(.caption).foregroundStyle(.secondary) }
             Button("Reset position") { model.alignment=0.5; model.elevation=0.5; model.widthFraction=1; model.toolkit.edge=model.isAdditionalDock ? "Top" : "Bottom" }
             Toggle("Show Codex usage tile",isOn:$model.showUsageCard)
             Toggle("Use album colors in music widgets",isOn:$model.albumColors)

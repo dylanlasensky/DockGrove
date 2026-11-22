@@ -165,6 +165,36 @@ import SwiftUI
         XCTAssertEqual(StackSortOrder.dateModified.sorted([missing, a]), [a, missing], "unreadable dates sort last")
     }
 
+    func testStackPreviewRefreshesWhenMiddleApplicationChanges() throws {
+        let model = model(apps: 3)
+        model.stackSort = .name
+        let before = model.toolkit.applications
+        let middle = try XCTUnwrap(before.firstIndex { $0.name == "Sample 00" })
+        XCTAssertGreaterThan(middle, 0)
+        XCTAssertLessThan(middle, before.count - 1)
+        let previous = model.stackPreview(count: 3)
+        XCTAssertTrue(previous.contains(before[middle]))
+
+        let folder = URL(fileURLWithPath: model.toolkit.applicationRoots[0])
+        let replacement = folder.appendingPathComponent("Sample 00 Replaced.app")
+        try FileManager.default.createDirectory(at: replacement.appendingPathComponent("Contents"), withIntermediateDirectories: true)
+        var updated = before
+        updated[middle] = DockApp(url: replacement)
+        model.toolkit.applications = updated
+        XCTAssertEqual(updated.count, before.count)
+        XCTAssertEqual(updated.first, before.first)
+        XCTAssertEqual(updated.last, before.last)
+        let refreshed = model.stackPreview(count: 3)
+        XCTAssertTrue(refreshed.contains(updated[middle]))
+        XCTAssertFalse(refreshed.contains(before[middle]), "Equal-sized catalogs must not retain an obsolete stack icon")
+
+        let harness = DockHarness(ApplicationsStackTile(model: model)
+            .transformEnvironment(\.self) { $0._accessibilityReduceMotion = true }, size: CGSize(width: 90, height: 90))
+        defer { harness.close() }
+        harness.hover(CGPoint(x: 45, y: 50), entering: true)
+        harness.hover(CGPoint(x: 200, y: 200), entering: false)
+    }
+
     func testLauncherWindowOpensClosesOnResignAndEscape() {
         let model = model(apps: 2)
         let launcher = AppsLauncher.shared
@@ -661,6 +691,30 @@ import SwiftUI
         XCTAssertEqual(parsed.first?.aliases, ["\""])
         XCTAssertTrue(parsed.first?.lookups.isEmpty == true)
         XCTAssertEqual(parsed.last?.aliases, ["line\nbreak", "quoted\"name", "back\\slash"])
+    }
+
+    func testIndexStoreRecoversValidAppsAfterTruncatedQuotedFields() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("AppIndexRecovery-" + UUID().uuidString)
+        folders.append(folder)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appendingPathComponent("AppIndex.yml")
+        let damaged = #"""
+        apps:
+          - name: "Unfinished\
+            path: /Apps/BadName.app
+          - name: "Missing path"
+            path: "
+          - name: "Valid"
+            path: "/Apps/Valid.app"
+            aliases: ["line\nbreak", "back\\slash"]
+        """#
+        try Data(damaged.utf8).write(to: url)
+        let store = AppIndexStore(url: url, seedURL: nil)
+        let expected = [AppSearchIndex.Record(path: "/Apps/Valid.app", name: "Valid", bundleIdentifier: nil, modified: nil, aliases: ["line\nbreak", "back\\slash"])]
+        XCTAssertEqual(store.load(), expected, "incomplete records must not hide later launchable apps")
+        store.save(store.load())
+        XCTAssertEqual(AppIndexYAML.decode(try String(contentsOf: url, encoding: .utf8)), expected)
+        XCTAssertEqual(AppIndexStore(url: url, seedURL: nil).load(), expected, "saving recovery must preserve escaped aliases across restart")
     }
 
     // MARK: Stack popover

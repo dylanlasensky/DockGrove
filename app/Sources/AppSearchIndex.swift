@@ -5,6 +5,8 @@ import Foundation
 /// through hash maps built once per catalog change, so exact names, aliases and learned queries
 /// are found without scanning.
 struct AppSearchIndex {
+    /// Every rebuilt catalog invalidates views cached from its contents, even when its count is unchanged.
+    let revision = UUID()
     struct Record: Equatable {
         var path: String
         var name: String

@@ -71,6 +71,7 @@ struct DockApp: Identifiable, Equatable {
     @Published var snapRequiresOption: Bool { didSet { defaults.set(snapRequiresOption, forKey: "snapRequiresOption") } }
     @Published var studioHistory: [DockStudioSnapshot] = []
     var appPickerWindow: NSWindow?
+    var companionWindow: NSWindow?
     @Published var appHistory: [([DockApp], [String])] = []
     var tileFrames: [String:CGRect] = [:]
     var isAdditionalDock = false
@@ -222,13 +223,32 @@ struct DockApp: Identifiable, Equatable {
     var color: Color { (theme == "Pearl" || theme == "System" || theme == "Automatic") && accent == "White" ? .primary : AccentPalette.color(accent) }
     var activeBucket: LimitBucket? { usage?.buckets.first { $0.0 == selectedBucket }?.1 ?? usage?.buckets.first?.1 }
     func persistApps() { defaults.set(apps.map(\.id), forKey: "apps") }
-    func open(_ app: DockApp) {
+    /// Modifier clicks belong to Dock tiles; chooser and menu launches always open normally.
+    func activateFromDock(_ app: DockApp) {
+        guard canUseFeatures else { settingsAction?(); return }
+        let modifiers = DockSystemEffect.modifiers()
+        if modifiers.contains([.command, .option]) { open(app, hidingOthers: true) }
+        else if modifiers.contains(.command) { DockSystemEffect.handler(.reveal([app.url])) }
+        else if modifiers.contains(.option), let running = runningApplication(app), running.isActive {
+            DockSystemEffect.handler(.setHidden(running, true))
+        } else { open(app) }
+    }
+    func open(_ app: DockApp) { open(app, hidingOthers: false) }
+    private func open(_ app: DockApp, hidingOthers: Bool) {
         guard canUseFeatures else { settingsAction?(); return }
         let name = app.name
         openApplication(app.url) { [weak self] error in
-            guard error != nil else { return }
+            guard error != nil || hidingOthers else { return }
             Task { @MainActor [weak self] in
-                self?.reportApplicationError("“\(name)” couldn’t be opened. Try opening it in Finder. If it moved or was removed, use DockGrove’s app chooser to select an installed application.")
+                guard let self else { return }
+                if error != nil {
+                    reportApplicationError("“\(name)” couldn’t be opened. Try opening it in Finder. If it moved or was removed, use DockGrove’s app chooser to select an installed application.")
+                } else if canUseFeatures, let running = runningApplication(app), running.isActive, !running.isHidden {
+                    // A failed or delayed launch must never hide the app the person is still using.
+                    for other in DockSystemEffect.runningApplications() where other.processIdentifier != running.processIdentifier && other.activationPolicy == .regular && !other.isHidden {
+                        DockSystemEffect.handler(.setHidden(other, true))
+                    }
+                }
             }
         }
     }

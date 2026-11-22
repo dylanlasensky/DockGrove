@@ -69,6 +69,7 @@ struct UnitConversion {
     @Published var colorHex = "#FFFFFF"
     @Published var reminders: [EKReminder] = []
     @Published var remindersStatus = "Connect to view and complete Apple Reminders."
+    private var remindersGeneration = 0
     @Published var loginEnabled = LoginService.status() == .enabled
     @Published var busy = false
     /// System services. Tests replace these with fakes; the defaults are the real macOS services.
@@ -153,25 +154,54 @@ struct UnitConversion {
             Task { @MainActor in self?.busy = false; self?.status = result == 0 ? "Capture finished. If you selected a region, paste the image with ⌘V." : "Capture cancelled or unavailable. Check Screen Recording permission." }
         }
     }
+    /// System Settings can grant or revoke startup while DockGrove is inactive.
+    /// This only reads status; returning to the app never registers a login item.
+    func refreshLoginStatus() {
+        let current = loginStatus()
+        loginEnabled = current == .enabled
+        let approval = "Approve DockGrove in System Settings > General > Login Items."
+        if current == .requiresApproval { status = approval }
+        else if status == approval { status = nil }
+    }
     func setLogin(_ enabled: Bool) {
         do { try setLoginItem(enabled)
-            loginEnabled = loginStatus() == .enabled
-            status = loginStatus() == .requiresApproval ? "Approve DockGrove in System Settings > General > Login Items." : nil
+            status = nil
+            refreshLoginStatus()
         } catch { status = "Could not change login startup. Install DockGrove in Applications and try again." }
     }
     func loadReminders() {
+        remindersGeneration += 1
+        let requestID = remindersGeneration
+        remindersStatus = "Refreshing reminders…"
         Task { @MainActor [self] in
             do {
-                guard try await reminderStore.requestReminderAccess() else { remindersStatus = "Reminders permission was not granted."; return }
+                let allowed = try await reminderStore.requestReminderAccess()
+                guard requestID == remindersGeneration else { return }
+                guard allowed else { reminders = []; remindersStatus = "Reminders permission was not granted."; return }
                 reminderStore.incompleteReminders { [weak self] items in
-                    Task { @MainActor in self?.reminders = (items ?? []).sorted { ($0.title ?? "") < ($1.title ?? "") }; self?.remindersStatus = "Incomplete reminders · Refresh to sync changes" }
+                    Task { @MainActor in
+                        guard let self, requestID == self.remindersGeneration else { return }
+                        guard let items else { self.reminders = []; self.remindersStatus = "Reminders could not be loaded. Refresh to try again."; return }
+                        self.reminders = items.filter { !$0.isCompleted }.sorted { ($0.title ?? "") < ($1.title ?? "") }
+                        self.remindersStatus = self.reminders.isEmpty ? "No incomplete reminders." : "Incomplete reminders · Refresh to sync changes"
+                    }
                 }
-            } catch { remindersStatus = "Reminders are unavailable. Check permission in System Settings." }
+            } catch {
+                guard requestID == remindersGeneration else { return }
+                reminders = []; remindersStatus = "Reminders are unavailable. Check permission in System Settings."
+            }
         }
     }
     func completeReminder(_ reminder: EKReminder) {
+        guard !reminder.isCompleted else { return }
         reminder.isCompleted = true
-        do { try reminderStore.saveReminder(reminder); reminders.removeAll { $0.calendarItemIdentifier == reminder.calendarItemIdentifier } }
+        do {
+            try reminderStore.saveReminder(reminder)
+            // A read started before this save must not put the completed item back.
+            remindersGeneration += 1
+            reminders.removeAll { $0.calendarItemIdentifier == reminder.calendarItemIdentifier }
+            remindersStatus = reminders.isEmpty ? "No incomplete reminders." : "Incomplete reminders · Refresh to sync changes"
+        }
         catch { reminder.isCompleted = false; remindersStatus = "Could not save this reminder. Refresh and try again." }
     }
 }

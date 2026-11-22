@@ -109,7 +109,7 @@ struct DockProfile: Codable, Identifiable {
         profiles = Self.decode([DockProfile].self, store: store, key: "profiles") ?? []
         files = store.stringArray(forKey: "shelfFiles") ?? []
         enabled = store.stringArray(forKey: "widgets") ?? ["search", "focus", "tasks"]
-        hideOnOverlap = store.bool(forKey: "hideOnOverlap")
+        hideOnOverlap = store.object(forKey: "hideOnOverlap") as? Bool ?? true
         autoHide = store.bool(forKey: "autoHide"); showRunning = store.object(forKey: "showRunning") as? Bool ?? true
         edge = store.string(forKey: "edge") ?? "Bottom"; screenIndex = store.integer(forKey: "screenIndex")
         for publisher in [pet.objectWillChange, claudeCodeUsage.objectWillChange, geminiUsage.objectWillChange, monitor.objectWillChange, audio.objectWillChange, currency.objectWillChange, voiceMemo.objectWillChange, groups.objectWillChange, calendar.objectWillChange, googleCalendar.objectWillChange, spotify.objectWillChange, appleMusic.objectWillChange, openaiUsage.objectWillChange, anthropicUsage.objectWillChange, cursorUsage.objectWillChange] {

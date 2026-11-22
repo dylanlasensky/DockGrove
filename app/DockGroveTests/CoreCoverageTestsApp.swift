@@ -5,6 +5,8 @@ import AppKit
 /// Another DockGrove instance that records activation instead of activating anything.
 private final class CoreOtherInstance: NSRunningApplication {
     var activated = false
+    var recordedTerminated = false
+    override var isTerminated: Bool { recordedTerminated }
     override var processIdentifier: pid_t { 999_999 }
     override var activationPolicy: NSApplication.ActivationPolicy { .regular }
     override var isHidden: Bool { false }
@@ -89,6 +91,55 @@ private final class CoreOtherInstance: NSRunningApplication {
         delegate.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification))
     }
 
+    func testOverlappingOrdinaryWindowsHideEveryDockAndReleaseMouseInput() throws {
+        let delegate = delegate()
+        launch(delegate)
+        delegate.visibilityTimer?.invalidate()
+        let model = try XCTUnwrap(delegate.model)
+        let panel = try XCTUnwrap(delegate.panel)
+        let screen = try XCTUnwrap(model.selectedScreen)
+        delegate.pointerLocation = { NSPoint(x: screen.frame.minX - 20, y: screen.frame.midY) }
+        let owner = CoreOtherInstance()
+        delegate.windowOwner = { _ in owner }
+        delegate.frontmostPID = { owner.processIdentifier }
+        model.toolkit.autoHide = false
+        model.toolkit.hideOnOverlap = true
+        for edge in ["Bottom", "Top", "Floating"] {
+            model.toolkit.edge = edge
+            model.replacingDock = false
+            delegate.layout(panel, model: model)
+            let frame = panel.frame
+            let overlap = CGRect(x: frame.minX, y: primaryScreenTop() - frame.maxY, width: frame.width, height: frame.height)
+            delegate.windowList = { [[kCGWindowOwnerPID as String: owner.processIdentifier,
+                kCGWindowLayer as String: 0, kCGWindowAlpha as String: 1.0,
+                kCGWindowBounds as String: overlap.dictionaryRepresentation]] }
+            delegate.visibility = DockVisibility()
+            delegate.checkAutoHide()
+            XCTAssertFalse(panel.isVisible, "\(edge): a normal app window must not be covered")
+            XCTAssertTrue(panel.ignoresMouseEvents, "\(edge): hidden dock cannot intercept website clicks")
+        }
+        // A retained but hidden popover is not an active interaction.
+        let child = NSWindow(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
+        child.isReleasedWhenClosed = false
+        child.setFrame(NSRect(x: -10000, y: -10000, width: 80, height: 50), display: false)
+        panel.orderFront(nil)
+        child.orderFront(nil)
+        panel.addChildWindow(child, ordered: .above)
+        XCTAssertTrue(panel.childWindows?.contains(child) == true)
+        delegate.checkAutoHide()
+        XCTAssertTrue(panel.isVisible, "An open popover keeps its Dock usable while interacting")
+        child.orderOut(nil)
+        delegate.visibility = DockVisibility()
+        delegate.checkAutoHide()
+        XCTAssertFalse(panel.isVisible)
+        panel.removeChildWindow(child); child.close()
+        // Recovery is automatic once the ordinary window moves away.
+        delegate.windowList = { [] }
+        delegate.checkAutoHide()
+        XCTAssertTrue(panel.isVisible)
+        XCTAssertFalse(panel.ignoresMouseEvents)
+    }
+
     /// Records registrations instead of installing a real system-wide hot key.
     private final class FakeHotKeys: HotKeyRegistrar {
         var registered: [HotKey] = []
@@ -156,6 +207,7 @@ private final class CoreOtherInstance: NSRunningApplication {
         XCTAssertFalse(DockPanel().canBecomeMain, "panel never becomes main")
         delegate.layoutDock()
         delegate.checkAutoHide()
+        delegate.applicationDidBecomeActive(Notification(name: NSApplication.didBecomeActiveNotification))
         delegate.applicationWillTerminate(Notification(name: NSApplication.willTerminateNotification))
         XCTAssertEqual(delegate.applicationShouldTerminate(NSApplication.shared), .terminateNow, "unlaunched delegate terminates")
         XCTAssertTrue(AppDelegate(arguments: ["x", "--ui-test"]).testing, "--ui-test")
@@ -174,6 +226,91 @@ private final class CoreOtherInstance: NSRunningApplication {
         XCTAssertTrue(other.activated, "the running instance is activated")
         XCTAssertEqual(terminated, 1, "the second instance terminates")
         XCTAssertNil(delegate.model, "the second instance stops before creating a model")
+    }
+
+    func testEveryShippingConfigurationHandsOverBeforeChangingTheSystemDock() {
+        for identifier in ["com.dylan.wavedock", "com.dylan.wavedock.development", "com.dylan.wavedock.commercial-qa"] {
+            let delegate = delegate(), other = CoreOtherInstance()
+            var queried: [String] = []
+            delegate.runningApplications = { bundle in
+                queried.append(bundle)
+                return bundle == identifier ? [other] : []
+            }
+            let before = terminated
+            launch(delegate)
+            XCTAssertTrue(queried.contains(identifier))
+            XCTAssertTrue(other.activated)
+            XCTAssertEqual(terminated, before + 1)
+            XCTAssertNil(delegate.model)
+            XCTAssertTrue(dockCalls.isEmpty, "A second configuration cannot restore the first instance's Apple Dock")
+        }
+    }
+
+    func testIsolatedLaunchesIgnoreOtherConfigurationsAndTerminatedInstancesAreIgnored() {
+        for mode in ["--ui-test", "--native-test"] {
+            let preferences = suite()
+            preferences.set(true, forKey: "hasLaunched02")
+            let isolated = delegate(["DockGrove", mode], preferences: preferences)
+            isolated.runningApplications = { _ in XCTFail("Isolated test launches do not hand over"); return [CoreOtherInstance()] }
+            launch(isolated)
+            XCTAssertNotNil(isolated.model)
+        }
+        XCTAssertEqual(terminated, 0)
+        XCTAssertTrue(dockCalls.isEmpty)
+        let dead = CoreOtherInstance(); dead.recordedTerminated = true
+        let ordinary = delegate()
+        ordinary.runningApplications = { _ in [NSRunningApplication.current, dead] }
+        launch(ordinary)
+        XCTAssertFalse(dead.activated)
+        XCTAssertEqual(terminated, 0)
+        XCTAssertNotNil(ordinary.model)
+    }
+
+    func testReturningFromSystemSettingsRefreshesLoginApprovalForEveryDock() throws {
+        let delegate = delegate(["DockGrove", "--ui-test"])
+        launch(delegate)
+        delegate.workspace.add()
+        let extra = try XCTUnwrap(delegate.workspace.docks.first)
+        let utilities = [delegate.model.toolkit.utilities, extra.model.toolkit.utilities]
+        var phase = 0
+        for utility in utilities {
+            utility.loginStatus = { phase == 0 ? .requiresApproval : phase == 1 ? .enabled : .notRegistered }
+            utility.setLoginItem = { _ in XCTFail("Refreshing the displayed login status must not change startup registration") }
+        }
+        let active = Notification(name: NSApplication.didBecomeActiveNotification)
+        delegate.applicationDidBecomeActive(active)
+        for utility in utilities {
+            XCTAssertFalse(utility.loginEnabled)
+            XCTAssertTrue(utility.status?.hasPrefix("Approve DockGrove") == true)
+        }
+        phase = 1
+        delegate.applicationDidBecomeActive(active)
+        for utility in utilities { XCTAssertTrue(utility.loginEnabled); XCTAssertNil(utility.status) }
+        phase = 2
+        for utility in utilities { utility.status = "Unrelated utility message" }
+        delegate.applicationDidBecomeActive(active)
+        for utility in utilities {
+            XCTAssertFalse(utility.loginEnabled)
+            XCTAssertEqual(utility.status, "Unrelated utility message")
+        }
+    }
+
+    func testRemovingExtraDockClosesAndReleasesFullWidgetControls() throws {
+        let delegate = delegate(["DockGrove", "--ui-test"])
+        launch(delegate)
+        delegate.workspace.add()
+        let extra = try XCTUnwrap(delegate.workspace.docks.first)
+        extra.model.showNotchWidgetControls(.focus)
+        let controls = try XCTUnwrap(extra.model.appPickerWindow)
+        XCTAssertNotNil(controls.contentView)
+        XCTAssertTrue(controls.isVisible)
+        let name = extra.model.defaults.string(forKey: "dockName")
+        delegate.workspace.remove(extra.id)
+        XCTAssertFalse(controls.isVisible)
+        XCTAssertNil(controls.contentView, "The hosting view must release the removed model and its polling clients")
+        XCTAssertNil(extra.model.appPickerWindow)
+        XCTAssertEqual(extra.model.defaults.string(forKey: "dockName"), name, "Removal retains the user's scoped preferences")
+        suites.append(delegate.workspace.prefix + extra.id)
     }
 
     func testNativeTestLaunchMode() async {
