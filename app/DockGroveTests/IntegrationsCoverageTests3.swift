@@ -95,16 +95,23 @@ import ServiceManagement
 
     func testRemindersLoadAndComplete() {
         let (utility, access) = utilities()
+        utility.reminders = [access.reminder("Old reading")]
         access.allowReminders = .success(false)
         utility.loadReminders()
         XCTAssertTrue(IntegrationsUI.wait { utility.remindersStatus == "Reminders permission was not granted." })
+        XCTAssertTrue(utility.reminders.isEmpty)
+        utility.reminders = [access.reminder("Old reading")]
         access.allowReminders = .failure(CocoaError(.featureUnsupported))
         utility.loadReminders()
         XCTAssertTrue(IntegrationsUI.wait { utility.remindersStatus.hasPrefix("Reminders are unavailable") })
+        XCTAssertTrue(utility.reminders.isEmpty)
         access.allowReminders = .success(true)
         access.reminders = nil
         utility.loadReminders()
-        XCTAssertTrue(IntegrationsUI.wait { utility.remindersStatus.hasPrefix("Incomplete reminders") })
+        XCTAssertTrue(IntegrationsUI.wait { utility.remindersStatus.hasPrefix("Reminders could not be loaded") })
+        access.reminders = []
+        utility.loadReminders()
+        XCTAssertTrue(IntegrationsUI.wait { utility.remindersStatus == "No incomplete reminders." })
         access.reminders = [access.reminder("Water plants"), access.reminder(nil), access.reminder("Call")]
         utility.loadReminders()
         XCTAssertTrue(IntegrationsUI.wait { utility.reminders.count == 3 })
@@ -114,10 +121,54 @@ import ServiceManagement
         utility.completeReminder(call)
         XCTAssertTrue(access.saved.first === call); XCTAssertTrue(call.isCompleted)
         XCTAssertFalse(utility.reminders.contains { $0 === call })
+        utility.completeReminder(call)
+        XCTAssertEqual(access.saved.count, 1, "Already completed reminders are not saved again")
         access.saveError = CocoaError(.fileWriteNoPermission)
         let plants = utility.reminders.last!
         utility.completeReminder(plants)
         XCTAssertFalse(plants.isCompleted); XCTAssertEqual(utility.remindersStatus, "Could not save this reminder. Refresh and try again.")
+    }
+
+    func testRemindersIgnoreLateReadsAndCompletedItems() {
+        let (utility, access) = utilities()
+        access.deferReminderResults = true
+        utility.loadReminders()
+        XCTAssertTrue(IntegrationsUI.wait { access.pendingReminderResults.count == 1 })
+        utility.loadReminders()
+        XCTAssertTrue(IntegrationsUI.wait { access.pendingReminderResults.count == 2 })
+        let old = access.reminder("Old"), current = access.reminder("Current"), completed = access.reminder("Done")
+        completed.isCompleted = true
+        access.pendingReminderResults[1]([current, completed])
+        XCTAssertTrue(IntegrationsUI.wait { utility.reminders.count == 1 })
+        access.pendingReminderResults[0]([old])
+        IntegrationsUI.spin(0.05)
+        XCTAssertTrue(utility.reminders.first === current, "An older refresh must not replace the latest reading")
+
+        utility.loadReminders()
+        XCTAssertTrue(IntegrationsUI.wait { access.pendingReminderResults.count == 3 })
+        utility.completeReminder(current)
+        access.pendingReminderResults[2]([old])
+        IntegrationsUI.spin(0.05)
+        XCTAssertTrue(utility.reminders.isEmpty, "A pre-save read must not restore obsolete items")
+        XCTAssertEqual(utility.remindersStatus, "No incomplete reminders.")
+    }
+
+    func testRemindersIgnoreLateAuthorizationFailures() {
+        for outcome: Result<Bool, Error> in [.success(false), .failure(CocoaError(.featureUnsupported))] {
+            let (utility, access) = utilities()
+            access.reminderAccessDelay = 200_000_000
+            access.allowReminders = outcome
+            utility.loadReminders()
+            IntegrationsUI.spin(0.04)
+            access.reminderAccessDelay = 0
+            access.allowReminders = .success(true)
+            access.reminders = [access.reminder("Current")]
+            utility.loadReminders()
+            XCTAssertTrue(IntegrationsUI.wait { utility.reminders.count == 1 })
+            IntegrationsUI.spin(0.25)
+            XCTAssertEqual(utility.reminders.first?.title, "Current")
+            XCTAssertTrue(utility.remindersStatus.hasPrefix("Incomplete reminders"))
+        }
     }
 }
 
@@ -187,6 +238,138 @@ import ServiceManagement
         IntegrationsUI.press(IntegrationsUI.body(CompanionView(pet: pet, accent: .orange)), "Wake up"); XCTAssertFalse(pet.state.resting)
         IntegrationsUI.press(IntegrationsUI.body(view), "Rename"); XCTAssertEqual(pet.state.name, "Cream cat")
         IntegrationsUI.appear(IntegrationsUI.body(view))
+    }
+
+    func testPlayroomUsesReusableKeyWindowAndPreservesPet() throws {
+        let defaults = IntegrationsUI.defaults(self)
+        let model = DockModel(defaults: defaults)
+        model.toolkit.pet.rename("Dracarys")
+        model.toolkit.pet.animal = "Dragon"
+        let state = model.toolkit.pet.state
+        let originalHandler = DockSystemEffect.handler
+        var presentations: [NSWindow] = []
+        DockSystemEffect.handler = { if case .present(let window) = $0 { presentations.append(window) } }
+        defer { DockSystemEffect.handler = originalHandler; model.companionWindow?.close() }
+        model.showCompanionPlayroom()
+        let window = try XCTUnwrap(model.companionWindow)
+        XCTAssertTrue(window.canBecomeKey)
+        XCTAssertFalse(window.styleMask.contains(.nonactivatingPanel))
+        XCTAssertTrue(window.styleMask.contains(.resizable))
+        XCTAssertTrue(window.collectionBehavior.contains(.fullScreenPrimary))
+        XCTAssertGreaterThanOrEqual(window.contentMinSize.width, 760)
+        model.showCompanionPlayroom()
+        model.showNotchWidgetControls(.pet)
+        XCTAssertEqual(presentations.count, 3)
+        XCTAssertTrue(presentations.allSatisfy { $0 === window })
+        XCTAssertEqual(model.toolkit.pet.state, state)
+        XCTAssertEqual(model.toolkit.pet.animal, "Dragon")
+    }
+
+    func testNameEditorKeepsTypingThroughPetUpdatesAndReopens() throws {
+        let pet = Companion(defaults: IntegrationsUI.defaults(self))
+        let harness = SettingsHarness(CompanionDetailsView(pet: pet, accent: .blue), width: 240, height: 470)
+        defer { harness.close() }
+        harness.window.styleMask.insert(.titled)
+        let field = try XCTUnwrap(harness.views(NSTextField.self).first { $0.isEditable })
+        XCTAssertTrue(harness.window.makeFirstResponder(field))
+        let editor = try XCTUnwrap(field.currentEditor() as? NSTextView)
+        editor.selectAll(nil)
+        editor.insertText("  Luna  ", replacementRange: editor.selectedRange())
+        pet.tick()
+        harness.settle()
+        XCTAssertEqual(editor.string, "  Luna  ", "A care-state update must not reset an in-progress name")
+        harness.window.makeFirstResponder(nil)
+        harness.press("Rename")
+        XCTAssertEqual(pet.state.name, "Luna")
+        XCTAssertEqual(field.stringValue, "Luna")
+        XCTAssertTrue(harness.window.makeFirstResponder(field))
+        let reopened = try XCTUnwrap(field.currentEditor() as? NSTextView)
+        reopened.selectAll(nil)
+        reopened.insertText("Pixel", replacementRange: reopened.selectedRange())
+        harness.window.makeFirstResponder(nil)
+        harness.press("Rename")
+        XCTAssertEqual(pet.state.name, "Pixel")
+    }
+
+    func testPlayroomActionsAndRestingInput() throws {
+        let pet = Companion(defaults: IntegrationsUI.defaults(self))
+        let harness = SettingsHarness(CompanionPlayroomView(pet: pet, accent: .blue), width: 980, height: 660)
+        defer { harness.close() }
+        let stage = try XCTUnwrap(harness.views(CompanionStage.self).first)
+        XCTAssertTrue(stage.companionScene.playroom)
+        XCTAssertNotNil(stage.onSelectDestination)
+        XCTAssertTrue(stage.acceptsFirstMouse(for: nil))
+        XCTAssertLessThanOrEqual(stage.companionScene.sprite.size.height, 191)
+        stage.onSelectDestination?(0.75)
+        harness.settle()
+        XCTAssertEqual(stage.companionScene.motion.destination, 0.75)
+        let fullness = pet.state.fullness
+        harness.press("Feed")
+        XCTAssertGreaterThan(pet.state.fullness, fullness)
+        harness.press("Play")
+        XCTAssertEqual(pet.playRequest, 1)
+        harness.press("Rest")
+        XCTAssertTrue(pet.state.resting)
+        let sleepingDestination = stage.companionScene.motion.destination
+        stage.onSelectDestination?(0.3)
+        harness.settle()
+        XCTAssertEqual(stage.companionScene.motion.destination, sleepingDestination)
+        harness.press("Wake up")
+        XCTAssertFalse(pet.state.resting)
+        harness.press("Details")
+        XCTAssertTrue(harness.views(NSTextField.self).contains { $0.isEditable })
+    }
+
+    func testRoomDestinationsArriveSmoothlyAndRespectRestAndReduceMotion() {
+        var motion = CompanionMotion(seed: 10)
+        motion.move(to: 0.8, then: .play)
+        var reached = false
+        for _ in 0..<900 {
+            let before = motion.x
+            motion.advance(1.0 / 60, animal: "Orange cat", resting: false)
+            XCTAssertLessThan(abs(motion.x - before), 0.004)
+            if motion.activity == .play { reached = true; break }
+        }
+        XCTAssertTrue(reached)
+        XCTAssertEqual(motion.x, 0.8, accuracy: 0.005)
+        motion.move(to: -100)
+        XCTAssertEqual(motion.destination, 0.12)
+        motion.move(to: 100)
+        XCTAssertEqual(motion.destination, 0.88)
+        let beforeInvalid = motion
+        motion.move(to: .nan)
+        XCTAssertEqual(motion, beforeInvalid)
+        motion.advance(0.01, animal: "Orange cat", resting: true)
+        let resting = motion
+        motion.move(to: 0.3)
+        XCTAssertEqual(motion, resting)
+
+        let scene = CompanionSpriteScene(size: CGSize(width: 800, height: 400))
+        scene.playroom = true
+        scene.advance(0)
+        let command = CompanionSceneRequest(destination: 0.8)
+        scene.receive(command)
+        scene.advance(0.1)
+        let moving = scene.motion
+        scene.receive(command)
+        XCTAssertEqual(scene.motion, moving, "A SwiftUI refresh must not restart the same command")
+        scene.reducedMotion = true
+        scene.advance(0)
+        let still = scene.motion
+        scene.receive(CompanionSceneRequest(destination: 0.2))
+        XCTAssertEqual(scene.motion, still)
+        XCTAssertEqual(scene.destination(at: -100), 0.12)
+        XCTAssertEqual(scene.destination(at: 1000), 0.88)
+        for width in [380.0, 800, 2400] {
+            let size = CGSize(width: width, height: 600)
+            let geometry = CompanionSpriteScene.geometry(for: "Dragon", size: size, playroom: true)!
+            scene.size = size; scene.animal = "Dragon"; scene.advance(0)
+            XCTAssertEqual(scene.sprite.position.x, geometry.x(at: scene.motion.x), accuracy: 0.001)
+            for destination in [0.12, 0.5, 0.88] {
+                XCTAssertEqual(scene.destination(at: geometry.x(at: destination)), destination, accuracy: 0.001,
+                               "Click, toy and pet coordinates must agree at every room size")
+            }
+        }
     }
 
     func testDrawingFromAssetDirectoryAndContexts() throws {
@@ -267,6 +450,10 @@ import ServiceManagement
         window.level = .floating
         stage.refreshScene()
         XCTAssertFalse(stage.isPaused, "A visible floating Dock must animate")
+        NotificationCenter.default.post(name: NSWindow.willCloseNotification, object: window)
+        XCTAssertTrue(stage.isPaused, "A retained playroom must stop rendering as soon as it closes")
+        NotificationCenter.default.post(name: NSWindow.didBecomeKeyNotification, object: window)
+        XCTAssertFalse(stage.isPaused, "Reopening the retained window resumes its companion")
         window.orderOut(nil)
         stage.refreshScene()
         XCTAssertTrue(stage.isPaused, "A hidden Dock must stop rendering")

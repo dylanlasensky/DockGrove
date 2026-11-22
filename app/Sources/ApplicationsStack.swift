@@ -11,6 +11,7 @@ extension DockModel {
 }
 
 struct ApplicationsStackTile: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var model: DockModel
     @StateObject private var interaction = TileInteraction()
     @StateObject private var anchor = StackAnchor()
@@ -20,12 +21,12 @@ struct ApplicationsStackTile: View {
             Button { AppsStackPopover.shared.toggle(model: model, anchor: anchor.screenRect) } label: {
                 face.frame(width: model.iconSize, height: model.iconSize)
                     .background(StackAnchorView(anchor: anchor))
-                    .scaleEffect(interaction.hovered ? 1.13 : 1).offset(y: interaction.hovered ? -4 : 0)
+                    .scaleEffect(interaction.hovered && !reduceMotion ? 1.13 : 1).offset(y: interaction.hovered && !reduceMotion ? -4 : 0)
             }.buttonStyle(.plain).help("Applications").accessibilityLabel("Applications")
             Circle().fill(.clear).frame(width: 4, height: 4)
         }
         .onHover { interaction.hovered = $0 }
-        .animation(.spring(response: 0.23, dampingFraction: 0.65), value: interaction.hovered)
+        .animation(reduceMotion ? nil : .spring(response: 0.23, dampingFraction: 0.65), value: interaction.hovered)
         .contextMenu { ApplicationsStackMenu(model: model) }
     }
     /// Display as Folder shows the folder icon; Stack piles up the first apps in the chosen sort order.
@@ -48,7 +49,7 @@ extension DockModel {
     /// The stack's first apps in `stackSort` order, cached until the order or the app index changes.
     func stackPreview(count: Int) -> [DockApp] {
         let apps = toolkit.appIndex.apps
-        let key = [stackSort.rawValue, String(count), String(apps.count), String(describing: apps.first?.id), String(describing: apps.last?.id)].joined(separator: "|")
+        let key = [stackSort.rawValue, String(count), toolkit.appIndex.revision.uuidString].joined(separator: "|")
         if let cache = stackPreviewCache, cache.key == key { return cache.apps }
         let top = stackSort.sorted(apps.map(\.url)).prefix(count).map(DockApp.init(url:))
         stackPreviewCache = (key, top)

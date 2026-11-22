@@ -71,6 +71,7 @@ struct DockApp: Identifiable, Equatable {
     @Published var snapRequiresOption: Bool { didSet { defaults.set(snapRequiresOption, forKey: "snapRequiresOption") } }
     @Published var studioHistory: [DockStudioSnapshot] = []
     var appPickerWindow: NSWindow?
+    var companionWindow: NSWindow?
     @Published var appHistory: [([DockApp], [String])] = []
     var tileFrames: [String:CGRect] = [:]
     var isAdditionalDock = false

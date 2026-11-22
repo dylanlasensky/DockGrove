@@ -21,6 +21,7 @@ struct CompanionMotion: Equatable {
     var weights: [Activity:Double] = [.idle:1]
     private var randomState: UInt64
     private var wasResting = false
+    private var arrivalActivity: Activity?
     init(seed: UInt64 = 7919) { randomState = seed == 0 ? 7919 : seed }
     mutating func random() -> Double {
         randomState = randomState &* 6364136223846793005 &+ 1442695040888963407
@@ -31,15 +32,16 @@ struct CompanionMotion: Equatable {
         guard visible else { return }
         let dt=min(0.1,max(0,delta.isFinite ? delta : 0))
         if reducedMotion {
-            activity=resting ? .sleep : .idle;weights=[activity:1];wasResting=resting;jumpHeight=0;velocity=0
+            activity=resting ? .sleep : .idle;weights=[activity:1];wasResting=resting;jumpHeight=0;velocity=0;arrivalActivity=nil
             return
         }
-        if resting && !wasResting { transition(.sleep,duration:20) }
+        if resting && !wasResting { arrivalActivity=nil;transition(.sleep,duration:20) }
         if !resting && wasResting { transition(.stretch,duration:2.4) }
         wasResting=resting;total+=dt;elapsed+=dt
         let response=1-exp(-dt*(activity == .sleep || weight(.sleep)>0.12 ? 2.8:7))
         for kind in Activity.allCases { weights[kind]=weight(kind)+((activity==kind ? 1.0:0)-weight(kind))*response }
-        let jumpTarget=activity == .jump ? max(0,sin(min(1,elapsed/max(0.1,duration))*Double.pi)):0
+        let jumpTarget = activity == .jump ? max(0, sin(min(1, elapsed / max(0.1, duration)) * Double.pi))
+            : activity == .play ? max(0, sin(elapsed * Double.pi * 1.4)) * 0.65 : 0
         jumpHeight += (jumpTarget-jumpHeight)*(1-exp(-dt*10))
         let targetHeading=facing>0 ? 0.0:Double.pi
         heading += (targetHeading-heading)*(1-exp(-dt*9))
@@ -55,7 +57,11 @@ struct CompanionMotion: Equatable {
         if abs(velocity)<0.00005 {velocity=0}
         let priorX=x
         x += velocity*dt
-        if walking && abs(distance)<0.003 && abs(velocity)<0.005 {transition(.look,duration:1.3+random()*2.5)}
+        if walking && abs(distance)<0.003 && abs(velocity)<0.005 {
+            let arrival = arrivalActivity ?? .look
+            arrivalActivity = nil
+            transition(arrival,duration:1.3+random()*2.5)
+        }
         let stride=animal=="Cow" ? 0.10:animal=="Rabbit" ? 0.12:0.096
         // Integrate wing phase: multiplying total time by a changing speed skips poses.
         flightPhase += dt * (6 + min(1, abs(velocity) / speed) * 3)
@@ -68,6 +74,7 @@ struct CompanionMotion: Equatable {
         previousActivity=activity;activity=next;elapsed=0;self.duration=duration
     }
     private mutating func choose(_ animal:String) {
+        arrivalActivity = nil
         let roll=random()
         let next:Activity
         if roll<0.36 { next = .walk }
@@ -85,7 +92,14 @@ struct CompanionMotion: Equatable {
             duration=20
         }
     }
-    mutating func play() { if !wasResting { transition(.play,duration:3.2) } }
+    mutating func play() { if !wasResting { arrivalActivity=nil;transition(.play,duration:3.2) } }
+    /// A room click sets a destination; normal acceleration and braking still own the movement.
+    mutating func move(to destination: Double, then activity: Activity = .look) {
+        guard !wasResting, destination.isFinite else { return }
+        self.destination = min(0.88, max(0.12, destination))
+        arrivalActivity = activity
+        transition(.walk, duration: 20)
+    }
     var jump:Double { jumpHeight }
     var sleeping:Bool { activity == .sleep }
 }

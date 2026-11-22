@@ -621,7 +621,7 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         let model = model { $0.set(["focus"], forKey: "widgets") }
         let controller = notchController(model)
         let harness = DockHarness(NotchShelfView(model: model, controller: controller), size: CGSize(width: 1100, height: 160))
-        defer { model.appPickerWindow?.close(); model.appPickerWindow = nil; harness.close() }
+        defer { model.appPickerWindow?.close(); model.appPickerWindow = nil; model.companionWindow?.close(); harness.close() }
         harness.press("Expand DockGrove notch")
         harness.spin(0.2)
         harness.press("Open Focus from notch")
@@ -635,7 +635,7 @@ final class DockRecordingSource: NativeStudioDragSource.SourceView {
         harness.press("Open full Focus controls")
         XCTAssertFalse(firstControls === model.appPickerWindow)
         model.showNotchWidgetControls(.pet)
-        XCTAssertEqual(model.appPickerWindow?.title, "Companion")
+        XCTAssertEqual(model.companionWindow?.title, "Companion Playroom")
         let petControls = DockHarness(NotchWidgetControls(kind: .pet, model: model), size: CGSize(width: 420, height: 560))
         XCTAssertTrue(petControls.has("Feed"), "\(petControls.labels())")
         XCTAssertTrue(petControls.has("Play"))

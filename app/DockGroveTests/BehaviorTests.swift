@@ -4,6 +4,15 @@ import AppKit
 
 /// Hiding and showing the Dock: the toggle model, persistence and the auto-hide reveal geometry.
 @MainActor final class DockHidingTests: XCTestCase {
+    func testOverlapProtectionDefaultsOnAndHonorsSavedChoice() {
+        let model = makeSettingsModel(self)
+        XCTAssertTrue(model.toolkit.hideOnOverlap, "New docks yield to other app windows by default")
+        model.toolkit.hideOnOverlap = false
+        XCTAssertFalse(DockModel(defaults: model.defaults).toolkit.hideOnOverlap, "An explicit always-visible choice survives relaunch")
+        model.toolkit.hideOnOverlap = true
+        XCTAssertTrue(DockModel(defaults: model.defaults).toolkit.hideOnOverlap)
+    }
+
     func testToggleHidingPersistsAndRecoversASwitchedOffDock() {
         let model = makeSettingsModel(self)
         var refreshes = 0

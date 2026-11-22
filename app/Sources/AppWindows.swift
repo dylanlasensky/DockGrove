@@ -30,7 +30,7 @@ extension WindowManager: AppWindowListing {}
     static var modifiers: () -> NSEvent.ModifierFlags = { NSEvent.modifierFlags }
     static func perform(_ effect: DockSystemEffect) {
         switch effect {
-        case .present(let window): window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+        case .present(let window): window.deminiaturize(nil); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
         case .open(let url): NSWorkspace.shared.open(url)
         case .reveal(let urls): NSWorkspace.shared.activateFileViewerSelecting(urls)
         case .openFiles(let urls, let application, let completion):
@@ -101,9 +101,8 @@ extension DockModel {
 struct WindowShelfButton: View {
     @ObservedObject var manager: WindowManager
     var enabled: Bool
-    @State private var presented = false
     var body: some View {
-        Button { presented.toggle() } label: {
+        Button { manager.showOverview() } label: {
             Image(systemName: "cube.transparent")
                 .font(.system(size: 22)).frame(width: 40, height: 46)
                 .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
@@ -111,9 +110,33 @@ struct WindowShelfButton: View {
         .disabled(!enabled)
         .help("Open and minimized windows")
         .accessibilityLabel("Open and minimized windows")
-        .popover(isPresented: $presented) {
-            WindowShelfView(manager: manager) { presented = false }
-        }
+    }
+}
+
+private final class WindowOverviewWindow: NSWindow {
+    var onClose: (() -> Void)?
+    override func close() {
+        onClose?()
+        contentView = nil
+        super.close()
+    }
+}
+
+extension WindowManager {
+    func showOverview() {
+        if let overviewWindow { overviewWindow.deminiaturize(nil); DockSystemEffect.handler(.present(overviewWindow)); refresh(); return }
+        // A real key window, rather than a popover on a nonactivating Dock panel, lets
+        // search always accept typing and gives the overview room to grow.
+        let window = WindowOverviewWindow(contentRect: NSRect(x: 0, y: 0, width: 840, height: 620), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        window.title = "Your windows"
+        window.minSize = NSSize(width: 620, height: 440)
+        window.isReleasedWhenClosed = false
+        window.collectionBehavior = [.fullScreenPrimary]
+        window.contentView = NSHostingView(rootView: WindowShelfView(manager: self) { [weak window] in window?.close() })
+        window.onClose = { [weak self] in self?.cancelDiscovery(); self?.overviewWindow = nil }
+        overviewWindow = window
+        window.center()
+        DockSystemEffect.handler(.present(window))
     }
 }
 
@@ -124,69 +147,145 @@ enum WindowShelfFilter: String, CaseIterable {
     }
 }
 
+struct WindowShelfGroup: Identifiable {
+    let id: pid_t
+    let name: String
+    let windows: [ManagedWindow]
+    static func make(from windows: [ManagedWindow]) -> [WindowShelfGroup] {
+        Dictionary(grouping: windows, by: { $0.owner.processIdentifier }).map { pid, windows in
+            WindowShelfGroup(id: pid, name: windows.first?.owner.localizedName ?? "App", windows: windows.sorted { $0.menuTitle.localizedStandardCompare($1.menuTitle) == .orderedAscending })
+        }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+}
+
 struct WindowShelfView: View {
     @ObservedObject var manager: WindowManager
     var dismiss: () -> Void
     @State private var query = ""
     @State private var filter = WindowShelfFilter.all
+    @FocusState private var searchFocused: Bool
     private let clock = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
     var matches: [ManagedWindow] {
         let search = AppSearchIndex.fold(query)
         return manager.windows.filter { filter.includes($0) && (search.isEmpty || AppSearchIndex.fold($0.title).contains(search)) }
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Your windows").font(.headline)
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Your windows").font(.system(size: 27, weight: .bold))
+                    Text("Pick up where you left off.").foregroundStyle(.secondary)
+                }
                 Spacer()
+                Button {
+                    dismiss()
+                    DockSystemEffect.handler(.open(URL(fileURLWithPath: "/System/Applications/Mission Control.app")))
+                } label: { Label("Mission Control", systemImage: "rectangle.3.group") }
+                    .help("Show live window previews with macOS Mission Control")
+                    .accessibilityLabel("Mission Control")
+                if manager.loading { ProgressView().controlSize(.small).accessibilityLabel("Finding windows") }
                 Button { manager.refresh() } label: { Image(systemName: "arrow.clockwise") }
-                    .help("Refresh windows").accessibilityLabel("Refresh windows").disabled(manager.loading)
+                    .help("Refresh windows").accessibilityLabel("Refresh windows").disabled(manager.loading || manager.acting)
                 Button("Done", action: dismiss).keyboardShortcut(.cancelAction)
             }
             if !manager.trusted {
-                Text("Allow Accessibility to find and restore windows from your apps.").foregroundStyle(.secondary)
-                Button("Allow Accessibility", action: manager.requestAccess)
-                Text(manager.status).font(.caption).foregroundStyle(.secondary)
+                VStack(spacing: 14) {
+                    Image(systemName: "macwindow.badge.plus").font(.system(size: 42)).foregroundStyle(.secondary)
+                    Text("Bring all your windows together").font(.title2.weight(.semibold))
+                    Text("Allow Accessibility to find, minimize and restore windows from your apps.")
+                        .multilineTextAlignment(.center).foregroundStyle(.secondary)
+                    Button("Allow Accessibility", action: manager.requestAccess).buttonStyle(.borderedProminent)
+                    Text(manager.status).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    Text("Already allowed access? macOS may need you to enable it again for this installed build.")
+                        .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                }.frame(maxWidth: .infinity, maxHeight: .infinity).padding(32)
             } else {
-                TextField("Search apps or window titles", text: $query)
-                Picker("Show windows", selection: $filter) {
-                    ForEach(WindowShelfFilter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
-                }.pickerStyle(.segmented)
+                HStack(spacing: 14) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                        TextField("Search apps or window titles", text: $query).textFieldStyle(.plain)
+                            .focused($searchFocused)
+                            .onSubmit { if let first = WindowShelfGroup.make(from: matches).first?.windows.first { restore(first) } }
+                    }.padding(10).background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
+                    Picker("Show windows", selection: $filter) {
+                        ForEach(WindowShelfFilter.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    }.pickerStyle(.segmented).frame(width: 230)
+                }
                 if matches.isEmpty {
                     ContentUnavailableView(manager.loading ? "Finding windows…" : "No matching windows", systemImage: "macwindow", description: Text(query.isEmpty ? "Open an app window or choose another filter." : "Try a different app or window title."))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 6) {
-                            ForEach(matches) { window in
-                                Button {
-                                    manager.selectedID = window.id
-                                    Task { if await manager.focus() { dismiss() } }
-                                } label: {
-                                    HStack(spacing: 10) {
-                                        Image(nsImage: window.owner.icon ?? NSImage()).resizable().frame(width: 30, height: 30)
-                                        VStack(alignment: .leading, spacing: 3) {
-                                            Text(window.title).lineLimit(2)
+                        LazyVStack(alignment: .leading, spacing: 24) {
+                            ForEach(WindowShelfGroup.make(from: matches)) { group in
+                                VStack(alignment: .leading, spacing: 10) {
+                                    HStack(spacing: 7) {
+                                        Text(group.name).font(.headline)
+                                        Text("\(group.windows.count)").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                                    }
+                                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 178, maximum: 280), spacing: 12)], spacing: 12) {
+                                        ForEach(group.windows) { window in
+                                            Button { restore(window) } label: { WindowShelfCard(window: window) }
+                                                .buttonStyle(.plain).disabled(manager.acting)
+                                                .contextMenu { WindowShelfActions(manager: manager, window: window) }
+                                                .accessibilityLabel("\(window.title), \(window.isMinimized ? "minimized" : "open"). Restore window")
                                         }
-                                        Spacer()
-                                        Image(systemName: window.isMinimized ? "minus.square" : "macwindow").foregroundStyle(.secondary)
-                                        Text(window.isMinimized ? "Minimized" : "Open").font(.caption).foregroundStyle(.secondary)
-                                    }.padding(10).frame(maxWidth: .infinity, alignment: .leading)
-                                        .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
-                                }.buttonStyle(.plain).disabled(manager.acting)
-                                .contextMenu {
-                                    WindowShelfActions(manager: manager, window: window)
-                                }.accessibilityLabel("\(window.title), \(window.isMinimized ? "minimized" : "open"). Restore window")
+                                    }
+                                }
                             }
-                        }
-                    }.frame(maxHeight: 320)
+                        }.padding(2)
+                    }.frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                Text("Browser tabs appear under their containing window.").font(.caption).foregroundStyle(.secondary)
-                Text(manager.status).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                HStack(alignment: .top, spacing: 16) {
+                    Text(manager.status).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                    Spacer(minLength: 0)
+                    Text("\(matches.count) \(matches.count == 1 ? "window" : "windows")")
+                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary).fixedSize()
+                }
+                Text("Browser tabs stay inside their browser window. This overview shows app windows, including minimized ones.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
-        }.padding(18).frame(width: 420)
-        .onAppear { manager.refresh() }
-        .onReceive(clock) { _ in manager.refresh() }
+        }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(.background)
+        .onAppear { manager.refresh(); searchFocused = true }
+        .onReceive(clock) { _ in
+            if let window = manager.overviewWindow {
+                guard window.isVisible, !window.isMiniaturized, window.occlusionState.contains(.visible) else { return }
+            }
+            manager.refresh()
+        }
         .onDisappear { manager.cancelDiscovery() }
+    }
+    private func restore(_ window: ManagedWindow) {
+        manager.selectedID = window.id
+        Task { if await manager.focus() { dismiss() } }
+    }
+}
+
+private struct WindowShelfCard: View {
+    let window: ManagedWindow
+    @State private var hovering = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(nsImage: window.owner.icon ?? NSImage()).resizable().frame(width: 34, height: 34)
+                Spacer()
+                Image(systemName: window.isMinimized ? "minus.square" : "macwindow")
+                    .foregroundStyle(window.isMinimized ? Color.secondary : Color.accentColor)
+            }
+            Text(window.menuTitle).font(.system(size: 13, weight: .medium)).lineLimit(2)
+                .frame(maxWidth: .infinity, minHeight: 34, alignment: .topLeading)
+            HStack(spacing: 5) {
+                Circle().fill(window.isMinimized ? Color.secondary : Color.accentColor).frame(width: 5, height: 5)
+                Text(window.isMinimized ? "Minimized" : "Open").font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                Image(systemName: "arrow.up.forward").font(.caption).foregroundStyle(.secondary)
+            }
+        }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
+            .background(hovering ? Color.accentColor.opacity(0.09) : Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(hovering ? Color.accentColor.opacity(0.45) : Color.secondary.opacity(0.14), lineWidth: 1))
+            .contentShape(RoundedRectangle(cornerRadius: 14))
+            .onHover { hovering = $0 }
     }
 }
 

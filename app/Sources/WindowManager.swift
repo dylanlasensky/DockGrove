@@ -66,6 +66,10 @@ struct AccessibilityClient {
     private var discovery: Task<WindowDiscovery, Never>?
     private var discoveryGeneration = 0
     private var appRefreshTimes: [pid_t: TimeInterval] = [:]
+    private var discoveryCursor: WindowDiscoveryCursor?
+    private var cycleWindowIDs: [pid_t: Set<String>] = [:]
+    private var cycleUnavailablePIDs: Set<pid_t> = []
+    var overviewWindow: NSWindow?
     @Published var selectedID = ""
     @Published var displayIndex = 0
     private var undo: [String: CGRect] = [:]
@@ -89,55 +93,113 @@ struct AccessibilityClient {
         if discovery != nil { discovery?.cancel(); discovery = nil; loading = false }
     }
     private func refresh(appPID: pid_t?) {
-        guard trusted else { cancelDiscovery(); windows = []; status = "Accessibility access is required. Use Allow Accessibility, then Refresh."; return }
+        guard trusted else {
+            cancelDiscovery(); discoveryCursor = nil; cycleWindowIDs = [:]; windows = []
+            status = "Accessibility access is required. Use Allow Accessibility, then Refresh."
+            return
+        }
         guard !loading, !acting else { return }
         loading = true
         discoveryGeneration += 1
         let generation = discoveryGeneration, ax = AccessibilityClient.current
-        let worker = Task.detached(priority: .userInitiated) { Self.discover(using: ax, appPID: appPID) }
+        // A full scan resumes where its previous slice stopped. Restarting at the first
+        // app on every timer tick permanently starved later apps on busy desktops.
+        let cursor = appPID == nil ? discoveryCursor : nil
+        if appPID == nil && cursor == nil { cycleWindowIDs = [:]; cycleUnavailablePIDs = [] }
+        let worker = Task.detached(priority: .userInitiated) { Self.discover(using: ax, appPID: appPID, startingAt: cursor) }
         discovery = worker
         Task {
             let result = await worker.value
             guard generation == discoveryGeneration else { return }
             discovery = nil; loading = false
-            guard trusted else { windows = []; status = "Accessibility permission was removed."; return }
-            if result.partial {
-                let updated = Set(result.windows.map(\.id))
-                windows.removeAll { updated.contains($0.id) }
-                windows += result.windows
-            } else if let appPID { windows.removeAll { $0.owner.processIdentifier == appPID }; windows += result.windows }
-            else { windows = result.windows }
+            guard trusted else { windows = []; discoveryCursor = nil; status = "Accessibility permission was removed."; return }
+            if appPID == nil {
+                discoveryCursor = result.cursor
+                cycleUnavailablePIDs.formUnion(result.unavailablePIDs)
+                for window in result.windows { cycleWindowIDs[window.owner.processIdentifier, default: []].insert(window.id) }
+                // Only discard a cached app's windows after that app has been scanned in
+                // full. A timed-out or unreadable app must not erase its known windows.
+                windows.removeAll { window in
+                    let pid = window.owner.processIdentifier
+                    return window.owner.isTerminated || !result.livePIDs.contains(pid) || (result.completedPIDs.contains(pid) && !(cycleWindowIDs[pid] ?? []).contains(window.id))
+                }
+            } else if let appPID, result.completedPIDs.contains(appPID) {
+                windows.removeAll { $0.owner.processIdentifier == appPID }
+            }
+            let updated = Set(result.windows.map(\.id))
+            windows.removeAll { updated.contains($0.id) }
+            windows += result.windows.filter { !$0.owner.isTerminated }
             windows.sort { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
             if !windows.contains(where: { $0.id == selectedID }) { selectedID = windows.first?.id ?? "" }
-            status = result.partial ? "Some apps took too long to respond. Cached windows may be outdated; Refresh to try again." : windows.isEmpty ? "No accessible windows. Open an app window, then Refresh." : "Choose a window to bring forward or arrange. Some apps enforce a minimum size."
+            let incomplete = result.partial || (appPID == nil ? !cycleUnavailablePIDs.isEmpty : !result.unavailablePIDs.isEmpty)
+            status = result.cursor != nil
+                ? "Some apps took too long to respond. Continuing through the remaining windows…"
+                : incomplete ? "Some apps did not expose their windows. Cached windows may be outdated; Refresh to try again."
+                : windows.isEmpty ? "No accessible windows. Open an app window, then Refresh."
+                : "Choose a window to bring it forward. Right-click for window actions."
+            // Continue without requiring the user to refresh repeatedly. Every slice is
+            // off the main actor and can be cancelled when the overview is dismissed.
+            if appPID == nil && result.cursor != nil { refresh(appPID: nil) }
         }
+    }
+    struct WindowDiscoveryCursor: Equatable {
+        let appPID: pid_t
+        let windowOffset: Int
     }
     struct WindowDiscovery {
         var windows: [ManagedWindow]
         var partial: Bool
+        var cursor: WindowDiscoveryCursor? = nil
+        var completedPIDs: Set<pid_t> = []
+        var unavailablePIDs: Set<pid_t> = []
+        var livePIDs: Set<pid_t> = []
     }
-    nonisolated static func discover(using ax: AccessibilityClient, appPID: pid_t? = nil) -> WindowDiscovery {
+    nonisolated static func discover(using ax: AccessibilityClient, appPID: pid_t? = nil, startingAt cursor: WindowDiscoveryCursor? = nil) -> WindowDiscovery {
         // Cooperative budget: an in-flight AX call can finish after this deadline.
         let deadline = ax.uptime() + 3
-        var found: [ManagedWindow] = []
-        func expired() -> Bool { Task.isCancelled || ax.uptime() >= deadline }
-        for app in ax.runningApplications() where app.activationPolicy != .prohibited && app.processIdentifier != ProcessInfo.processInfo.processIdentifier && (appPID == nil || app.processIdentifier == appPID) {
-            guard !expired() else { return WindowDiscovery(windows: found, partial: true) }
-            let element = ax.application(app.processIdentifier)
-            ax.setTimeout(element, 0.25)
-            guard let list = ax.copy(element, kAXWindowsAttribute) as? [AXUIElement] else { continue }
-            for window in list {
-                guard !expired() else { return WindowDiscovery(windows: found, partial: true) }
-                ax.setTimeout(window, 0.25)
-                let role = ax.copy(window, kAXSubroleAttribute)
-                guard [kAXStandardWindowSubrole, kAXDialogSubrole].contains(role as? String ?? "") else { continue }
-                guard !expired() else { return WindowDiscovery(windows: found, partial: true) }
-                let name = (ax.copy(window, kAXTitleAttribute) as? String).flatMap { $0.isEmpty ? nil : $0 }
-                guard !expired() else { return WindowDiscovery(windows: found, partial: true) }
-                found.append(ManagedWindow(id: "\(app.processIdentifier):\(CFHash(window))", owner: app, element: window, title: windowTitle(app: app.localizedName, window: name, fallback: "Untitled window"), isMinimized: (ax.copy(window, kAXMinimizedAttribute) as? Bool) == true))
-            }
+        let apps = ax.runningApplications().filter {
+            $0.activationPolicy != .prohibited && $0.processIdentifier != ProcessInfo.processInfo.processIdentifier && (appPID == nil || $0.processIdentifier == appPID)
         }
-        return WindowDiscovery(windows: found, partial: false)
+        var result = WindowDiscovery(windows: [], partial: false, livePIDs: Set(apps.map(\.processIdentifier)))
+        let start = cursor.flatMap { cursor in apps.firstIndex { $0.processIdentifier == cursor.appPID } } ?? 0
+        func expired() -> Bool { Task.isCancelled || ax.uptime() >= deadline }
+        func paused(at pid: pid_t, window: Int) -> WindowDiscovery {
+            result.partial = true; result.cursor = WindowDiscoveryCursor(appPID: pid, windowOffset: window)
+            return result
+        }
+        for app in apps.dropFirst(start) {
+            let pid = app.processIdentifier
+            let offset = cursor?.appPID == pid ? cursor!.windowOffset : 0
+            guard !expired() else { return paused(at: pid, window: offset) }
+            let element = ax.application(pid)
+            ax.setTimeout(element, 0.25)
+            guard let list = ax.copy(element, kAXWindowsAttribute) as? [AXUIElement] else {
+                if app.activationPolicy == .regular { result.unavailablePIDs.insert(pid); result.partial = true }
+                continue
+            }
+            for (index, window) in list.enumerated().dropFirst(min(offset, list.count)) {
+                // Timeouts are cooperative. If an app exceeded the whole slice while
+                // returning AXWindows, finish one resumed window before yielding again.
+                // Otherwise that app could return the identical cursor forever.
+                let resumingWindow = cursor?.appPID == pid && cursor?.windowOffset == index
+                func canReadWindow() -> Bool { !expired() || (resumingWindow && !Task.isCancelled) }
+                guard canReadWindow() else { return paused(at: pid, window: index) }
+                ax.setTimeout(window, 0.25)
+                let subrole = ax.copy(window, kAXSubroleAttribute) as? String
+                // A few Electron and custom toolkit windows omit AXSubrole entirely.
+                // Accept actual AXWindow elements, but still exclude floating palettes.
+                if ![kAXStandardWindowSubrole, kAXDialogSubrole].contains(subrole ?? "") {
+                    guard subrole != kAXFloatingWindowSubrole && subrole != "AXSystemFloatingWindow",
+                          ax.copy(window, kAXRoleAttribute) as? String == kAXWindowRole else { continue }
+                }
+                guard canReadWindow() else { return paused(at: pid, window: index) }
+                let name = (ax.copy(window, kAXTitleAttribute) as? String).flatMap { $0.isEmpty ? nil : $0 }
+                guard canReadWindow() else { return paused(at: pid, window: index) }
+                result.windows.append(ManagedWindow(id: "\(pid):\(CFHash(window))", owner: app, element: window, title: windowTitle(app: app.localizedName, window: name, fallback: "Untitled window"), isMinimized: (ax.copy(window, kAXMinimizedAttribute) as? Bool) == true))
+            }
+            result.completedPIDs.insert(pid)
+        }
+        return result
     }
     nonisolated static func windowTitle(app: String?, window: String?, fallback: String) -> String {
         (app ?? "App") + " · " + (window ?? fallback)

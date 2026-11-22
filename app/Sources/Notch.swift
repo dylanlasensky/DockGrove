@@ -334,6 +334,7 @@ struct NotchWidgetControls: View {
 extension DockModel {
     func showNotchWidgetControls(_ kind: ToolKind) {
         guard canAccess(kind) else { settingsAction?(); return }
+        if kind == .pet { showCompanionPlayroom(); return }
         appPickerWindow?.close()
         let window = NSWindow(contentRect: CGRect(x: 0, y: 0, width: 420, height: 560), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false

@@ -89,6 +89,48 @@ private final class CoreOtherInstance: NSRunningApplication {
         delegate.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification))
     }
 
+    func testOverlappingOrdinaryWindowsHideEveryDockAndReleaseMouseInput() throws {
+        let delegate = delegate()
+        launch(delegate)
+        delegate.visibilityTimer?.invalidate()
+        let model = try XCTUnwrap(delegate.model)
+        let panel = try XCTUnwrap(delegate.panel)
+        let screen = try XCTUnwrap(model.selectedScreen)
+        delegate.pointerLocation = { NSPoint(x: screen.frame.minX - 20, y: screen.frame.midY) }
+        let owner = CoreOtherInstance()
+        delegate.windowOwner = { _ in owner }
+        delegate.frontmostPID = { owner.processIdentifier }
+        model.toolkit.autoHide = false
+        model.toolkit.hideOnOverlap = true
+        for edge in ["Bottom", "Top", "Floating"] {
+            model.toolkit.edge = edge
+            model.replacingDock = false
+            delegate.layout(panel, model: model)
+            let frame = panel.frame
+            let overlap = CGRect(x: frame.minX, y: primaryScreenTop() - frame.maxY, width: frame.width, height: frame.height)
+            delegate.windowList = { [[kCGWindowOwnerPID as String: owner.processIdentifier,
+                kCGWindowLayer as String: 0, kCGWindowAlpha as String: 1.0,
+                kCGWindowBounds as String: overlap.dictionaryRepresentation]] }
+            delegate.visibility = DockVisibility()
+            delegate.checkAutoHide()
+            XCTAssertFalse(panel.isVisible, "\(edge): a normal app window must not be covered")
+            XCTAssertTrue(panel.ignoresMouseEvents, "\(edge): hidden dock cannot intercept website clicks")
+        }
+        // A retained but hidden popover is not an active interaction.
+        let child = NSWindow(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
+        child.isReleasedWhenClosed = false
+        panel.addChildWindow(child, ordered: .above)
+        child.orderOut(nil)
+        delegate.checkAutoHide()
+        XCTAssertFalse(panel.isVisible)
+        panel.removeChildWindow(child); child.close()
+        // Recovery is automatic once the ordinary window moves away.
+        delegate.windowList = { [] }
+        delegate.checkAutoHide()
+        XCTAssertTrue(panel.isVisible)
+        XCTAssertFalse(panel.ignoresMouseEvents)
+    }
+
     /// Records registrations instead of installing a real system-wide hot key.
     private final class FakeHotKeys: HotKeyRegistrar {
         var registered: [HotKey] = []

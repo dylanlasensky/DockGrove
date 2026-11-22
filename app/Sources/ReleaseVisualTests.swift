@@ -28,6 +28,8 @@ import AppKit
         try capture(SettingsView(model: model, section: .behavior).environment(\.colorScheme, scheme), "behavior-minimum-" + label, width: 960, height: 690)
         try capture(SettingsView(model: model, section: .connections).environment(\.colorScheme, scheme), "connections-minimum-" + label, width: 960, height: 690)
         try capture(AppsLauncherView(model: model, kit: model.toolkit, state: AppsChooserState(), mode: model.apps.first.map { .replace($0) } ?? .add, close: {}).environment(\.colorScheme, scheme), "app-picker-" + label, width: 760, height: 560)
+        try capture(CompanionPlayroomView(pet: model.toolkit.pet, accent: model.color).environment(\.colorScheme, scheme), "companion-playroom-" + label, width: 980, height: 660)
+        try capture(CompanionDetailsView(pet: model.toolkit.pet, accent: model.color).padding(20).environment(\.colorScheme, scheme), "companion-details-" + label, width: 280, height: 520)
     }
     print("PASS: automatic light/dark native dock, settings and searchable picker rendering")
 }

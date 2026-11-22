@@ -120,6 +120,7 @@ final class DockPanel: NSPanel {
     var featuresAllowed: (DockModel) -> Bool = { $0.canUseFeatures }
     var purchasesEnabled = PurchaseConfiguration.enabled
     var frontmostPID: () -> pid_t? = { NSWorkspace.shared.frontmostApplication?.processIdentifier }
+    var pointerLocation: () -> NSPoint = { NSEvent.mouseLocation }
     var windowOwner: (pid_t) -> NSRunningApplication? = NSRunningApplication.init(processIdentifier:)
     /// System-wide ⌥⌘D; inert in test launches, and tests inject a fake before launching.
     var hotKeys: HotKeyRegistrar
@@ -219,8 +220,8 @@ final class DockPanel: NSPanel {
             guard let self, !self.featuresAllowed(self.model) else { return }
             if self.model.replacingDock { self.setReplacement(false) }
             self.snapper?.cancel()
-            self.model.appPickerWindow?.close(); self.workspaceWindow?.close(); AppsLauncher.shared.closeEditing()
-            for dock in self.workspace.docks { dock.model.appPickerWindow?.close() }
+            self.model.appPickerWindow?.close(); self.model.companionWindow?.close(); self.model.toolkit.windows.overviewWindow?.close(); self.workspaceWindow?.close(); AppsLauncher.shared.closeEditing()
+            for dock in self.workspace.docks { dock.model.appPickerWindow?.close(); dock.model.companionWindow?.close(); dock.model.toolkit.windows.overviewWindow?.close() }
         }.store(in: &subscriptions)
         self.workspace.restore()
         model.toolkit.startEnabledUsage()
@@ -291,7 +292,7 @@ final class DockPanel: NSPanel {
     }
     func check(_ panel:DockPanel,model:DockModel,visibility:inout DockVisibility) {
         guard let screen=model.selectedScreen else { panel.orderOut(nil); return }
-        let mouse = NSEvent.mouseLocation
+        let mouse = pointerLocation()
         let globalTop = primaryScreenTop()
         // CGWindow coordinates use a top-left origin, including on secondary displays.
         func cgRect(_ r: CGRect) -> CGRect { CGRect(x: r.minX, y: globalTop - r.maxY, width: r.width, height: r.height) }
@@ -313,10 +314,10 @@ final class DockPanel: NSPanel {
         let show = visibility.visible(now: Date(), enabled: model.visible,
             suppressed: fullscreen || !sessionActive || !screenAwake || Date() < settlingUntil,
             autoHide: model.toolkit.autoHide,
-            overlapping: model.toolkit.hideOnOverlap && model.toolkit.edge != "Floating" && overlap,
+            overlapping: model.toolkit.hideOnOverlap && overlap,
             pointerInside: panel.isVisible && DockVisibility.hoverRegion(dock: panel.frame, screen: screen.frame, top: top).contains(mouse),
             pointerAtEdge: DockVisibility.atEdge(mouse, screen: screen.frame, dock: panel.frame, top: top),
-            interacting: !orEmpty(panel.childWindows).isEmpty)
+            interacting: orEmpty(panel.childWindows).contains(where: { $0.isVisible }))
         panel.ignoresMouseEvents = !show
         if show { if !panel.isVisible { panel.orderFrontRegardless() } }
         else if panel.isVisible { panel.orderOut(nil) }

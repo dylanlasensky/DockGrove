@@ -167,9 +167,9 @@ private func winWakeAccessibility() async {
         return ManagedWindow(id: "w\(pid)", owner: owner, element: element, title: "Window \(pid)")
     }
 
-    @discardableResult private func host<V: View>(_ view: V) -> NSHostingView<V> {
+    @discardableResult private func host<V: View>(_ view: V, size: CGSize = CGSize(width: 640, height: 640)) -> NSHostingView<V> {
         let hosting = NSHostingView(rootView: view)
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 640, height: 640), styleMask: [.titled], backing: .buffered, defer: false)
+        let window = NSWindow(contentRect: NSRect(origin: .zero, size: size), styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.contentView = hosting
         window.orderFrontRegardless()
@@ -178,24 +178,32 @@ private func winWakeAccessibility() async {
         return hosting
     }
 
-    func testLiveClientsAreInertAgainstOwnProcess() async throws {
+    func testLiveClientsHandleUnavailableProcessWithoutMessagingOwnUI() async throws {
         let client = saved!
         _ = client.isTrusted()
         let pid = getpid()
-        let result = await Task.detached { () -> (pid_t, Bool) in
+        let result = await Task.detached { () -> (pid_t, Bool, Bool, AXError, AXError, Bool) in
             let own = client.application(pid)
-            client.setTimeout(own, 0.2)
+            // Self-directed AX queries can make AppKit's HIE thread rebuild this test
+            // host's main menu off the main thread. Production excludes its own PID.
+            // An unavailable target exercises the live adapters without touching any UI.
+            let missing = client.application(pid_t.max)
+            client.setTimeout(missing, 0.2)
             let system = client.systemWide()
             _ = system
-            _ = client.copy(own, "AXDockGroveCoverageProbe")
-            _ = client.set(own, "AXDockGroveCoverageProbe", kCFBooleanFalse)
-            _ = client.perform(own, "AXDockGroveCoverageProbe")
-            _ = client.element(own, CGPoint(x: -50_000, y: -50_000))
+            let copied = client.copy(missing, "AXDockGroveCoverageProbe")
+            let written = client.set(missing, "AXDockGroveCoverageProbe", kCFBooleanFalse)
+            let performed = client.perform(missing, "AXDockGroveCoverageProbe")
+            let hit = client.element(missing, CGPoint(x: -50_000, y: -50_000))
             client.pause(0)
-            return (client.pid(own), client.runningApplications().isEmpty)
+            return (client.pid(own), client.runningApplications().isEmpty, copied == nil, written, performed, hit == nil)
         }.value
         XCTAssertEqual(result.0, pid)
         XCTAssertFalse(result.1)
+        XCTAssertTrue(result.2)
+        XCTAssertNotEqual(result.3, .success)
+        XCTAssertNotEqual(result.4, .success)
+        XCTAssertTrue(result.5)
         XCTAssertEqual(client.runningApplication(pid)?.processIdentifier, pid)
         client.activate(NSRunningApplication.current)
 
@@ -321,18 +329,103 @@ private func winWakeAccessibility() async {
         AccessibilityClient.current = client
         manager.refresh()
         await winWait { !manager.loading }
-        XCTAssertTrue(manager.status.contains("took too long"))
-        XCTAssertEqual(manager.windows.count, 2, "Partial scans retain known windows")
+        XCTAssertEqual(manager.windows.count, 1, "The continued full scan drops closed or terminated apps")
+        XCTAssertFalse(manager.status.contains("Continuing"))
 
-        // A partial scan can contain fresh results: replace matching IDs, retain others.
-        fake.put(app, kAXWindowsAttribute, [element, winElement(70106)] as CFArray)
-        fake.put(element, kAXTitleAttribute, "Updated budget" as CFString)
-        times = [0, 0, 0, 0, 0, 4]
+        fake.put(app, kAXWindowsAttribute, [] as CFArray)
         manager.refresh()
         await winWait { !manager.loading }
-        XCTAssertEqual(manager.windows.count, 2)
-        XCTAssertEqual(manager.windows.filter { $0.title.contains("Updated budget") }.count, 1)
-        XCTAssertTrue(manager.windows.contains { $0.id == "other" })
+        XCTAssertTrue(manager.windows.isEmpty, "A completed app scan removes closed windows")
+    }
+
+    func testDiscoveryResumesThroughBusyAppsAndKeepsUntypedWindows() async throws {
+        let finder = try XCTUnwrap(winFinder)
+        fake.apps = [finder]
+        let app = winElement(finder.processIdentifier)
+        let elements = (0..<12).map { winElement(pid_t(74200 + $0)) }
+        fake.put(app, kAXWindowsAttribute, elements as CFArray)
+        for (index, element) in elements.enumerated() {
+            fake.put(element, kAXRoleAttribute, kAXWindowRole as CFString)
+            if index > 0 { fake.put(element, kAXSubroleAttribute, (index == 1 ? "CustomWindow" : kAXStandardWindowSubrole) as CFString) }
+            fake.put(element, kAXTitleAttribute, "Busy window \(index)" as CFString)
+        }
+        var now = 0.0
+        var client = fake.client
+        client.uptime = { now }
+        client.copy = { [fake] element, attribute in
+            now += 0.35
+            return fake!.get(element, attribute)
+        }
+        var cursor: WindowManager.WindowDiscoveryCursor?
+        var seen: Set<String> = []
+        var slices = 0
+        repeat {
+            let result = WindowManager.discover(using: client, startingAt: cursor)
+            seen.formUnion(result.windows.map(\.id))
+            cursor = result.cursor
+            slices += 1
+            if cursor == nil { XCTAssertEqual(result.completedPIDs, [finder.processIdentifier]) }
+        } while cursor != nil && slices < 20
+        XCTAssertNil(cursor)
+        XCTAssertGreaterThan(slices, 1)
+        XCTAssertEqual(seen.count, elements.count, "Every window, including a window without AXSubrole, is eventually discovered")
+    }
+
+    func testContinuationMakesProgressWhenAnAppExceedsItsMessagingTimeout() throws {
+        let finder = try XCTUnwrap(winFinder)
+        fake.apps = [finder]
+        let app = winElement(finder.processIdentifier)
+        let elements = [winElement(74280), winElement(74281)]
+        fake.put(app, kAXWindowsAttribute, elements as CFArray)
+        for element in elements { fake.put(element, kAXSubroleAttribute, kAXStandardWindowSubrole as CFString) }
+        var now = 0.0
+        var client = fake.client
+        client.uptime = { now }
+        client.copy = { [fake] element, attribute in
+            if attribute == kAXWindowsAttribute { now += 4 }
+            return fake!.get(element, attribute)
+        }
+        var cursor: WindowManager.WindowDiscoveryCursor?
+        var seen: Set<String> = []
+        for _ in 0..<4 {
+            let result = WindowManager.discover(using: client, startingAt: cursor)
+            cursor = result.cursor
+            seen.formUnion(result.windows.map(\.id))
+            if cursor == nil { break }
+        }
+        XCTAssertNil(cursor)
+        XCTAssertEqual(seen.count, 2, "A slow app must not pin the scan to its first window forever")
+    }
+
+    func testFullRefreshContinuesWithoutAnotherClickAndReconcilesOnlyCompletedApps() async throws {
+        let finder = try XCTUnwrap(winFinder)
+        fake.apps = [finder]
+        let app = winElement(finder.processIdentifier)
+        let elements = (0..<10).map { winElement(pid_t(74300 + $0)) }
+        fake.put(app, kAXWindowsAttribute, elements as CFArray)
+        for element in elements { fake.put(element, kAXSubroleAttribute, kAXStandardWindowSubrole as CFString) }
+        var now = 0.0
+        var client = fake.client
+        client.uptime = { now }
+        client.copy = { [fake] element, attribute in now += 0.4; return fake!.get(element, attribute) }
+        AccessibilityClient.current = client
+        let manager = WindowManager()
+        manager.windows = [try managed(74399, frame: nil)]
+        manager.refresh()
+        await winWait { !manager.loading }
+        XCTAssertEqual(manager.windows.count, elements.count)
+        XCTAssertFalse(manager.windows.contains { $0.id == "w74399" })
+        XCTAssertFalse(manager.status.contains("Continuing"))
+        // An inaccessible app is different from one which successfully reports zero windows.
+        fake.put(app, kAXWindowsAttribute, nil)
+        manager.refresh()
+        await winWait { !manager.loading }
+        XCTAssertEqual(manager.windows.count, elements.count)
+        XCTAssertTrue(manager.status.contains("did not expose"))
+        fake.put(app, kAXWindowsAttribute, [] as CFArray)
+        manager.refresh()
+        await winWait { !manager.loading }
+        XCTAssertTrue(manager.windows.isEmpty)
     }
 
     func testCancelledDiscoveryCannotOverwriteNewerState() async throws {
@@ -625,21 +718,43 @@ private func winWakeAccessibility() async {
         let manager = WindowManager()
         fake.trusted = false
         var dismissed = 0
-        let denied = host(WindowShelfView(manager: manager) { dismissed += 1 })
+        let denied = host(WindowShelfView(manager: manager) { dismissed += 1 }, size: CGSize(width: 840, height: 620))
         await winSettle()
         XCTAssertGreaterThan(winPress(denied, "Allow Accessibility"), 0)
         XCTAssertGreaterThan(fake.prompts, 0)
         XCTAssertGreaterThan(winPress(denied, "Done"), 0)
         XCTAssertEqual(dismissed, 1)
         fake.trusted = true
-        let empty = host(WindowShelfView(manager: manager) { dismissed += 1 })
+        let empty = host(WindowShelfView(manager: manager) { dismissed += 1 }, size: CGSize(width: 840, height: 620))
         await winWait { !manager.loading }
         await winSettle()
         XCTAssertTrue(manager.windows.isEmpty)
         XCTAssertGreaterThan(winPress(empty, "Refresh windows"), 0)
+        await winWait { !manager.loading }
+        await winSettle()
+        let previousEffect = DockSystemEffect.handler
+        defer { DockSystemEffect.handler = previousEffect; manager.overviewWindow?.close() }
+        var presented: [NSWindow] = []
+        var opened: [URL] = []
+        DockSystemEffect.handler = { effect in
+            if case .present(let window) = effect { presented.append(window) }
+            if case .open(let url) = effect { opened.append(url) }
+        }
+        XCTAssertGreaterThan(winPress(empty, "Mission Control"), 0)
+        XCTAssertEqual(opened.map(\.path), ["/System/Applications/Mission Control.app"])
         let button = host(WindowShelfButton(manager: manager, enabled: true))
         await winSettle()
         XCTAssertGreaterThan(winPress(button, "Open and minimized windows"), 0)
+        let overview = try XCTUnwrap(manager.overviewWindow)
+        XCTAssertTrue(overview.canBecomeKey)
+        XCTAssertTrue(overview.styleMask.contains(.resizable))
+        XCTAssertTrue(overview.styleMask.contains(.miniaturizable))
+        manager.showOverview()
+        XCTAssertEqual(presented.count, 2)
+        XCTAssertTrue(presented.allSatisfy { $0 === overview })
+        overview.close()
+        XCTAssertNil(manager.overviewWindow)
+        XCTAssertNil(overview.contentView, "Closing releases the hosted timer and its window listing")
     }
 
     func testWindowShelfRestoresAListedWindow() async throws {
@@ -690,6 +805,16 @@ private func winWakeAccessibility() async {
         XCTAssertEqual(winPress(view, manager.windows[0].title + ", open. Restore window"), 0)
         enter("")
         await winSettle()
+    }
+
+    func testWindowOverviewGroupsAndSortsTitles() throws {
+        var a = try managed(74901, frame: nil), b = try managed(74902, frame: nil)
+        a = ManagedWindow(id: a.id, owner: a.owner, element: a.element, title: WindowManager.windowTitle(app: a.owner.localizedName, window: "Window 12", fallback: ""))
+        b = ManagedWindow(id: b.id, owner: b.owner, element: b.element, title: WindowManager.windowTitle(app: b.owner.localizedName, window: "Window 2", fallback: ""))
+        let groups = WindowShelfGroup.make(from: [a, b])
+        XCTAssertEqual(groups.count, 1)
+        XCTAssertEqual(groups[0].windows.map(\.menuTitle), ["Window 2", "Window 12"])
+        XCTAssertTrue(WindowShelfGroup.make(from: []).isEmpty)
     }
 
     func testWindowShelfContextActionsMinimizeAndRestore() async throws {
